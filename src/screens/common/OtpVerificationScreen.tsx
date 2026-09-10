@@ -11,18 +11,19 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppDispatch } from '../../hooks/useAppHooks';
-import { loginSuccess } from '../../store/authSlice';
+import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
+import { loginSuccess, loginThunk } from '../../store/authSlice';
 import { APP_ROLES, AppRoleType } from '../../constants/roles';
 import { ROUTES } from '../../constants/routes';
-import { mockUsers, staticCredentials } from '../../services/mockDataService';
+import { staticCredentials } from '../../services/mockDataService';
 import { AppIcon } from '../../component/AppIcon';
 import { CustomButton } from '../../component/Common/CustomButton';
-import { BotanicalLeaves } from '../../component/Common/BotanicalArt';
+import { BrandLogo } from '../../component/Common/BrandLogo';
 import { showToast } from '../../store/toastSlice';
 import { setActiveRole } from '../../theme/activeRole';
-
-
+import * as authApi from '../../services/api/authApi';
+import { StorageService } from '../../services/StorageService';
+import { STORAGE_KEYS } from '../../constants/storageKeys';
 export const OtpVerificationScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -31,6 +32,8 @@ export const OtpVerificationScreen: React.FC = () => {
 
   const phone = route.params?.phone || '+91 98765 43210';
   const role: AppRoleType = route.params?.role || APP_ROLES.CUSTOMER;
+  const isLogin = route.params?.isLogin === true;
+  const isLoading = useAppSelector(state => state.auth.isLoading);
 
   const [otp, setOtp] = useState<string[]>(['', '', '', '']);
   const [timer, setTimer] = useState(30);
@@ -44,9 +47,12 @@ export const OtpVerificationScreen: React.FC = () => {
   }, []);
 
   const handleOtpChange = (value: string, index: number) => {
-    // If user pasted a full OTP or multi-digit string
+  
     if (value.length > 1) {
-      const cleanDigits = value.replace(/[^0-9]/g, '').slice(0, 4).split('');
+      const cleanDigits = value
+        .replace(/[^0-9]/g, '')
+        .slice(0, 4)
+        .split('');
       const newOtp = [...otp];
       cleanDigits.forEach((digit, i) => {
         newOtp[i] = digit;
@@ -82,19 +88,44 @@ export const OtpVerificationScreen: React.FC = () => {
     }
   };
 
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     if (timer > 0) return;
-    setTimer(30);
-    dispatch(
-      showToast({
-        type: 'info',
-        title: 'OTP Resent',
-        message: 'A fresh 4-digit OTP has been dispatched to your mobile number.',
-      })
-    );
+    if (!isLogin) {
+      setTimer(30);
+      dispatch(
+        showToast({
+          type: 'info',
+          title: 'OTP Resent',
+          message:
+            'A fresh 4-digit OTP has been dispatched to your mobile number.',
+        }),
+      );
+      return;
+    }
+
+    try {
+      await authApi.sendOtp({ mobile: phone.replace(/\s+/g, '') });
+      setTimer(30);
+      dispatch(
+        showToast({
+          type: 'info',
+          title: 'OTP Resent',
+          message:
+            'A fresh 4-digit OTP has been dispatched to your mobile number.',
+        }),
+      );
+    } catch (error: any) {
+      dispatch(
+        showToast({
+          type: 'error',
+          title: 'Unable to resend OTP',
+          message:
+            error?.response?.data?.message ?? 'Please try again shortly.',
+        }),
+      );
+    }
   };
 
-  
   const handleGoBack = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -103,7 +134,7 @@ export const OtpVerificationScreen: React.FC = () => {
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const fullOtp = otp.join('');
     if (fullOtp.length < 4 || otp.some(d => !d)) {
       dispatch(
@@ -111,22 +142,63 @@ export const OtpVerificationScreen: React.FC = () => {
           type: 'error',
           title: 'Invalid OTP',
           message: 'Please enter all 4 digits of the OTP',
-        })
+        }),
       );
+      return;
+    }
+
+    if (isLogin) {
+      const result = await dispatch(
+        loginThunk({ mobile: phone.replace(/\s+/g, ''), otp: fullOtp }),
+      );
+
+      if (loginThunk.fulfilled.match(result)) {
+        const loggedInRole = result.payload.user.role;
+        setActiveRole(loggedInRole);
+        
+        dispatch(
+          showToast({
+            type: 'success',
+            title: 'Welcome!',
+            message: `Logged in as ${result.payload.user.name || 'User'} (Role: ${loggedInRole})`,
+          }),
+        );
+
+        // RootNavigator uses conditional rendering (isAuthenticated) and handles navigation automatically.
+      }
       return;
     }
 
     setActiveRole(role);
     const roleCred = staticCredentials[role];
-    const user = roleCred?.user || mockUsers[role] || mockUsers[APP_ROLES.CUSTOMER];
+    const user = roleCred?.user;
+    
+    if (!user) {
+      dispatch(
+        showToast({
+          type: 'error',
+          title: 'Error',
+          message: 'Invalid role credentials',
+        })
+      );
+      return;
+    }
+
+    // Save mock login to persistent storage
+    StorageService.setItem(STORAGE_KEYS.AUTH_TOKEN, 'authenticated_mock_token').catch(console.error);
+    StorageService.setItem(STORAGE_KEYS.USER_DATA, user).catch(console.error);
+    StorageService.setItem(STORAGE_KEYS.USER_ROLE, role).catch(console.error);
+
     dispatch(loginSuccess({ user, token: 'authenticated_mock_token' }));
     dispatch(
       showToast({
         type: 'success',
         title: 'Welcome!',
-        message: `Logged in as ${user.name}`,
-      })
+        message: `Logged in as ${user.name} (Role: ${role})`,
+      }),
     );
+
+    // RootNavigator uses conditional rendering (isAuthenticated) and handles navigation automatically.
   };
 
   return (
@@ -141,16 +213,6 @@ export const OtpVerificationScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <StatusBar barStyle="dark-content" />
-
-      {/* Subtle Botanical Watermark at bottom right */}
-      <BotanicalLeaves
-        width={220}
-        height={150}
-        opacity={0.12}
-        color="#10B981"
-        style={styles.bottomLeaves}
-      />
-
       {/* Top Back Arrow Header */}
       <View style={[styles.headerRow, { top: Math.max(insets.top + 8, 16) }]}>
         <TouchableOpacity
@@ -165,15 +227,10 @@ export const OtpVerificationScreen: React.FC = () => {
 
       {/* Center Content */}
       <View style={styles.content}>
-        <Text style={styles.title}>
-          Verify OTP
-        </Text>
-        <Text style={styles.subtitle}>
-          We have sent a 4 digit OTP to
-        </Text>
-        <Text style={styles.phoneText}>
-          {phone}
-        </Text>
+        <BrandLogo size={56} style={styles.logo} />
+        <Text style={styles.title}>Verify OTP</Text>
+        <Text style={styles.subtitle}>We have sent a 4 digit OTP to</Text>
+        <Text style={styles.phoneText}>{phone}</Text>
 
         {/* 6 Individual Square/Rounded OTP Input Boxes */}
         <View style={styles.otpContainer}>
@@ -215,20 +272,19 @@ export const OtpVerificationScreen: React.FC = () => {
                 </Text>
               </>
             ) : (
-              <Text style={styles.timerBold}>
-                Resend OTP
-              </Text>
+              <Text style={styles.timerBold}>Resend OTP</Text>
             )}
           </Text>
         </TouchableOpacity>
 
         {/* Verify CTA Pill Button */}
         <CustomButton
-          title="Verify"
+          title={isLoading ? 'Verifying...' : 'Verify'}
           onPress={handleVerify}
           variant="primary"
           style={styles.verifyBtn}
           gradientColors={['#168A53', '#0D523B']}
+          disabled={isLoading}
         />
 
         {/* Back to Login Link */}
@@ -237,9 +293,7 @@ export const OtpVerificationScreen: React.FC = () => {
           style={styles.backToLoginBtn}
           activeOpacity={0.7}
         >
-          <Text style={styles.backToLoginText}>
-            Back to Login
-          </Text>
+          <Text style={styles.backToLoginText}>Back to Login</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -274,6 +328,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+  },
+  logo: {
+    marginBottom: 18,
   },
   title: {
     fontSize: 24,

@@ -13,28 +13,63 @@ import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { Header } from '../../component/Header';
 import { AppIcon, IconName } from '../../component/AppIcon';
-import { logout } from '../../store/authSlice';
+import { logoutThunk } from '../../store/authSlice';
 import { showToast } from '../../store/toastSlice';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { ROUTES } from '../../constants/routes';
-
+import * as authApi from '../../services/api/authApi';
+import { formatDate } from '../../utils/date';
 
 export const CustomerProfileScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.auth.user);
-  const loan = useAppSelector(state => state.customer.loan);
+  const [profile, setProfile] = useState<any>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
+  const loadProfile = React.useCallback(async () => {
+    setIsProfileLoading(true);
+    try {
+      const response = await authApi.getProfile();
+      setProfile(
+        response.profile ??
+          response.user?.customer ??
+          response.user ??
+          response,
+      );
+    } catch {
+      setProfile(null);
+    } finally {
+      setIsProfileLoading(false);
+    }
   }, []);
 
-  const loanMenuItems: { id: string; title: string; subtitle: string; icon: IconName; route: string }[] = [
+  React.useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  const onRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    await loadProfile();
+    setIsRefreshing(false);
+  }, [loadProfile]);
+
+  const profileName = profile?.name || user?.name || 'Customer';
+  const profileMobile = profile?.mobile || user?.phone || '';
+  const profileEmail = profile?.email || user?.email || '';
+  const customerCode = profile?.customer_code || '—';
+
+  const loanMenuItems: {
+    id: string;
+    title: string;
+    subtitle: string;
+    icon: IconName;
+    route: string;
+  }[] = [
     {
       id: 'history',
       title: 'Payment History',
@@ -58,7 +93,12 @@ export const CustomerProfileScreen: React.FC = () => {
     },
   ];
 
-  const accountMenuItems: { id: string; title: string; subtitle: string; icon: IconName }[] = [
+  const accountMenuItems: {
+    id: string;
+    title: string;
+    subtitle: string;
+    icon: IconName;
+  }[] = [
     {
       id: 'personal',
       title: 'Personal Information',
@@ -86,13 +126,13 @@ export const CustomerProfileScreen: React.FC = () => {
   ];
 
   const handleLogout = () => {
-    dispatch(logout());
+    dispatch(logoutThunk());
     dispatch(
       showToast({
         type: 'info',
         title: 'Logged Out',
         message: 'You have been logged out successfully.',
-      })
+      }),
     );
   };
 
@@ -105,21 +145,43 @@ export const CustomerProfileScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#10B981"
+          />
         }
       >
-        {isRefreshing ? (
+        {isRefreshing || isProfileLoading ? (
           <View style={{ paddingTop: 16 }}>
-            <Skeleton height={100} borderRadius={20} style={{ marginBottom: 24 }} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 }}>
+            <Skeleton
+              height={100}
+              borderRadius={20}
+              style={{ marginBottom: 24 }}
+            />
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginBottom: 32,
+              }}
+            >
               <Skeleton width="30%" height={80} borderRadius={16} />
               <Skeleton width="30%" height={80} borderRadius={16} />
               <Skeleton width="30%" height={80} borderRadius={16} />
             </View>
             <Skeleton height={24} width={150} style={{ marginBottom: 16 }} />
-            <Skeleton height={180} borderRadius={16} style={{ marginBottom: 24 }} />
+            <Skeleton
+              height={180}
+              borderRadius={16}
+              style={{ marginBottom: 24 }}
+            />
             <Skeleton height={24} width={150} style={{ marginBottom: 16 }} />
-            <Skeleton height={240} borderRadius={16} style={{ marginBottom: 24 }} />
+            <Skeleton
+              height={240}
+              borderRadius={16}
+              style={{ marginBottom: 24 }}
+            />
           </View>
         ) : (
           <>
@@ -130,18 +192,18 @@ export const CustomerProfileScreen: React.FC = () => {
                   <AppIcon name="user" size={28} color="#FFFFFF" />
                 </View>
                 <View style={styles.userInfoCol}>
-                  <Text style={styles.profileName}>
-                    {user?.name || 'Raji Kumar'}
-                  </Text>
-                  <Text style={styles.profilePhone}>
-                    {user?.phone || '+91 98765 43210'}
-                  </Text>
+                  <Text style={styles.profileName}>{profileName}</Text>
+                  <Text style={styles.profilePhone}>{profileMobile}</Text>
                   <View style={styles.userMetaRow}>
                     <View style={styles.verifiedBadge}>
                       <AppIcon name="check-circle" size={11} color="#0D523B" />
-                      <Text style={styles.verifiedBadgeText}>Verified Customer</Text>
+                      <Text style={styles.verifiedBadgeText}>
+                        Verified Customer
+                      </Text>
                     </View>
-                    <Text style={styles.customerIdText}>ID: {loan.loanId || 'PLN000123'}</Text>
+                    <Text style={styles.customerIdText}>
+                      Customer ID: {customerCode}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -150,17 +212,27 @@ export const CustomerProfileScreen: React.FC = () => {
             {/* 3 Account Highlights Stat Cards */}
             <View style={styles.statsContainer}>
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>1 Loan</Text>
-                <Text style={styles.statLabel}>Active Loan</Text>
+                <Text style={styles.statValue}>
+                  {profile?.status || 'Active'}
+                </Text>
+                <Text style={styles.statLabel}>Customer Status</Text>
               </View>
 
               <View style={styles.statBox}>
-                <Text style={styles.statValue}>₹ 1,00,000</Text>
-                <Text style={styles.statLabel}>Total Borrowed</Text>
+                <Text style={styles.statValue}>
+                  {profile?.monthly_income
+                    ? `₹${Number(profile.monthly_income).toLocaleString(
+                        'en-IN',
+                      )}`
+                    : '—'}
+                </Text>
+                <Text style={styles.statLabel}>Monthly Income</Text>
               </View>
 
               <View style={styles.statBox}>
-                <Text style={[styles.statValue, styles.greenText]}>Verified</Text>
+                <Text style={[styles.statValue, styles.greenText]}>
+                  {profile?.id_proof_number ? 'Verified' : 'Pending'}
+                </Text>
                 <Text style={styles.statLabel}>KYC Status</Text>
               </View>
             </View>
@@ -183,7 +255,9 @@ export const CustomerProfileScreen: React.FC = () => {
                         </View>
                         <View style={styles.menuTextCol}>
                           <Text style={styles.menuTitle}>{item.title}</Text>
-                          <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                          <Text style={styles.menuSubtitle}>
+                            {item.subtitle}
+                          </Text>
                         </View>
                       </View>
 
@@ -214,7 +288,9 @@ export const CustomerProfileScreen: React.FC = () => {
                         </View>
                         <View style={styles.menuTextCol}>
                           <Text style={styles.menuTitle}>{item.title}</Text>
-                          <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                          <Text style={styles.menuSubtitle}>
+                            {item.subtitle}
+                          </Text>
                         </View>
                       </View>
 
@@ -239,7 +315,9 @@ export const CustomerProfileScreen: React.FC = () => {
                 </View>
                 <View>
                   <Text style={styles.logoutText}>Logout</Text>
-                  <Text style={styles.logoutSubText}>Sign out of your account</Text>
+                  <Text style={styles.logoutSubText}>
+                    Sign out of your account
+                  </Text>
                 </View>
               </View>
               <AppIcon name="chevron-right" size={16} color="#EF4444" />
@@ -247,8 +325,12 @@ export const CustomerProfileScreen: React.FC = () => {
 
             {/* App Version Footer */}
             <View style={styles.footerContainer}>
-              <Text style={styles.footerBrandText}>Punnaigai Small Finances Ltd.</Text>
-              <Text style={styles.footerVersionText}>Version 1.0.4 • 100% Safe & Secure</Text>
+              <Text style={styles.footerBrandText}>
+                Punnaigai Small Finances Ltd.
+              </Text>
+              <Text style={styles.footerVersionText}>
+                Version 1.0.4 • 100% Safe & Secure
+              </Text>
             </View>
           </>
         )}
@@ -270,32 +352,60 @@ export const CustomerProfileScreen: React.FC = () => {
 
             {activeModal === 'personal' && (
               <View style={styles.modalContentBlock}>
-                <Text style={styles.modalItemText}>Full Name: {user?.name || 'Raji Kumar'}</Text>
-                <Text style={styles.modalItemText}>Phone: {user?.phone || '+91 98765 43210'}</Text>
-                <Text style={styles.modalItemText}>Loan Account: Active</Text>
-                <Text style={styles.modalItemText}>KYC Status: Verified (Aadhaar & PAN)</Text>
+                <Text style={styles.modalItemText}>
+                  Full Name: {profileName}
+                </Text>
+                <Text style={styles.modalItemText}>Phone: {profileMobile}</Text>
+                <Text style={styles.modalItemText}>
+                  Email: {profileEmail || '—'}
+                </Text>
+                <Text style={styles.modalItemText}>
+                  Address:{' '}
+                  {[
+                    profile?.address,
+                    profile?.city,
+                    profile?.state,
+                    profile?.pincode,
+                  ]
+                    .filter(Boolean)
+                    .join(', ') || '—'}
+                </Text>
+                <Text style={styles.modalItemText}>
+                  Date of birth: {formatDate(profile?.date_of_birth) || '—'}
+                </Text>
+                <Text style={styles.modalItemText}>
+                  Occupation: {profile?.occupation || '—'}
+                </Text>
               </View>
             )}
 
             {activeModal === 'password' && (
               <View style={styles.modalContentBlock}>
                 <Text style={styles.modalSubText}>
-                  To change your password or transaction PIN, an OTP will be dispatched to your registered phone number (+91 98765 43210).
+                  To change your password or transaction PIN, an OTP will be
+                  dispatched to your registered phone number (+91 98765 43210).
                 </Text>
               </View>
             )}
 
             {activeModal === 'support' && (
               <View style={styles.modalContentBlock}>
-                <Text style={styles.modalSubText}>Toll-free: 1800-123-PUNNAIGAI (7866)</Text>
-                <Text style={styles.modalSubText}>Email: support@punnaigaifinances.com</Text>
-                <Text style={styles.modalSubText}>Support Hours: Mon - Sat (9:00 AM - 6:00 PM)</Text>
+                <Text style={styles.modalSubText}>
+                  Toll-free: 1800-123-PUNNAIGAI (7866)
+                </Text>
+                <Text style={styles.modalSubText}>
+                  Email: support@punnaigaifinances.com
+                </Text>
+                <Text style={styles.modalSubText}>
+                  Support Hours: Mon - Sat (9:00 AM - 6:00 PM)
+                </Text>
               </View>
             )}
 
             {activeModal === 'about' && (
               <Text style={styles.modalAboutText}>
-                Punnaigai Small Finances provides reliable, transparent, and digitally-enabled microfinance and loan solutions across India.
+                Punnaigai Small Finances provides reliable, transparent, and
+                digitally-enabled microfinance and loan solutions across India.
               </Text>
             )}
 

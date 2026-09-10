@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, RefreshControl } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  StatusBar,
+  RefreshControl,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppSelector } from '../../hooks/useAppHooks';
 import { Header } from '../../component/Header';
@@ -9,6 +17,8 @@ import { formatINR } from '../../utils/currency';
 import { PaymentScheduleItem, PaymentHistoryItem } from '../../types/models';
 import { ROUTES } from '../../constants/routes';
 import { Skeleton } from '../../component/Common/Skeleton';
+import * as customerApi from '../../services/api/customerApi';
+import { formatDate } from '../../utils/date';
 
 /**
  * Screen 6: Payments Tab Screen
@@ -22,19 +32,76 @@ export const PaymentScheduleScreen: React.FC = () => {
   const paymentHistory = useAppSelector(state => state.customer.paymentHistory);
   const loan = useAppSelector(state => state.customer.loan);
 
-  const [activeTab, setActiveTab] = useState<'schedule' | 'history'>('schedule');
-  const [activeFilter, setActiveFilter] = useState<'All' | 'Paid' | 'Pending'>('All');
+  const [activeTab, setActiveTab] = useState<'schedule' | 'history'>(
+    'schedule',
+  );
+  const [activeFilter, setActiveFilter] = useState<'All' | 'Paid' | 'Pending'>(
+    'All',
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [apiLoans, setApiLoans] = useState<customerApi.MyLoanResponse[]>([]);
+  const [isScheduleLoading, setIsScheduleLoading] = useState(true);
 
-  const onRefresh = React.useCallback(() => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
+  const loadSchedules = React.useCallback(async () => {
+    setIsScheduleLoading(true);
+    try {
+      const loans = await customerApi.getRepaymentSchedules();
+      setApiLoans(loans);
+    } catch {
+      setApiLoans([]);
+    } finally {
+      setIsScheduleLoading(false);
+    }
   }, []);
 
-  const filteredHistory = paymentHistory.filter((item: PaymentHistoryItem) => {
-    if (activeFilter === 'All') return true;
-    return item.status.toLowerCase() === activeFilter.toLowerCase();
-  });
+  useEffect(() => {
+    loadSchedules();
+  }, [loadSchedules]);
+
+  const onRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    await loadSchedules();
+    setIsRefreshing(false);
+  }, [loadSchedules]);
+
+  const selectedApiLoan = apiLoans[0];
+  const apiSchedule: PaymentScheduleItem[] = selectedApiLoan
+    ? selectedApiLoan.repayment_schedules.map((item, index) => ({
+        no: index + 1,
+        dueDate: formatDate(item.due_date),
+        amount: Number(item.amount),
+        status: ['paid', 'completed'].includes(item.status.toLowerCase())
+          ? 'Paid'
+          : item.status.toLowerCase() === 'overdue'
+          ? 'Overdue'
+          : 'Pending',
+      }))
+    : schedule;
+  const visibleSchedule = apiLoans.length > 0 ? apiSchedule : schedule;
+  const apiPaymentHistory: PaymentHistoryItem[] = apiLoans.flatMap(loanItem =>
+    loanItem.repayment_schedules
+      .filter(item => Number(item.paid_amount || 0) > 0)
+      .map(item => ({
+        id: String(item.id),
+        date: formatDate(item.due_date),
+        amount: Number(item.paid_amount),
+        status: 'Paid' as const,
+        receiptNo: `SCHEDULE-${item.id}`,
+      })),
+  );
+  const visiblePaymentHistory =
+    apiLoans.length > 0 ? apiPaymentHistory : paymentHistory;
+  const totalLoanAmount = selectedApiLoan
+    ? Number(selectedApiLoan.requested_amount)
+    : loan.loanAmount || 0;
+  const installmentAmount = visibleSchedule[0]?.amount || loan.monthlyEmi || 0;
+
+  const filteredHistory = visiblePaymentHistory.filter(
+    (item: PaymentHistoryItem) => {
+      if (activeFilter === 'All') return true;
+      return item.status.toLowerCase() === activeFilter.toLowerCase();
+    },
+  );
 
   const renderScheduleItem = ({ item }: { item: PaymentScheduleItem }) => {
     const isPaid = item.status.toLowerCase() === 'paid';
@@ -50,7 +117,9 @@ export const PaymentScheduleScreen: React.FC = () => {
           </View>
         </View>
         <View style={styles.scheduleRight}>
-          <Text style={styles.scheduleAmountText}>{formatINR(item.amount)}</Text>
+          <Text style={styles.scheduleAmountText}>
+            {formatINR(item.amount)}
+          </Text>
           <View
             style={[
               styles.badgePill,
@@ -87,7 +156,9 @@ export const PaymentScheduleScreen: React.FC = () => {
             <View>
               <Text style={styles.dateText}>{item.date}</Text>
               {item.receiptNo ? (
-                <Text style={styles.receiptText}>Receipt: {item.receiptNo}</Text>
+                <Text style={styles.receiptText}>
+                  Receipt: {item.receiptNo}
+                </Text>
               ) : null}
             </View>
           </View>
@@ -178,7 +249,7 @@ export const PaymentScheduleScreen: React.FC = () => {
                   <Text style={styles.summaryCardLabel}>Total Amount</Text>
                 </View>
                 <Text style={styles.summaryCardValue}>
-                  {formatINR(loan.loanAmount || 100000)}
+                  {formatINR(totalLoanAmount)}
                 </Text>
                 <View style={styles.summaryCardFooter}>
                   <View style={styles.summaryDot} />
@@ -187,7 +258,9 @@ export const PaymentScheduleScreen: React.FC = () => {
               </View>
 
               {/* Card 2: Monthly EMI */}
-              <View style={[styles.summaryCardLight, styles.summaryCardEmiAccent]}>
+              <View
+                style={[styles.summaryCardLight, styles.summaryCardEmiAccent]}
+              >
                 <View style={styles.summaryCardTopRow}>
                   <View style={styles.summaryIconTeal}>
                     <AppIcon name="calendar" size={13} color="#0D523B" />
@@ -195,10 +268,12 @@ export const PaymentScheduleScreen: React.FC = () => {
                   <Text style={styles.summaryCardLabel}>Monthly EMI</Text>
                 </View>
                 <Text style={styles.summaryCardValue}>
-                  {formatINR(loan.monthlyEmi || 9000)}
+                  {formatINR(installmentAmount)}
                 </Text>
                 <View style={styles.summaryCardFooter}>
-                  <View style={[styles.summaryDot, { backgroundColor: '#10B981' }]} />
+                  <View
+                    style={[styles.summaryDot, { backgroundColor: '#10B981' }]}
+                  />
                   <Text style={styles.summaryCardTag}>Per Month</Text>
                 </View>
               </View>
@@ -206,22 +281,33 @@ export const PaymentScheduleScreen: React.FC = () => {
 
             {/* Premium Schedule List */}
             <View style={styles.scheduleListContainer}>
-              {isRefreshing ? (
+              {isRefreshing || isScheduleLoading ? (
                 <View style={{ paddingTop: 16 }}>
                   {[1, 2, 3, 4, 5].map(i => (
-                    <Skeleton key={i} height={60} borderRadius={12} style={{ marginBottom: 12 }} />
+                    <Skeleton
+                      key={i}
+                      height={60}
+                      borderRadius={12}
+                      style={{ marginBottom: 12 }}
+                    />
                   ))}
                 </View>
               ) : (
                 <FlatList
-                  data={schedule}
+                  data={visibleSchedule}
                   keyExtractor={item => String(item.no)}
                   renderItem={renderScheduleItem}
-                  ItemSeparatorComponent={() => <View style={styles.scheduleSeparator} />}
+                  ItemSeparatorComponent={() => (
+                    <View style={styles.scheduleSeparator} />
+                  )}
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.listContent}
                   refreshControl={
-                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />
+                    <RefreshControl
+                      refreshing={isRefreshing}
+                      onRefresh={onRefresh}
+                      tintColor="#10B981"
+                    />
                   }
                 />
               )}
@@ -267,7 +353,12 @@ export const PaymentScheduleScreen: React.FC = () => {
             {isRefreshing ? (
               <View style={{ paddingTop: 16 }}>
                 {[1, 2, 3, 4, 5].map(i => (
-                  <Skeleton key={i} height={70} borderRadius={12} style={{ marginBottom: 12 }} />
+                  <Skeleton
+                    key={i}
+                    height={70}
+                    borderRadius={12}
+                    style={{ marginBottom: 12 }}
+                  />
                 ))}
               </View>
             ) : (
@@ -275,11 +366,17 @@ export const PaymentScheduleScreen: React.FC = () => {
                 data={filteredHistory}
                 keyExtractor={item => item.id}
                 renderItem={renderHistoryCard}
-                ItemSeparatorComponent={() => <View style={styles.historySeparator} />}
+                ItemSeparatorComponent={() => (
+                  <View style={styles.historySeparator} />
+                )}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.historyListContent}
                 refreshControl={
-                  <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />
+                  <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={onRefresh}
+                    tintColor="#10B981"
+                  />
                 }
                 ListEmptyComponent={
                   <View style={styles.emptyContainer}>

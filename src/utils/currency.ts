@@ -1,6 +1,4 @@
-/**
- * Indian Rupee (INR) currency formatting utilities
- */
+
 
 export const formatINR = (amount: number | string | undefined | null, includeSymbol: boolean = true): string => {
   if (amount === undefined || amount === null || isNaN(Number(amount))) {

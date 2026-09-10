@@ -5,7 +5,9 @@ import { useAppSelector, useAppDispatch } from '../hooks/useAppHooks';
 import { APP_ROLES, isValidAppRole } from '../constants/roles';
 import { ROUTES } from '../constants/routes';
 import { useAppTheme } from '../theme/useAppTheme';
-import { logout } from '../store/authSlice';
+import { logout, loginSuccess } from '../store/authSlice';
+import { StorageService } from '../services/StorageService';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 
 // Auth Screens
 import { LoginScreen } from '../screens/common/LoginScreen';
@@ -53,11 +55,25 @@ export const RootNavigator: React.FC = () => {
   const currentRole = user?.role || APP_ROLES.CUSTOMER;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 1800);
-    return () => clearTimeout(timer);
-  }, []);
+    const initAuth = async () => {
+      try {
+        const token = await StorageService.getItem<string>(
+          STORAGE_KEYS.AUTH_TOKEN,
+        );
+        const userData = await StorageService.getItem<any>(
+          STORAGE_KEYS.USER_DATA,
+        );
+        if (token && userData) {
+          dispatch(loginSuccess({ user: userData, token }));
+        }
+      } catch (error) {
+        console.error('Failed to init auth', error);
+      } finally {
+        setTimeout(() => setShowSplash(false), 800);
+      }
+    };
+    initAuth();
+  }, [dispatch]);
 
   // Check invalid role protection
   useEffect(() => {
@@ -75,7 +91,9 @@ export const RootNavigator: React.FC = () => {
     <View style={[styles.root, { backgroundColor: colors.surface }]}>
       <StatusBar
         barStyle="dark-content"
-        {...(Platform.OS === 'android' ? { backgroundColor: colors.surface } : {})}
+        {...(Platform.OS === 'android'
+          ? { backgroundColor: colors.surface }
+          : {})}
       />
 
       <Stack.Navigator
@@ -98,19 +116,31 @@ export const RootNavigator: React.FC = () => {
           <Stack.Group>
             {/* Role-Specific Navigators */}
             {currentRole === APP_ROLES.CUSTOMER && (
-              <Stack.Screen name={ROUTES.CUSTOMER_ROOT} component={CustomerStackNavigator} />
+              <Stack.Screen
+                name={ROUTES.CUSTOMER_ROOT}
+                component={CustomerStackNavigator}
+              />
             )}
 
             {currentRole === APP_ROLES.AGENT && (
-              <Stack.Screen name={ROUTES.AGENT_ROOT} component={AgentStackNavigator} />
+              <Stack.Screen
+                name={ROUTES.AGENT_ROOT}
+                component={AgentStackNavigator}
+              />
             )}
 
             {currentRole === APP_ROLES.INVESTOR && (
-              <Stack.Screen name={ROUTES.INVESTOR_ROOT} component={InvestorStackNavigator} />
+              <Stack.Screen
+                name={ROUTES.INVESTOR_ROOT}
+                component={InvestorStackNavigator}
+              />
             )}
 
             {currentRole === APP_ROLES.PARTNERSHIP && (
-              <Stack.Screen name={ROUTES.PARTNER_ROOT} component={PartnerStackNavigator} />
+              <Stack.Screen
+                name={ROUTES.PARTNER_ROOT}
+                component={PartnerStackNavigator}
+              />
             )}
 
             {/* Shared Global Stack Screens */}

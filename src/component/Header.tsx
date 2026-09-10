@@ -1,8 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ViewStyle,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from './AppIcon';
+import { BrandLogo } from './Common/BrandLogo';
 import { useAppSelector } from '../hooks/useAppHooks';
 import { ROUTES } from '../constants/routes';
 import { AppNotification } from '../types/models';
@@ -17,8 +24,8 @@ interface HeaderProps {
   titleColor?: string;
   backgroundColor?: string;
   disableTopInset?: boolean;
+  showLogo?: boolean;
 }
-
 
 export const Header: React.FC<HeaderProps> = ({
   title,
@@ -30,11 +37,14 @@ export const Header: React.FC<HeaderProps> = ({
   titleColor = '#0F172A',
   backgroundColor = '#FFFFFF',
   disableTopInset = false,
+  showLogo = false,
 }) => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const unreadCount = useAppSelector(
-    state => state.customer.notifications.filter((n: AppNotification) => !n.isRead).length
+    state =>
+      state.customer.notifications.filter((n: AppNotification) => !n.isRead)
+        .length,
   );
 
   const handleBack = () => {
@@ -92,12 +102,10 @@ export const Header: React.FC<HeaderProps> = ({
         </>
       ) : (
         <View style={styles.tabTitleContainer}>
+          {showLogo ? <BrandLogo size={28} style={styles.headerLogo} /> : null}
           {title ? (
             <Text
-              style={[
-                styles.title,
-                { color: titleColor, textAlign: 'left' },
-              ]}
+              style={[styles.title, { color: titleColor, textAlign: 'left' }]}
               numberOfLines={1}
               adjustsFontSizeToFit
             >
@@ -150,8 +158,12 @@ const styles = StyleSheet.create({
   },
   tabTitleContainer: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+  },
+  headerLogo: {
+    marginRight: 8,
   },
   backButton: {
     width: 32,

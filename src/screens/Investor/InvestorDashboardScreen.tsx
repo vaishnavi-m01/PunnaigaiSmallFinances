@@ -42,6 +42,7 @@ export const InvestorDashboardScreen: React.FC = () => {
         title={user?.name || 'Ravi Chandran'}
         showBack={false}
         showNotification={true}
+        showLogo={true}
       />
 
       <ScrollView
@@ -149,8 +150,8 @@ export const InvestorDashboardScreen: React.FC = () => {
               <View style={styles.termRow}>
                 <Text
                   style={[
-                  typography.bodyMedium,
-                  styles.termLabel,
+                    typography.bodyMedium,
+                    styles.termLabel,
                     { color: colors.textSecondary },
                   ]}
                 >
@@ -158,8 +159,8 @@ export const InvestorDashboardScreen: React.FC = () => {
                 </Text>
                 <Text
                   style={[
-                  typography.bodyMedium,
-                  styles.termValue,
+                    typography.bodyMedium,
+                    styles.termValue,
                     { color: colors.textPrimary },
                   ]}
                 >
@@ -177,8 +178,8 @@ export const InvestorDashboardScreen: React.FC = () => {
               <View style={styles.termRow}>
                 <Text
                   style={[
-                  typography.bodyMedium,
-                  styles.termLabel,
+                    typography.bodyMedium,
+                    styles.termLabel,
                     { color: colors.textSecondary },
                   ]}
                 >
@@ -186,8 +187,8 @@ export const InvestorDashboardScreen: React.FC = () => {
                 </Text>
                 <Text
                   style={[
-                  typography.bodyMedium,
-                  styles.termValueStrong,
+                    typography.bodyMedium,
+                    styles.termValueStrong,
                     { color: colors.primary },
                   ]}
                 >
@@ -205,8 +206,8 @@ export const InvestorDashboardScreen: React.FC = () => {
               <View style={styles.termRow}>
                 <Text
                   style={[
-                  typography.bodyMedium,
-                  styles.termLabel,
+                    typography.bodyMedium,
+                    styles.termLabel,
                     { color: colors.textSecondary },
                   ]}
                 >
@@ -214,8 +215,8 @@ export const InvestorDashboardScreen: React.FC = () => {
                 </Text>
                 <Text
                   style={[
-                  typography.bodyMedium,
-                  styles.termValueStrong,
+                    typography.bodyMedium,
+                    styles.termValueStrong,
                     { color: colors.textPrimary },
                   ]}
                 >

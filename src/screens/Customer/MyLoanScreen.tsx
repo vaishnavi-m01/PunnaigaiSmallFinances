@@ -16,7 +16,9 @@ import { Card } from '../../component/Common/Card';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
+import { formatDate } from '../../utils/date';
 import { ROUTES } from '../../constants/routes';
+import * as customerApi from '../../services/api/customerApi';
 
 /**
  * Screen 5: My Loan Screen
@@ -26,19 +28,83 @@ import { ROUTES } from '../../constants/routes';
 export const MyLoanScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const loan = useAppSelector(state => state.customer.loan);
+  const dashboardData = useAppSelector(state => state.customer.dashboardData);
+  const [myLoans, setMyLoans] = useState<customerApi.MyLoanResponse[]>([]);
+  const [isLoansLoading, setIsLoansLoading] = useState(true);
+  const [selectedLoanIndex, setSelectedLoanIndex] = useState(0);
 
   const [activeTab, setActiveTab] = useState<'details' | 'summary'>('details');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
+  const loadMyLoans = React.useCallback(async () => {
+    setIsLoansLoading(true);
+    try {
+      const loans = await customerApi.getMyLoans();
+      setMyLoans(loans);
+      setSelectedLoanIndex(index =>
+        Math.min(index, Math.max(loans.length - 1, 0)),
+      );
+    } catch {
+      setMyLoans([]);
+    } finally {
+      setIsLoansLoading(false);
+    }
   }, []);
 
-  const totalRepayment = loan.totalRepaymentAmount || 100000;
-  const amountPaid = loan.amountReceived || 88000;
+  React.useEffect(() => {
+    loadMyLoans();
+  }, [loadMyLoans]);
+
+  const onRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    await loadMyLoans();
+    setIsRefreshing(false);
+  }, [loadMyLoans]);
+
+  const selectedLoan = myLoans[selectedLoanIndex];
+  const displayLoan = selectedLoan
+    ? {
+        loanId: String(selectedLoan.id),
+        packageName: selectedLoan.loan_package.name,
+        loanAmount: Number(selectedLoan.requested_amount),
+        amountDisbursed: Number(selectedLoan.approved_amount),
+        amountReceived: Number(selectedLoan.approved_amount),
+        tenureMonths: selectedLoan.loan_package.repayment_period,
+        totalRepaymentAmount: Number(selectedLoan.repayment_obligation),
+        processingFee: Number(selectedLoan.deduction_amount),
+        nextPaymentDate: formatDate(
+          selectedLoan.repayment_schedules[0]?.due_date,
+        ),
+        status: selectedLoan.status,
+      }
+    : loan;
+
+  const totalRepayment = displayLoan.totalRepaymentAmount || 0;
+  const amountPaid = selectedLoan
+    ? selectedLoan.repayments.reduce(
+        (total, repayment) => total + Number(repayment.amount_paid || 0),
+        0,
+      )
+    : loan.amountReceived || 0;
   const remainingAmount = Math.max(0, totalRepayment - amountPaid);
-  const percentPaid = Math.min(100, Math.round((amountPaid / totalRepayment) * 100));
+  const percentPaid = Math.min(
+    100,
+    Math.round((amountPaid / totalRepayment) * 100),
+  );
+  const completedInstallments = selectedLoan
+    ? selectedLoan.repayment_schedules.filter(schedule =>
+        ['paid', 'completed'].includes(schedule.status.toLowerCase()),
+      ).length
+    : 0;
+  const installmentCount = selectedLoan
+    ? selectedLoan.repayment_schedules.length
+    : displayLoan.tenureMonths || 0;
+
+  const openLoanDetail = () => {
+    const loanId =
+      selectedLoan?.id || dashboardData?.activeLoan?.id || Number(loan.id) || 1;
+    if (loanId) navigation.navigate(ROUTES.LOAN_DETAILS, { loanId });
+  };
 
   return (
     <View style={styles.container}>
@@ -49,64 +115,132 @@ export const MyLoanScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#10B981"
+          />
         }
       >
-        {isRefreshing ? (
+        {isRefreshing || isLoansLoading ? (
           <View style={{ paddingTop: 8 }}>
-            <Skeleton height={220} borderRadius={18} style={{ marginBottom: 16 }} />
-            <Skeleton height={50} borderRadius={25} style={{ marginBottom: 20 }} />
-            <Skeleton height={200} borderRadius={16} style={{ marginBottom: 20 }} />
+            <Skeleton
+              height={220}
+              borderRadius={18}
+              style={{ marginBottom: 16 }}
+            />
+            <Skeleton
+              height={50}
+              borderRadius={25}
+              style={{ marginBottom: 20 }}
+            />
+            <Skeleton
+              height={200}
+              borderRadius={16}
+              style={{ marginBottom: 20 }}
+            />
           </View>
         ) : (
           <>
+            {myLoans.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.loanSelector}
+              >
+                {myLoans.map((item, index) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.loanSelectorItem,
+                      index === selectedLoanIndex &&
+                        styles.loanSelectorItemActive,
+                    ]}
+                    onPress={() => setSelectedLoanIndex(index)}
+                  >
+                    <Text
+                      style={[
+                        styles.loanSelectorText,
+                        index === selectedLoanIndex &&
+                          styles.loanSelectorTextActive,
+                      ]}
+                    >
+                      {item.loan_package.name} ·{' '}
+                      {formatINR(Number(item.approved_amount))}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
             {/* Emerald Loan Details Hero Card */}
-            <LinearGradient
-              colors={['#083827', '#0D523B', '#126349']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.loanCard}
-            >
-              <View style={styles.loanHeaderRow}>
-                <View>
-                  <Text style={styles.cardHeaderTitle}>Loan Details</Text>
-                  <Text style={styles.cardHeaderSub}>Loan ID: {loan.loanId || 'PLN000123'}</Text>
-                </View>
-                <View style={styles.statusBadgePill}>
-                  <Text style={styles.statusBadgeText}>Active</Text>
-                </View>
-              </View>
-
-              <View style={styles.cardDivider} />
-
-              {/* Key-Value Details */}
-              <View style={styles.detailsList}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Package :</Text>
-                  <Text style={styles.detailValue}>{loan.packageName || 'Gold Loan'}</Text>
+            <TouchableOpacity activeOpacity={0.95} onPress={openLoanDetail}>
+              <LinearGradient
+                colors={['#083827', '#0D523B', '#126349']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.loanCard}
+              >
+                <View style={styles.loanHeaderRow}>
+                  <View>
+                    <Text style={styles.cardHeaderTitle}>Loan Details</Text>
+                    <Text style={styles.cardHeaderSub}>
+                      Loan ID: {displayLoan.loanId || 'PLN000123'}
+                    </Text>
+                  </View>
+                  <View style={styles.statusBadgePill}>
+                    <Text style={styles.statusBadgeText}>
+                      {displayLoan.status}
+                    </Text>
+                  </View>
                 </View>
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Loan Amount :</Text>
-                  <Text style={styles.detailValue}>{formatINR(loan.loanAmount || 100000)}</Text>
-                </View>
+                <View style={styles.cardDivider} />
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Amount Disbursed :</Text>
-                  <Text style={styles.detailValue}>{formatINR(loan.amountDisbursed || 80000)}</Text>
-                </View>
+                {/* Key-Value Details */}
+                <View style={styles.detailsList}>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Package :</Text>
+                    <Text style={styles.detailValue}>
+                      {displayLoan.packageName || 'Gold Loan'}
+                    </Text>
+                  </View>
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Tenure :</Text>
-                  <Text style={styles.detailValue}>{loan.tenureMonths || 12} Months</Text>
-                </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Loan Amount :</Text>
+                    <Text style={styles.detailValue}>
+                      {formatINR(displayLoan.loanAmount || 0)}
+                    </Text>
+                  </View>
 
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Status :</Text>
-                  <Text style={[styles.detailValue, { color: '#86EFAC' }]}>Active</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Amount Disbursed :</Text>
+                    <Text style={styles.detailValue}>
+                      {formatINR(displayLoan.amountDisbursed || 0)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Tenure :</Text>
+                    <Text style={styles.detailValue}>
+                      {displayLoan.tenureMonths || 12} Months
+                    </Text>
+                  </View>
+
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Status :</Text>
+                    <Text style={[styles.detailValue, { color: '#86EFAC' }]}>
+                      {displayLoan.status}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </LinearGradient>
+                <View style={styles.detailCta}>
+                  <Text style={styles.detailCtaText}>
+                    View full loan details
+                  </Text>
+                  <AppIcon name="chevron-right" size={15} color="#D1FAE5" />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
             {/* Segmented Pill Tabs: [ Loan Details ] | [ Summary ] */}
             <View style={styles.tabContainer}>
@@ -153,25 +287,29 @@ export const MyLoanScreen: React.FC = () => {
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>Amount Received</Text>
                   <Text style={styles.breakdownValue}>
-                    {formatINR(loan.amountReceived || 88000)}
+                    {formatINR(displayLoan.amountReceived || 0)}
                   </Text>
                 </View>
 
                 <View style={styles.rowDivider} />
 
                 <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Total Repayment Amount</Text>
+                  <Text style={styles.breakdownLabel}>
+                    Total Repayment Amount
+                  </Text>
                   <Text style={styles.breakdownValue}>
-                    {formatINR(loan.totalRepaymentAmount || 100000)}
+                    {formatINR(displayLoan.totalRepaymentAmount || 0)}
                   </Text>
                 </View>
 
                 <View style={styles.rowDivider} />
 
                 <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Interest Rate</Text>
+                  <Text style={styles.breakdownLabel}>Deduction Rate</Text>
                   <Text style={styles.breakdownValue}>
-                    {loan.interestRate || 12}%
+                    {selectedLoan
+                      ? `${selectedLoan.loan_package.deduction_percentage}%`
+                      : `${loan.interestRate || 0}%`}
                   </Text>
                 </View>
 
@@ -180,7 +318,7 @@ export const MyLoanScreen: React.FC = () => {
                 <View style={styles.breakdownRow}>
                   <Text style={styles.breakdownLabel}>Processing Fee</Text>
                   <Text style={styles.breakdownValue}>
-                    {formatINR(loan.processingFee || 2000)}
+                    {formatINR(displayLoan.processingFee || 0)}
                   </Text>
                 </View>
               </Card>
@@ -190,21 +328,36 @@ export const MyLoanScreen: React.FC = () => {
                 {/* Progress Card */}
                 <Card style={styles.progressCard} variant="flat" padding={16}>
                   <View style={styles.progressHeaderRow}>
-                    <Text style={styles.progressHeaderTitle}>Repayment Progress</Text>
-                    <Text style={styles.progressPercentText}>{percentPaid}% Paid</Text>
+                    <Text style={styles.progressHeaderTitle}>
+                      Repayment Progress
+                    </Text>
+                    <Text style={styles.progressPercentText}>
+                      {percentPaid}% Paid
+                    </Text>
                   </View>
 
                   {/* Progress Bar Track */}
                   <View style={styles.progressBarTrack}>
-                    <View style={[styles.progressBarFill, { width: `${percentPaid}%` }]} />
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${percentPaid}%` },
+                      ]}
+                    />
                   </View>
 
                   <View style={styles.progressSubRow}>
                     <Text style={styles.progressSubText}>
-                      Paid: <Text style={styles.paidValue}>{formatINR(amountPaid)}</Text>
+                      Paid:{' '}
+                      <Text style={styles.paidValue}>
+                        {formatINR(amountPaid)}
+                      </Text>
                     </Text>
                     <Text style={styles.progressSubText}>
-                      Remaining: <Text style={styles.remainingValue}>{formatINR(remainingAmount)}</Text>
+                      Remaining:{' '}
+                      <Text style={styles.remainingValue}>
+                        {formatINR(remainingAmount)}
+                      </Text>
                     </Text>
                   </View>
                 </Card>
@@ -213,7 +366,9 @@ export const MyLoanScreen: React.FC = () => {
                 <Card style={styles.breakdownCard} variant="flat" padding={16}>
                   <View style={styles.breakdownRow}>
                     <Text style={styles.breakdownLabel}>Total Repayment</Text>
-                    <Text style={styles.breakdownValue}>{formatINR(totalRepayment)}</Text>
+                    <Text style={styles.breakdownValue}>
+                      {formatINR(totalRepayment)}
+                    </Text>
                   </View>
 
                   <View style={styles.rowDivider} />
@@ -238,14 +393,18 @@ export const MyLoanScreen: React.FC = () => {
 
                   <View style={styles.breakdownRow}>
                     <Text style={styles.breakdownLabel}>EMIs Completed</Text>
-                    <Text style={styles.breakdownValue}>10 of 12 (2 Pending)</Text>
+                    <Text style={styles.breakdownValue}>
+                      {completedInstallments} of {installmentCount} completed
+                    </Text>
                   </View>
 
                   <View style={styles.rowDivider} />
 
                   <View style={styles.breakdownRow}>
                     <Text style={styles.breakdownLabel}>Next Payment Date</Text>
-                    <Text style={styles.breakdownValue}>{loan.nextPaymentDate || '15 Apr 2025'}</Text>
+                    <Text style={styles.breakdownValue}>
+                      {displayLoan.nextPaymentDate || '15 Apr 2025'}
+                    </Text>
                   </View>
                 </Card>
 
@@ -257,7 +416,9 @@ export const MyLoanScreen: React.FC = () => {
                     activeOpacity={0.7}
                   >
                     <AppIcon name="credit-card" size={15} color="#0D523B" />
-                    <Text style={styles.summaryActionBtnText}>View Payment History</Text>
+                    <Text style={styles.summaryActionBtnText}>
+                      View Payment History
+                    </Text>
                     <AppIcon name="chevron-right" size={14} color="#0D523B" />
                   </TouchableOpacity>
 
@@ -267,7 +428,9 @@ export const MyLoanScreen: React.FC = () => {
                     activeOpacity={0.7}
                   >
                     <AppIcon name="calendar" size={15} color="#0D523B" />
-                    <Text style={styles.summaryActionBtnText}>View EMI Schedule</Text>
+                    <Text style={styles.summaryActionBtnText}>
+                      View EMI Schedule
+                    </Text>
                     <AppIcon name="chevron-right" size={14} color="#0D523B" />
                   </TouchableOpacity>
                 </View>
@@ -288,6 +451,30 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 32,
+  },
+  loanSelector: {
+    gap: 8,
+    paddingBottom: 12,
+  },
+  loanSelectorItem: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  loanSelectorItemActive: {
+    borderColor: '#0D523B',
+    backgroundColor: '#EAF5EE',
+  },
+  loanSelectorText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  loanSelectorTextActive: {
+    color: '#0D523B',
   },
   loanCard: {
     padding: 18,
@@ -345,6 +532,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  detailCta: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+    marginTop: 14,
+    paddingTop: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  detailCtaText: {
+    color: '#D1FAE5',
+    fontSize: 12,
+    fontWeight: '800',
   },
   tabContainer: {
     flexDirection: 'row',

@@ -22,6 +22,8 @@ export type CustomerTabParamList = {
 export type CustomerStackParamList = {
   [ROUTES.CUSTOMER_TABS]: NavigatorScreenParams<CustomerTabParamList>;
   [ROUTES.APPLY_LOAN]: undefined;
+  [ROUTES.LOAN_PACKAGE_DETAIL]: { pkg: import('./models').LoanPackage };
+  [ROUTES.LOAN_DETAILS]: { loanId: number };
   [ROUTES.MY_LOAN]: undefined;
   [ROUTES.PAYMENT_SCHEDULE]: undefined;
   [ROUTES.PAYMENT_HISTORY]: undefined;

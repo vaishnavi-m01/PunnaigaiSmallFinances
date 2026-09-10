@@ -8,7 +8,6 @@ import { navigationRef } from './src/navigation/navigationService';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { GlobalToast } from './src/component/GlobalToast';
 import { GlobalErrorModal } from './src/component/GlobalErrorModal';
-import { RoleSwitcherModal } from './src/component/Common/RoleSwitcherModal';
 
 function App() {
   return (
@@ -21,7 +20,6 @@ function App() {
         <NavigationContainer ref={navigationRef}>
           <View style={styles.container}>
             <RootNavigator />
-            <RoleSwitcherModal />
             <GlobalToast />
             <GlobalErrorModal />
           </View>

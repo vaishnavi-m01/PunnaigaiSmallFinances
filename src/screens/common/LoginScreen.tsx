@@ -13,26 +13,25 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { APP_ROLES, AppRoleType } from '../../constants/roles';
+import { APP_ROLES } from '../../constants/roles';
 import { ROUTES } from '../../constants/routes';
 import { AppIcon } from '../../component/AppIcon';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { BrandLogo } from '../../component/Common/BrandLogo';
-import { BotanicalLeaves } from '../../component/Common/BotanicalArt';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
-import { loginThunk, clearLoginError } from '../../store/authSlice';
-import { setActiveRole } from '../../theme/activeRole';
+import { clearLoginError } from '../../store/authSlice';
+import * as authApi from '../../services/api/authApi';
+import { showToast } from '../../store/toastSlice';
 
 export const LoginScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
 
-  const isLoading = useAppSelector(state => state.auth.isLoading);
   const apiError = useAppSelector(state => state.auth.loginError);
 
   const [mobileNumber, setMobileNumber] = useState('');
-  const [selectedRole] = useState<AppRoleType>(APP_ROLES.CUSTOMER);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
 
   const handleMobileChange = (text: string) => {
     setMobileNumber(text);
@@ -41,28 +40,39 @@ export const LoginScreen: React.FC = () => {
 
   const handleLogin = async () => {
     if (!mobileNumber.trim()) {
+      dispatch(
+        showToast({
+          type: 'error',
+          title: 'Mobile number required',
+          message: 'Please enter your registered mobile number.',
+        }),
+      );
       return;
     }
 
-    const result = await dispatch(
-      loginThunk({ mobile: mobileNumber.replace(/\s+/g, '') }),
-    );
+    const mobile = mobileNumber.replace(/\s+/g, '');
 
-    if (loginThunk.fulfilled.match(result)) {
-      // Login success — navigate based on role
-      const role = result.payload.user.role;
-      setActiveRole(role);
-      if (role === APP_ROLES.CUSTOMER) {
-        navigation.replace(ROUTES.CUSTOMER_TABS);
-      } else if (role === APP_ROLES.AGENT) {
-        navigation.replace(ROUTES.AGENT_TABS);
-      } else if (role === APP_ROLES.INVESTOR) {
-        navigation.replace(ROUTES.INVESTOR_TABS);
-      } else {
-        navigation.replace(ROUTES.PARTNER_TABS);
-      }
+    setIsSendingOtp(true);
+    try {
+      await authApi.sendOtp({ mobile });
+      navigation.navigate(ROUTES.OTP_VERIFY, {
+        phone: mobile,
+        role: APP_ROLES.CUSTOMER,
+        isLogin: true,
+      });
+    } catch (error: any) {
+      dispatch(
+        showToast({
+          type: 'error',
+          title: 'Unable to send OTP',
+          message:
+            error?.response?.data?.message ??
+            'Please check your mobile number and try again.',
+        }),
+      );
+    } finally {
+      setIsSendingOtp(false);
     }
-    // If rejected, apiError in Redux state will show the error
   };
 
   return (
@@ -71,16 +81,6 @@ export const LoginScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <StatusBar barStyle="dark-content" />
-
-      {/* Decorative Bottom Botanical Leaf */}
-      <BotanicalLeaves
-        width={220}
-        height={150}
-        opacity={0.12}
-        color="#10B981"
-        style={styles.bottomLeaves}
-      />
-
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -120,6 +120,7 @@ export const LoginScreen: React.FC = () => {
                 placeholder="Enter mobile number"
                 placeholderTextColor="#94A3B8"
                 value={mobileNumber}
+                maxLength={10}
                 onChangeText={handleMobileChange}
                 keyboardType="phone-pad"
               />
@@ -143,7 +144,7 @@ export const LoginScreen: React.FC = () => {
                   phone: mobileNumber.startsWith('+91')
                     ? mobileNumber
                     : `+91 ${mobileNumber}`,
-                  role: selectedRole,
+                  role: APP_ROLES.CUSTOMER,
                   isForgot: true,
                 });
               }}
@@ -154,15 +155,15 @@ export const LoginScreen: React.FC = () => {
 
           {/* Login Button with Emerald Gradient */}
           <CustomButton
-            title={isLoading ? 'Logging in...' : 'Login'}
+            title={isSendingOtp ? 'Sending OTP...' : 'Login'}
             onPress={handleLogin}
             variant="primary"
             size="large"
             style={styles.loginButton}
             gradientColors={['#168A53', '#0D523B']}
-            disabled={isLoading}
+            disabled={isSendingOtp}
           />
-          {isLoading && (
+          {isSendingOtp && (
             <ActivityIndicator
               color="#0D523B"
               style={{ marginTop: -8, marginBottom: 8 }}
@@ -179,7 +180,7 @@ export const LoginScreen: React.FC = () => {
                   phone: mobileNumber.startsWith('+91')
                     ? mobileNumber
                     : `+91 ${mobileNumber}`,
-                  role: selectedRole,
+                  role: APP_ROLES.CUSTOMER,
                   isRegister: true,
                 });
               }}

@@ -23,7 +23,6 @@ import { Card } from '../../component/Common/Card';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { Skeleton } from '../../component/Common/Skeleton';
 
-
 export const CustomerDashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
@@ -33,7 +32,9 @@ export const CustomerDashboardScreen: React.FC = () => {
   const loan = useAppSelector(state => state.customer.loan);
   const paymentHistory = useAppSelector(state => state.customer.paymentHistory);
   const unreadCount = useAppSelector(
-    state => state.customer.notifications.filter((n: AppNotification) => !n.isRead).length
+    state =>
+      state.customer.notifications.filter((n: AppNotification) => !n.isRead)
+        .length,
   );
 
   const [supportModalVisible, setSupportModalVisible] = useState(false);
@@ -56,32 +57,32 @@ export const CustomerDashboardScreen: React.FC = () => {
     icon: IconName;
     route: string;
   }[] = [
-      {
-        id: 'packages',
-        title: 'Loan\nPackages',
-        icon: 'briefcase',
-        route: ROUTES.APPLY_LOAN,
-      },
+    {
+      id: 'packages',
+      title: 'Loan\nPackages',
+      icon: 'briefcase',
+      route: ROUTES.APPLY_LOAN,
+    },
 
-      {
-        id: 'profile',
-        title: 'My\nProfile',
-        icon: 'user',
-        route: ROUTES.CUSTOMER_PROFILE,
-      },
-      {
-        id: 'schedule',
-        title: 'View\nSchedule',
-        icon: 'calendar',
-        route: ROUTES.PAYMENT_SCHEDULE,
-      },
-      {
-        id: 'more',
-        title: 'More\nDetails',
-        icon: 'grid',
-        route: ROUTES.OVERDUE_DETAILS,
-      },
-    ];
+    {
+      id: 'profile',
+      title: 'My\nProfile',
+      icon: 'user',
+      route: ROUTES.CUSTOMER_PROFILE,
+    },
+    {
+      id: 'schedule',
+      title: 'View\nSchedule',
+      icon: 'calendar',
+      route: ROUTES.PAYMENT_SCHEDULE,
+    },
+    {
+      id: 'more',
+      title: 'More\nDetails',
+      icon: 'grid',
+      route: ROUTES.OVERDUE_DETAILS,
+    },
+  ];
 
   const recentPayments = paymentHistory.slice(0, 2);
 
@@ -90,7 +91,9 @@ export const CustomerDashboardScreen: React.FC = () => {
       <StatusBar barStyle="dark-content" />
 
       {/* Top Header Bar */}
-      <View style={[styles.topHeader, { paddingTop: Math.max(insets.top + 6, 16) }]}>
+      <View
+        style={[styles.topHeader, { paddingTop: Math.max(insets.top + 6, 16) }]}
+      >
         <View style={styles.headerLeft}>
           {/* User Avatar Circle */}
           <TouchableOpacity
@@ -123,7 +126,9 @@ export const CustomerDashboardScreen: React.FC = () => {
           <AppIcon name="bell" size={20} color="#0F172A" />
           {unreadCount > 0 && (
             <View style={styles.notifBadge}>
-              <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              <Text style={styles.notifBadgeText}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
             </View>
           )}
         </TouchableOpacity>
@@ -133,17 +138,35 @@ export const CustomerDashboardScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#10B981"
+          />
         }
       >
         {isRefreshing ? (
           <View style={{ paddingTop: 16 }}>
             {/* Skeleton Hero */}
-            <Skeleton height={200} borderRadius={24} style={{ marginBottom: 20 }} />
+            <Skeleton
+              height={200}
+              borderRadius={24}
+              style={{ marginBottom: 20 }}
+            />
             {/* Skeleton Alert */}
-            <Skeleton height={60} borderRadius={16} style={{ marginBottom: 24 }} />
+            <Skeleton
+              height={60}
+              borderRadius={16}
+              style={{ marginBottom: 24 }}
+            />
             {/* Skeleton Quick Actions */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginBottom: 32,
+              }}
+            >
               <Skeleton width={60} height={80} borderRadius={12} />
               <Skeleton width={60} height={80} borderRadius={12} />
               <Skeleton width={60} height={80} borderRadius={12} />
@@ -151,8 +174,16 @@ export const CustomerDashboardScreen: React.FC = () => {
             </View>
             {/* Skeleton List */}
             <Skeleton height={30} width={150} style={{ marginBottom: 16 }} />
-            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 12 }} />
-            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 12 }} />
+            <Skeleton
+              height={80}
+              borderRadius={16}
+              style={{ marginBottom: 12 }}
+            />
+            <Skeleton
+              height={80}
+              borderRadius={16}
+              style={{ marginBottom: 12 }}
+            />
           </View>
         ) : (
           <>
@@ -212,7 +243,9 @@ export const CustomerDashboardScreen: React.FC = () => {
                     <View style={styles.miniGreenIcon}>
                       <AppIcon name="calendar" size={12} color="#0D523B" />
                     </View>
-                    <Text style={styles.metricTitleText}>Next Payment Date</Text>
+                    <Text style={styles.metricTitleText}>
+                      Next Payment Date
+                    </Text>
                   </View>
                   <Text style={styles.metricAmountText}>15 Apr 2025</Text>
                 </TouchableOpacity>
@@ -226,7 +259,9 @@ export const CustomerDashboardScreen: React.FC = () => {
                   <AppIcon name="bell" size={15} color="#D97706" />
                 </View>
                 <View style={styles.dueAlertTextCol}>
-                  <Text style={styles.dueAlertTitle}>Next EMI Due in 7 Days</Text>
+                  <Text style={styles.dueAlertTitle}>
+                    Next EMI Due in 7 Days
+                  </Text>
                   <Text style={styles.dueAlertSub}>₹ 9,000 on 15 Apr 2025</Text>
                 </View>
               </View>
@@ -234,9 +269,7 @@ export const CustomerDashboardScreen: React.FC = () => {
 
             {/* 3. Premium Gradient Quick Actions Bar */}
             <View style={styles.quickActionsContainer}>
-              <Text style={styles.sectionHeading}>
-                Quick Actions
-              </Text>
+              <Text style={styles.sectionHeading}>Quick Actions</Text>
 
               <View style={styles.quickActionsPremiumBar}>
                 {quickActions.map(action => (
@@ -271,40 +304,56 @@ export const CustomerDashboardScreen: React.FC = () => {
 
               <View style={styles.transactionListCard}>
                 {recentPayments.length > 0 ? (
-                  recentPayments.map((item: PaymentHistoryItem, index: number) => {
-                    const isLast = index === recentPayments.length - 1;
-                    return (
-                      <React.Fragment key={item.id}>
-                        <TouchableOpacity
-                          style={styles.transactionItem}
-                          onPress={() => navigation.navigate(ROUTES.PAYMENT_HISTORY)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.transactionLeft}>
-                            <View style={styles.txIconCircle}>
-                              <AppIcon name="calendar" size={15} color="#0D523B" />
+                  recentPayments.map(
+                    (item: PaymentHistoryItem, index: number) => {
+                      const isLast = index === recentPayments.length - 1;
+                      return (
+                        <React.Fragment key={item.id}>
+                          <TouchableOpacity
+                            style={styles.transactionItem}
+                            onPress={() =>
+                              navigation.navigate(ROUTES.PAYMENT_HISTORY)
+                            }
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.transactionLeft}>
+                              <View style={styles.txIconCircle}>
+                                <AppIcon
+                                  name="calendar"
+                                  size={15}
+                                  color="#0D523B"
+                                />
+                              </View>
+                              <View>
+                                <Text style={styles.txDateText}>
+                                  {item.date}
+                                </Text>
+                                <Text style={styles.txReceiptText}>
+                                  Receipt: {item.receiptNo || 'RCP-849201'}
+                                </Text>
+                              </View>
                             </View>
-                            <View>
-                              <Text style={styles.txDateText}>{item.date}</Text>
-                              <Text style={styles.txReceiptText}>Receipt: {item.receiptNo || 'RCP-849201'}</Text>
-                            </View>
-                          </View>
 
-                          <View style={styles.transactionRight}>
-                            <Text style={styles.txAmountText}>{formatINR(item.amount)}</Text>
-                            <View style={styles.txPaidBadge}>
-                              <Text style={styles.txPaidBadgeText}>Paid</Text>
+                            <View style={styles.transactionRight}>
+                              <Text style={styles.txAmountText}>
+                                {formatINR(item.amount)}
+                              </Text>
+                              <View style={styles.txPaidBadge}>
+                                <Text style={styles.txPaidBadgeText}>Paid</Text>
+                              </View>
                             </View>
-                          </View>
-                        </TouchableOpacity>
+                          </TouchableOpacity>
 
-                        {!isLast && <View style={styles.txDivider} />}
-                      </React.Fragment>
-                    );
-                  })
+                          {!isLast && <View style={styles.txDivider} />}
+                        </React.Fragment>
+                      );
+                    },
+                  )
                 ) : (
                   <View style={styles.txEmptyBox}>
-                    <Text style={styles.txEmptyText}>No recent payments found.</Text>
+                    <Text style={styles.txEmptyText}>
+                      No recent payments found.
+                    </Text>
                   </View>
                 )}
               </View>
@@ -331,7 +380,8 @@ export const CustomerDashboardScreen: React.FC = () => {
 
               <Text style={styles.offerTitle}>Pre-Approved Top-up Loan</Text>
               <Text style={styles.offerSubtitle}>
-                You are pre-qualified for an instant top-up up to ₹ 2,00,000 with zero documentation.
+                You are pre-qualified for an instant top-up up to ₹ 2,00,000
+                with zero documentation.
               </Text>
 
               <TouchableOpacity
@@ -355,8 +405,12 @@ export const CustomerDashboardScreen: React.FC = () => {
                   <AppIcon name="help-circle" size={16} color="#0D523B" />
                 </View>
                 <View>
-                  <Text style={styles.supportTitle}>Need Help with your Loan?</Text>
-                  <Text style={styles.supportSub}>Toll-free 1800-123-PUNNAIGAI (9 AM - 6 PM)</Text>
+                  <Text style={styles.supportTitle}>
+                    Need Help with your Loan?
+                  </Text>
+                  <Text style={styles.supportSub}>
+                    Toll-free 1800-123-PUNNAIGAI (9 AM - 6 PM)
+                  </Text>
                 </View>
               </View>
               <AppIcon name="chevron-right" size={16} color="#94A3B8" />
@@ -366,7 +420,9 @@ export const CustomerDashboardScreen: React.FC = () => {
             <View style={styles.trustFooter}>
               <View style={styles.trustRow}>
                 <AppIcon name="shield" size={13} color="#10B981" />
-                <Text style={styles.trustText}>RBI Regulated NBFC • 100% Encrypted & Safe</Text>
+                <Text style={styles.trustText}>
+                  RBI Regulated NBFC • 100% Encrypted & Safe
+                </Text>
               </View>
             </View>
           </>
@@ -377,12 +433,22 @@ export const CustomerDashboardScreen: React.FC = () => {
       <Modal visible={supportModalVisible} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalHeaderTitle}>Punnaigai Customer Support</Text>
+            <Text style={styles.modalHeaderTitle}>
+              Punnaigai Customer Support
+            </Text>
             <View style={styles.modalContentBlock}>
-              <Text style={styles.modalSubText}>📞 Toll-free: 1800-123-PUNNAIGAI (7866)</Text>
-              <Text style={styles.modalSubText}>✉️ Email: support@punnaigaifinances.com</Text>
-              <Text style={styles.modalSubText}>🕒 Working Hours: Mon - Sat (9:00 AM - 6:00 PM)</Text>
-              <Text style={styles.modalSubText}>📍 Head Office: Punnaigai Financial Tower, Chennai</Text>
+              <Text style={styles.modalSubText}>
+                📞 Toll-free: 1800-123-PUNNAIGAI (7866)
+              </Text>
+              <Text style={styles.modalSubText}>
+                ✉️ Email: support@punnaigaifinances.com
+              </Text>
+              <Text style={styles.modalSubText}>
+                🕒 Working Hours: Mon - Sat (9:00 AM - 6:00 PM)
+              </Text>
+              <Text style={styles.modalSubText}>
+                📍 Head Office: Punnaigai Financial Tower, Chennai
+              </Text>
             </View>
 
             <CustomButton
@@ -418,7 +484,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  
+  headerLogo: {
+    marginRight: 8,
+  },
+
   avatarCircle: {
     width: 40,
     height: 40,

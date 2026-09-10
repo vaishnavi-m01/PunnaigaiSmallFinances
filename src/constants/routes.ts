@@ -7,11 +7,13 @@ export const ROUTES = {
   FORGOT_PASSWORD: 'ForgotPasswordScreen',
   ROLE_SELECTION: 'RoleSelectionScreen',
 
-  // Customer Routes 
+  // Customer Routes
   CUSTOMER_ROOT: 'CustomerRoot',
   CUSTOMER_TABS: 'CustomerTabs',
   CUSTOMER_DASHBOARD: 'CustomerDashboardScreen',
   APPLY_LOAN: 'ApplyLoanScreen',
+  LOAN_PACKAGE_DETAIL: 'LoanPackageDetailScreen',
+  LOAN_DETAILS: 'LoanDetailsScreen',
   MY_LOAN: 'MyLoanScreen',
   PAYMENT_SCHEDULE: 'PaymentScheduleScreen',
   PAYMENT_HISTORY: 'PaymentHistoryScreen',

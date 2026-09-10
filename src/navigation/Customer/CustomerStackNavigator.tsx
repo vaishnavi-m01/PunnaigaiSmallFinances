@@ -6,6 +6,8 @@ import { APP_ROLES } from '../../constants/roles';
 import { withRoleAccess } from '../../hoc/withRoleAccess';
 import { CustomerTabNavigator } from './CustomerTabNavigator';
 import { ApplyLoanScreen } from '../../screens/Customer/ApplyLoanScreen';
+import { LoanPackageDetailScreen } from '../../screens/Customer/LoanPackageDetailScreen';
+import { LoanDetailsScreen } from '../../screens/Customer/LoanDetailsScreen';
 import { MyLoanScreen } from '../../screens/Customer/MyLoanScreen';
 import { PaymentScheduleScreen } from '../../screens/Customer/PaymentScheduleScreen';
 import { PaymentHistoryScreen } from '../../screens/Customer/PaymentHistoryScreen';
@@ -26,21 +28,51 @@ function CustomerStackNavigatorBase() {
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name={ROUTES.CUSTOMER_TABS} component={CustomerTabNavigator} />
+      <Stack.Screen
+        name={ROUTES.CUSTOMER_TABS}
+        component={CustomerTabNavigator}
+      />
       <Stack.Screen name={ROUTES.APPLY_LOAN} component={ApplyLoanScreen} />
+      <Stack.Screen
+        name={ROUTES.LOAN_PACKAGE_DETAIL}
+        component={LoanPackageDetailScreen}
+      />
+      <Stack.Screen name={ROUTES.LOAN_DETAILS} component={LoanDetailsScreen} />
       <Stack.Screen name={ROUTES.MY_LOAN} component={MyLoanScreen} />
-      <Stack.Screen name={ROUTES.PAYMENT_SCHEDULE} component={PaymentScheduleScreen} />
-      <Stack.Screen name={ROUTES.PAYMENT_HISTORY} component={PaymentHistoryScreen} />
-      <Stack.Screen name={ROUTES.PENDING_AMOUNT} component={PendingAmountScreen} />
-      <Stack.Screen name={ROUTES.OVERDUE_DETAILS} component={OverdueDetailsScreen} />
-      <Stack.Screen name={ROUTES.PENALTY_DETAILS} component={PenaltyDetailsScreen} />
+      <Stack.Screen
+        name={ROUTES.PAYMENT_SCHEDULE}
+        component={PaymentScheduleScreen}
+      />
+      <Stack.Screen
+        name={ROUTES.PAYMENT_HISTORY}
+        component={PaymentHistoryScreen}
+      />
+      <Stack.Screen
+        name={ROUTES.PENDING_AMOUNT}
+        component={PendingAmountScreen}
+      />
+      <Stack.Screen
+        name={ROUTES.OVERDUE_DETAILS}
+        component={OverdueDetailsScreen}
+      />
+      <Stack.Screen
+        name={ROUTES.PENALTY_DETAILS}
+        component={PenaltyDetailsScreen}
+      />
       <Stack.Screen name={ROUTES.MY_DOCUMENTS} component={MyDocumentsScreen} />
-      <Stack.Screen name={ROUTES.CUSTOMER_NOTIFICATIONS} component={NotificationsScreen} />
-      <Stack.Screen name={ROUTES.CUSTOMER_PROFILE} component={CustomerProfileScreen} />
+      <Stack.Screen
+        name={ROUTES.CUSTOMER_NOTIFICATIONS}
+        component={NotificationsScreen}
+      />
+      <Stack.Screen
+        name={ROUTES.CUSTOMER_PROFILE}
+        component={CustomerProfileScreen}
+      />
     </Stack.Navigator>
   );
 }
 
-export const CustomerStackNavigator = withRoleAccess(CustomerStackNavigatorBase, [
-  APP_ROLES.CUSTOMER,
-]);
+export const CustomerStackNavigator = withRoleAccess(
+  CustomerStackNavigatorBase,
+  [APP_ROLES.CUSTOMER],
+);

@@ -17,7 +17,7 @@ import { Badge } from '../../component/Common/Badge';
 import { AppIcon, IconName } from '../../component/AppIcon';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { Skeleton } from '../../component/Common/Skeleton';
-import { logout } from '../../store/authSlice';
+import { logoutThunk } from '../../store/authSlice';
 import { showToast } from '../../store/toastSlice';
 import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
@@ -51,7 +51,7 @@ export const AgentProfileScreen: React.FC = () => {
 
   const handleMenuPress = (item: typeof menuItems[0]) => {
     if (item.isLogout) {
-      dispatch(logout());
+      dispatch(logoutThunk());
       dispatch(
         showToast({
           type: 'info',

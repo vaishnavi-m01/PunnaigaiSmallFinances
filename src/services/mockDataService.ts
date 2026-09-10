@@ -61,7 +61,40 @@ export const mockUsers: Record<string, UserProfile> = {
   },
 };
 
-export * from '../constants/roleCredentials';
+export const staticCredentials: Record<string, RoleCredential> = {
+  [APP_ROLES.CUSTOMER]: {
+    role: APP_ROLES.CUSTOMER,
+    roleName: 'Customer',
+    phone: '+919876543210',
+    formattedPhone: '+91 98765 43210',
+    password: 'password',
+    user: mockUsers.customer,
+  },
+  [APP_ROLES.AGENT]: {
+    role: APP_ROLES.AGENT,
+    roleName: 'Agent',
+    phone: '+919845011223',
+    formattedPhone: '+91 98450 11223',
+    password: 'password',
+    user: mockUsers.agent,
+  },
+  [APP_ROLES.INVESTOR]: {
+    role: APP_ROLES.INVESTOR,
+    roleName: 'Investor',
+    phone: '+919443299887',
+    formattedPhone: '+91 94432 99887',
+    password: 'password',
+    user: mockUsers.investor,
+  },
+  [APP_ROLES.PARTNERSHIP]: {
+    role: APP_ROLES.PARTNERSHIP,
+    roleName: 'Partner',
+    phone: '+919789055443',
+    formattedPhone: '+91 97890 55443',
+    password: 'password',
+    user: mockUsers.partnership,
+  },
+};
 
 export const mockCustomerLoan: CustomerLoan = {
   id: 'LN_101',

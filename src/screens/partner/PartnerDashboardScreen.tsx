@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  StatusBar,
+  RefreshControl,
+} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useAppSelector } from '../../hooks/useAppHooks';
@@ -11,7 +19,6 @@ import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
 import { PartnerEarningsItem } from '../../types/models';
-
 
 export const PartnerDashboardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -35,62 +42,120 @@ export const PartnerDashboardScreen: React.FC = () => {
         title={user?.name || 'Arun & Kumar'}
         showBack={false}
         showNotification={true}
+        showLogo={true}
       />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
       >
         {isRefreshing ? (
           <View style={{ paddingTop: 16 }}>
             {/* Skeleton Hero Card */}
-            <Skeleton height={200} borderRadius={24} style={{ marginBottom: 24 }} />
-            
+            <Skeleton
+              height={200}
+              borderRadius={24}
+              style={{ marginBottom: 24 }}
+            />
+
             {/* Skeleton Wallet Banner */}
-            <Skeleton height={70} borderRadius={16} style={{ marginBottom: 32 }} />
+            <Skeleton
+              height={70}
+              borderRadius={16}
+              style={{ marginBottom: 32 }}
+            />
 
             {/* Skeleton Earnings History List */}
             <Skeleton width={200} height={24} style={{ marginBottom: 16 }} />
-            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 12 }} />
-            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 12 }} />
-            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 12 }} />
+            <Skeleton
+              height={80}
+              borderRadius={16}
+              style={{ marginBottom: 12 }}
+            />
+            <Skeleton
+              height={80}
+              borderRadius={16}
+              style={{ marginBottom: 12 }}
+            />
+            <Skeleton
+              height={80}
+              borderRadius={16}
+              style={{ marginBottom: 12 }}
+            />
           </View>
         ) : (
           <>
             {/* Partner Hero Contribution & Wallet Card */}
             <LinearGradient
-              colors={[colors.heroGradient[0], colors.heroGradient[1], colors.heroGradient[2]]}
+              colors={[
+                colors.heroGradient[0],
+                colors.heroGradient[1],
+                colors.heroGradient[2],
+              ]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.heroCard}
             >
-              <Text style={[styles.heroSub, { color: colors.borderGreen }]}>Partner Capital Contribution</Text>
-              <Text style={styles.heroMain}>{formatINR(partner.details.totalContribution)}</Text>
+              <Text style={[styles.heroSub, { color: colors.borderGreen }]}>
+                Partner Capital Contribution
+              </Text>
+              <Text style={styles.heroMain}>
+                {formatINR(partner.details.totalContribution)}
+              </Text>
 
               <View style={styles.divider} />
 
               <View style={styles.metricsRow}>
                 <View>
-                  <Text style={[styles.metricLabel, { color: colors.borderGreen }]}>Total Profit Earnings</Text>
-                  <Text style={styles.metricValue}>{formatINR(partner.details.totalEarnings)}</Text>
+                  <Text
+                    style={[styles.metricLabel, { color: colors.borderGreen }]}
+                  >
+                    Total Profit Earnings
+                  </Text>
+                  <Text style={styles.metricValue}>
+                    {formatINR(partner.details.totalEarnings)}
+                  </Text>
                 </View>
 
                 <View style={styles.verticalDivider} />
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
                   <View>
-                    <Text style={[styles.metricLabel, { color: colors.borderGreen }]}>Wallet Balance</Text>
-                    <Text style={styles.metricValue}>{formatINR(partner.details.walletBalance)}</Text>
+                    <Text
+                      style={[
+                        styles.metricLabel,
+                        { color: colors.borderGreen },
+                      ]}
+                    >
+                      Wallet Balance
+                    </Text>
+                    <Text style={styles.metricValue}>
+                      {formatINR(partner.details.walletBalance)}
+                    </Text>
                   </View>
                   <TouchableOpacity
                     style={styles.withdrawPill}
                     onPress={() => navigation.navigate(ROUTES.PARTNER_WITHDRAW)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.withdrawText, { color: colors.primary }]}>Withdraw</Text>
+                    <Text
+                      style={[styles.withdrawText, { color: colors.primary }]}
+                    >
+                      Withdraw
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -98,16 +163,35 @@ export const PartnerDashboardScreen: React.FC = () => {
 
             {/* Action Button to Wallet */}
             <TouchableOpacity
-              style={[styles.walletBanner, { backgroundColor: colors.primaryBackground, borderColor: colors.borderGreen }]}
+              style={[
+                styles.walletBanner,
+                {
+                  backgroundColor: colors.primaryBackground,
+                  borderColor: colors.borderGreen,
+                },
+              ]}
               onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)}
               activeOpacity={0.8}
             >
               <View style={styles.bannerLeft}>
                 <AppIcon name="wallet" size={24} color={colors.primary} />
                 <View style={{ marginLeft: 12 }}>
-                  <Text style={[typography.h4, { color: colors.primary, fontWeight: '700' }]}>Partner Wallet</Text>
-                  <Text style={[typography.caption, { color: colors.primaryLight, marginTop: 2 }]}>
-                    Balance available for withdrawal: {formatINR(partner.details.walletBalance)}
+                  <Text
+                    style={[
+                      typography.h4,
+                      { color: colors.primary, fontWeight: '700' },
+                    ]}
+                  >
+                    Partner Wallet
+                  </Text>
+                  <Text
+                    style={[
+                      typography.caption,
+                      { color: colors.primaryLight, marginTop: 2 },
+                    ]}
+                  >
+                    Balance available for withdrawal:{' '}
+                    {formatINR(partner.details.walletBalance)}
                   </Text>
                 </View>
               </View>
@@ -115,27 +199,68 @@ export const PartnerDashboardScreen: React.FC = () => {
             </TouchableOpacity>
 
             {/* Monthly Earnings Breakdown */}
-            <Text style={[typography.h3, styles.sectionTitle, { color: colors.textPrimary, fontWeight: '800' }]}>
+            <Text
+              style={[
+                typography.h3,
+                styles.sectionTitle,
+                { color: colors.textPrimary, fontWeight: '800' },
+              ]}
+            >
               Monthly Earnings History
             </Text>
 
             <View style={styles.earningsList}>
               {partner.earnings.map((e: PartnerEarningsItem, idx: number) => (
-                <Card key={idx} style={styles.card} variant="elevated" padding={14}>
+                <Card
+                  key={idx}
+                  style={styles.card}
+                  variant="elevated"
+                  padding={14}
+                >
                   <View style={styles.row}>
                     <View style={styles.rowLeft}>
-                      <View style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}>
-                        <AppIcon name="trending-up" size={18} color={colors.primary} />
+                      <View
+                        style={[
+                          styles.iconCircle,
+                          { backgroundColor: colors.primarySoft },
+                        ]}
+                      >
+                        <AppIcon
+                          name="trending-up"
+                          size={18}
+                          color={colors.primary}
+                        />
                       </View>
                       <View>
-                        <Text style={[typography.h4, { color: colors.textPrimary, fontWeight: '700', fontSize: 14 }]}>{e.month}</Text>
-                        <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
+                        <Text
+                          style={[
+                            typography.h4,
+                            {
+                              color: colors.textPrimary,
+                              fontWeight: '700',
+                              fontSize: 14,
+                            },
+                          ]}
+                        >
+                          {e.month}
+                        </Text>
+                        <Text
+                          style={[
+                            typography.caption,
+                            { color: colors.textMuted, marginTop: 2 },
+                          ]}
+                        >
                           Credited on {e.date}
                         </Text>
                       </View>
                     </View>
 
-                    <Text style={[typography.h4, { color: colors.primary, fontWeight: '800' }]}>
+                    <Text
+                      style={[
+                        typography.h4,
+                        { color: colors.primary, fontWeight: '800' },
+                      ]}
+                    >
                       + {formatINR(e.amount)}
                     </Text>
                   </View>
