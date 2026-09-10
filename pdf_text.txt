@@ -1,0 +1,1421 @@
+PUNNAIGAI FINANCES
+COMPLETE PROJECT REQUIREMENTS AND FUNCTIONAL
+DOCUMENTATION
+Financial Management, Loan Management, Investment and Partnership
+Management System
+Project Name: Punnaigai Finances
+Project Type: Financial Management System
+Platforms: Admin Web Panel and Role-Based Mobile Application
+Mobile Application Roles: Customer, Agent, Investor and Partner
+Document Version: 1.0 – Final
+TABLE OF CONTENTS
+Project Overview
+Project Objectives
+System Architecture
+User Roles
+Overall Financial Concept
+Complete Company Financial Flow
+Company Incoming Money
+Company Outgoing Money
+Customer Management
+Customer Document Management
+Loan Package Management
+Customer Loan Flow
+Collection Management
+Overdue and Penalty Management
+Agent Management
+Investor Management
+Investor Financial Flow
+Investor Wallet Incoming and Outgoing Flow
+Partner Management
+Partner Financial Flow
+Partner Wallet Incoming and Outgoing Flow
+Income Management
+Expense Management
+Withdrawal Management
+Transaction Management
+Admin Panel Structure
+Role-Based Mobile Application
+Customer Mobile Screens
+Agent Mobile Screens
+Investor Mobile Screens
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+17.
+18.
+19.
+20.
+21.
+22.
+23.
+24.
+25.
+26.
+27.
+28.
+29.
+30.
+1
+
+-- 1 of 30 --
+
+Partner Mobile Screens
+Role-Based Navigation
+Reports
+Business Rules
+Complete System Flow
+Final Project Summary
+1. PROJECT OVERVIEW
+Punnaigai Finances is a centralized financial management system designed to manage the complete
+financial operations of a finance business.
+The system manages:
+Customer registration
+Customer documents and proofs
+Loan packages
+Loan applications
+Loan disbursement
+Customer repayments
+Agent collections
+Overdue payments
+Loan penalties
+Investor investments
+Investor periodic payments
+Investor wallets
+Investor withdrawals
+Partner contributions
+Partner earnings
+Partner wallets
+Partner withdrawals
+Income
+Expenses
+Financial transactions
+Business reports
+The project consists of two major platforms:
+1. Admin Web Panel
+The Admin manages and monitors the complete business operation.
+2. Role-Based Mobile Application
+A single mobile application supports multiple user roles. Each user sees screens and information based
+on their assigned role.
+31.
+32.
+33.
+34.
+35.
+36.
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+2
+
+-- 2 of 30 --
+
+The mobile roles are:
+Customer
+Agent
+Investor
+Partner
+2. PROJECT OBJECTIVES
+The main objective of Punnaigai Finances is to create a transparent and centralized system for
+managing money entering and leaving the business.
+The system should:
+Manage customer loans from application to completion.
+Store customer documents and supporting proofs.
+Track every customer payment.
+Allow Agents to record customer collections.
+Automatically identify overdue payments.
+Apply configurable penalties.
+Manage investments received from Investors.
+Record payments made to Investors.
+Maintain individual Investor wallets.
+Manage Partner contributions.
+Calculate and record Partner earnings.
+Maintain individual Partner wallets.
+Manage wallet withdrawals.
+Record company income and expenses.
+Maintain a complete transaction history.
+Provide accurate financial reports.
+3. SYSTEM ARCHITECTURE
+PUNNAIGAI FINANCES
+│
+┌────────────────┴────────────────┐
+│ 	│
+▼ 	▼
+ADMIN WEB PANEL 	MOBILE APPLICATION
+│ 	│
+│ 	┌──────────────┼──────────────┐
+│ 	│ 	│ 	│
+▼ 	▼ 	▼ 	▼
+Complete Business 	Customer 	Agent 	Investor
+Management 	│
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+3
+
+-- 3 of 30 --
+
+▼
+Partner
+4. USER ROLES
+4.1 Admin
+The Admin has complete control over the system.
+The Admin manages:
+Customers
+Customer documents
+Loans
+Loan packages
+Collections
+Penalties
+Agents
+Investors
+Partners
+Investor wallets
+Partner wallets
+Withdrawals
+Income
+Expenses
+Transactions
+Reports
+4.2 Customer
+A Customer receives a loan from Punnaigai Finances.
+The Customer can:
+View loan details.
+View the actual amount received.
+View payment schedules.
+View payment history.
+View pending amounts.
+View overdue amounts.
+View penalty information.
+View and upload required documents.
+View notifications.
+Manage their profile.
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+4
+
+-- 4 of 30 --
+
+4.3 Agent
+An Agent manages customer collections.
+The Agent can:
+View assigned customers.
+View customer loan information.
+View pending amounts.
+Record customer collections.
+View collection history.
+View daily and monthly collection summaries.
+4.4 Investor
+An Investor provides an investment amount to Punnaigai Finances.
+The Investor can:
+View investment details.
+View periodic payments.
+View wallet credits.
+View wallet balance.
+Request withdrawals.
+View withdrawal history.
+View investment-related documents.
+4.5 Partner
+A Partner participates in the business based on a partnership agreement.
+The Partner can:
+View partnership details.
+View contribution history.
+View business earnings.
+View wallet credits.
+Request withdrawals.
+View withdrawal history.
+View partnership documents.
+5. OVERALL FINANCIAL CONCEPT
+The complete project is based on the movement of money.
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+5
+
+-- 5 of 30 --
+
+There are three major areas:
+1. COMPANY INCOMING MONEY
+2. COMPANY OUTGOING MONEY
+3. INDIVIDUAL WALLET MONEY
+These financial areas must be maintained separately.
+6. COMPLETE COMPANY FINANCIAL FLOW
+MONEY COMING INTO THE BUSINESS
+│
+┌─────────────────────────┼─────────────────────────┐
+│ 	│ 	│
+▼ 	▼ 	▼
+Investor Investment 	Partner Contribution 	Customer Collection
+│ 	│ 	│
+└─────────────────────────┼─────────────────────────┘
+│
+▼
+PUNNAIGAI FINANCES
+COMPANY FUND
+│
+┌─────────────────┼─────────────────┐
+│ 	│ 	│
+▼ 	▼ 	▼
+Customer Loans 	Business Expenses Approved Payments
+│
+┌─────────────┴─────────────┐
+│ 	│
+▼ 	▼
+Investor Payments 	Partner Earnings
+│ 	│
+▼ 	▼
+Investor Wallet 	Partner Wallet
+│ 	│
+▼ 	▼
+Withdrawal 	Withdrawal
+7. COMPANY INCOMING MONEY
+Company incoming money means money entering the business.
+6
+
+-- 6 of 30 --
+
+7.1 Investor Investment
+Example:
+Investor Ravi
+│
+│ ₹5,00,000 Investment
+▼
+Punnaigai Finances
+This is recorded as an Investor Investment transaction.
+7.2 Partner Contribution
+Example:
+Partner Arun
+│
+│ ₹5,00,000 Contribution
+▼
+Punnaigai Finances
+If there are two Partners:
+Partner Arun 	→ ₹5,00,000
+Partner Kumar 	→ ₹5,00,000
+Total Contribution = ₹10,00,000
+7.3 Customer Collection
+Customers repay their loan amounts.
+Customer
+│
+│ Loan Repayment
+▼
+Agent / Admin
+│
+▼
+Punnaigai Finances
+7
+
+-- 7 of 30 --
+
+7.4 Other Business Income
+Other income may include:
+Processing charges
+Service charges
+Other approved income
+8. COMPANY OUTGOING MONEY
+Company outgoing money means money leaving the business.
+Main Outgoing Transactions
+Customer loan disbursement
+Business expenses
+Investor payments
+Partner earnings
+Approved withdrawal payments
+8.1 Customer Loan Disbursement
+Example:
+Loan Package Amount: ₹1,00,000
+Actual Amount Given to Customer: ₹88,000
+Flow:
+Punnaigai Finances
+│
+│ ₹88,000
+▼
+Customer
+The actual amount disbursed must be recorded clearly.
+•
+•
+•
+•
+•
+•
+•
+•
+8
+
+-- 8 of 30 --
+
+8.2 Business Expenses
+Examples:
+Office rent
+Salaries
+Travel expenses
+Maintenance
+Other approved expenses
+9. CUSTOMER MANAGEMENT
+Customer Module Structure
+CUSTOMER
+│
+├── Customer List
+├── Add Customer
+├── Customer Details
+│ ├── Personal Information
+│ ├── Documents
+│ ├── Loan Details
+│ ├── Payment Schedule
+│ ├── Payment History
+│ ├── Pending Amount
+│ ├── Overdue Details
+│ └── Penalty History
+│
+└── Customer Reports
+10. CUSTOMER DOCUMENT MANAGEMENT
+The system should allow customer documents to be uploaded and verified.
+Possible Documents
+Identity Proof
+Address Proof
+Income Proof
+Employment Proof
+Property Documents
+Asset Documents
+Guarantor Documents
+Other Required Documents
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+9
+
+-- 9 of 30 --
+
+Document Information
+Each document should contain:
+Document Category
+Document Name
+Attachment
+Upload Date
+Verification Status
+Admin Remarks
+Document Status
+Pending
+Verified
+Rejected
+Additional Document Required
+11. LOAN PACKAGE MANAGEMENT
+The Admin creates different loan packages.
+Loan Package Fields
+Package Name
+Package Amount
+Actual Disbursement Amount
+Repayment Duration
+Payment Frequency
+Total Repayment Amount
+Applicable Charges
+Grace Period
+Penalty Configuration
+Package Status
+12. CUSTOMER LOAN FLOW
+Customer Registration
+│
+▼
+Document Upload
+│
+▼
+Document Verification
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+10
+
+-- 10 of 30 --
+
+│
+▼
+Loan Package Selection
+│
+▼
+Loan Application
+│
+▼
+Admin Approval
+│
+▼
+Loan Disbursement
+│
+▼
+Customer Receives Money
+│
+▼
+Payment Schedule
+│
+▼
+Customer Repayment
+│
+▼
+Collection Recording
+│
+▼
+Loan Completion
+13. COLLECTION MANAGEMENT
+Collections may be recorded by the Agent or Admin.
+Collection Details
+Customer Name
+Loan Reference
+Collection Amount
+Collection Date
+Payment Method
+Transaction Reference
+Collected By
+Remarks
+Collection Flow
+Customer Payment
+│
+•
+•
+•
+•
+•
+•
+•
+•
+11
+
+-- 11 of 30 --
+
+▼
+Agent / Admin
+│
+▼
+Collection Entry
+│
+▼
+Transaction Created
+│
+├── Total Paid Amount Updated
+├── Pending Amount Updated
+└── Payment History Updated
+14. OVERDUE AND PENALTY MANAGEMENT
+The system should identify overdue payments.
+Example
+If a customer does not pay for three months:
+Payment Due Date
+│
+▼
+Payment Not Received
+│
+▼
+Overdue Period
+│
+▼
+3 Months Completed?
+│
+▼
+Apply Configured Penalty
+Example:
+Pending Amount: ₹20,000
+Penalty: ₹1,000
+Total Payable: ₹21,000
+The Admin should be able to configure:
+Penalty enable/disable	•
+12
+
+-- 12 of 30 --
+
+Grace period
+Fixed amount or percentage
+Penalty frequency
+Maximum penalty amount
+15. AGENT MANAGEMENT
+The Admin assigns customers to Agents.
+Agent Flow
+Admin
+│
+▼
+Assign Customer
+│
+▼
+Agent
+│
+▼
+Collect Customer Payment
+│
+▼
+Record Collection
+│
+▼
+Customer Financial Details Updated
+16. INVESTOR MANAGEMENT
+Investor information should contain:
+Personal details
+Investment details
+Investment agreement
+Investment amount
+Payment history
+Wallet
+Withdrawal history
+Supporting documents
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+13
+
+-- 13 of 30 --
+
+17. INVESTOR FINANCIAL FLOW
+The Investor gives an investment amount to Punnaigai Finances.
+Example:
+Investor Ravi
+│
+│ Investment ₹5,00,000
+▼
+Punnaigai Finances
+Important:
+Investment Amount ≠ Investor Wallet Balance
+Example:
+Original Investment: ₹5,00,000
+Initial Wallet Balance: ₹0
+The original investment and wallet must be stored separately.
+18. INVESTOR WALLET
+18.1 Wallet Incoming
+The Investor Wallet receives periodic payments according to the investment agreement.
+Example:
+January
+Monthly Payment: + ₹10,000
+Wallet Balance: ₹10,000
+February
+Monthly Payment: + ₹10,000
+Wallet Balance: ₹20,000
+14
+
+-- 14 of 30 --
+
+March
+Monthly Payment: + ₹10,000
+Wallet Balance: ₹30,000
+Investor Wallet Incoming Flow
+Punnaigai Finances
+│
+▼
+Approved Investor Payment
+│
+▼
+Wallet Credit Transaction
+│
+▼
+Investor Wallet
+18.2 Investor Wallet Outgoing
+When the Investor wants to withdraw money:
+Investor Wallet
+│
+▼
+Withdrawal Request
+│
+▼
+Admin Review
+│
+▼
+Approved
+│
+▼
+Money Paid
+│
+▼
+Wallet Debit Transaction
+Example:
+Wallet Balance: ₹30,000
+Withdrawal: ₹15,000
+15
+
+-- 15 of 30 --
+
+Remaining Balance: ₹15,000
+18.3 Investor Wallet Formula
+Available Wallet Balance
+=
+Total Wallet Credits
+-
+Completed Withdrawals
+19. PARTNERSHIP MANAGEMENT
+The Partnership Module manages Partners and their financial relationship with Punnaigai Finances.
+Partner information includes:
+Partner details
+Partnership agreement
+Contribution amount
+Contribution history
+Earnings
+Wallet
+Withdrawal history
+Supporting documents
+20. PARTNER FINANCIAL FLOW
+Example:
+Partner Arun
+│
+│ Contribution ₹5,00,000
+▼
+Punnaigai Finances
+The Partner contribution must be separate from the Partner Wallet.
+•
+•
+•
+•
+•
+•
+•
+•
+16
+
+-- 16 of 30 --
+
+Partner Contribution ≠ Partner Earnings ≠ Partner Wallet Balance
+21. PARTNER WALLET
+21.1 Partner Wallet Incoming
+Partner earnings are credited to the Partner Wallet.
+Example:
+January
+Partner Earnings: + ₹25,000
+February
+Partner Earnings: + ₹30,000
+Wallet balance:
+January Earnings: ₹25,000
+February Earnings: ₹30,000
+Total Balance: 	₹55,000
+Partner Wallet Incoming Flow
+Business Earnings
+│
+▼
+Earnings Calculation
+│
+▼
+Admin Approval
+│
+▼
+Partner Wallet Credit
+17
+
+-- 17 of 30 --
+
+21.2 Partner Wallet Outgoing
+Example:
+Wallet Balance: ₹55,000
+Withdrawal: ₹20,000
+Remaining Balance: ₹35,000
+Flow:
+Partner Wallet
+│
+▼
+Withdrawal Request
+│
+▼
+Admin Approval
+│
+▼
+Payment Completed
+│
+▼
+Wallet Debit
+21.3 Partner Wallet Formula
+Available Partner Wallet Balance
+=
+Approved Earnings
++
+Other Approved Wallet Credits
+-
+Completed Withdrawals
+18
+
+-- 18 of 30 --
+
+22. INVESTOR AND PARTNER DIFFERENCE
+Investor 	Partner
+Provides an investment 	Participates in the business
+Investment Agreement 	Partnership Agreement
+Investment amount is recorded 	Contribution amount is recorded
+Receives agreed periodic payments Receives agreed business earnings
+Has an Investor Wallet 	Has a Partner Wallet
+Can request wallet withdrawal 	Can request wallet withdrawal
+23. INCOME MANAGEMENT
+The Income Module records money received as business income.
+Income Fields
+Income Category
+Amount
+Date
+Description
+Payment Method
+Reference Number
+Supporting Attachment
+24. EXPENSE MANAGEMENT
+The Expense Module records money spent by the business.
+Expense Categories
+Office Expenses
+Salary
+Travel
+Maintenance
+Agent Expenses
+Other Expenses
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+19
+
+-- 19 of 30 --
+
+25. WITHDRAWAL MANAGEMENT
+Withdrawals are applicable to:
+Investors
+Partners
+Withdrawal Status
+Pending
+Approved
+Rejected
+Completed
+The wallet should only be debited after the withdrawal is successfully completed.
+26. TRANSACTION MANAGEMENT
+Every financial activity should create a transaction record.
+Transaction Types
+Investor Investment
+Partner Contribution
+Customer Loan Disbursement
+Customer Collection
+Penalty
+Investor Wallet Credit
+Investor Withdrawal
+Partner Wallet Credit
+Partner Withdrawal
+Income
+Expense
+Transaction Fields
+Transaction ID
+User
+User Role
+Transaction Type
+Credit or Debit
+Amount
+Date
+Reference Number
+Description
+Status
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+20
+
+-- 20 of 30 --
+
+27. ADMIN PANEL – COMPLETE STRUCTURE
+ADMIN PANEL
+│
+├── Dashboard
+│
+├── Customer Management
+│ ├── Customer List
+│ ├── Add Customer
+│ ├── Customer Details
+│ ├── Customer Documents
+│ ├── Loan Details
+│ ├── Payment Schedule
+│ ├── Payment History
+│ └── Penalty History
+│
+├── Loan Package Management
+│
+├── Loan Management
+│
+├── Collection Management
+│
+├── Penalty Management
+│
+├── Agent Management
+│ ├── Agent List
+│ ├── Assigned Customers
+│ └── Collection History
+│
+├── Investor Management
+│ ├── Investor List
+│ ├── Investment Details
+│ ├── Documents
+│ ├── Payment History
+│ ├── Wallet
+│ └── Withdrawal History
+│
+├── Partnership Management
+│ ├── Partner List
+│ ├── Partnership Details
+│ ├── Documents
+│ ├── Contributions
+│ ├── Earnings
+│ ├── Wallet
+│ └── Withdrawal History
+│
+├── Income Management
+│
+21
+
+-- 21 of 30 --
+
+├── Expense Management
+│
+├── Wallet Management
+│ ├── Investor Wallet
+│ └── Partner Wallet
+│
+├── Withdrawal Management
+│
+├── Transaction Management
+│
+├── Reports
+│
+└── Settings
+28. ROLE-BASED MOBILE APPLICATION
+The application uses a single login system.
+After successful login:
+Login
+│
+▼
+Role Verification
+│
+├── Customer → Customer Dashboard
+├── Agent → Agent Dashboard
+├── Investor → Investor Dashboard
+└── Partner → Partner Dashboard
+Each role can only access its authorized screens.
+29. CUSTOMER MOBILE APP SCREENS
+CUSTOMER APP
+│
+├── Dashboard
+│ ├── Active Loan
+│ ├── Pending Amount
+│ ├── Next Payment Date
+│ └── Overdue Alert
+│
+├── My Loan
+│ ├── Loan Details
+22
+
+-- 22 of 30 --
+
+│ ├── Amount Received
+│ └── Loan Status
+│
+├── Payment Schedule
+│
+├── Payment History
+│
+├── Pending Amount
+│
+├── Overdue Details
+│
+├── Penalty Details
+│
+├── My Documents
+│
+├── Notifications
+│
+└── Profile
+Bottom Navigation
+Home | My Loan | Payments | Profile
+30. AGENT MOBILE APP SCREENS
+AGENT APP
+│
+├── Dashboard
+│ ├── Today's Collection
+│ ├── Total Collection
+│ └── Assigned Customers
+│
+├── Customers
+│ ├── Assigned Customer List
+│ ├── Search Customer
+│ └── Customer Details
+│
+├── Customer Details
+│ ├── Personal Details
+│ ├── Loan Details
+│ ├── Pending Amount
+│ └── Payment History
+│
+├── Collection
+│ ├── Add Collection
+│ ├── Today's Collection
+23
+
+-- 23 of 30 --
+
+│ └── Collection History
+│
+├── Reports
+│ ├── Daily Collection
+│ └── Monthly Collection
+│
+├── Notifications
+│
+└── Profile
+Bottom Navigation
+Home | Customers | Collection | Profile
+31. INVESTOR MOBILE APP SCREENS
+INVESTOR APP
+│
+├── Dashboard
+│ ├── Total Investment
+│ ├── Wallet Balance
+│ ├── Total Payments Received
+│ └── Recent Transactions
+│
+├── My Investment
+│ ├── Investment Details
+│ ├── Investment Amount
+│ └── Investment History
+│
+├── Payment History
+│ ├── Monthly Payments
+│ └── Payment Details
+│
+├── My Wallet
+│ ├── Available Balance
+│ ├── Wallet Credits
+│ ├── Withdrawals
+│ └── Transaction History
+│
+├── Withdraw Money
+│ └── Withdrawal Request Form
+│
+├── Withdrawal History
+│
+├── My Documents
+│
+24
+
+-- 24 of 30 --
+
+├── Notifications
+│
+└── Profile
+Bottom Navigation
+Home | Investment | Wallet | Profile
+32. PARTNER MOBILE APP SCREENS
+PARTNER APP
+│
+├── Dashboard
+│ ├── Total Contribution
+│ ├── Total Earnings
+│ ├── Wallet Balance
+│ └── Recent Transactions
+│
+├── My Partnership
+│ ├── Partnership Details
+│ └── Partnership Status
+│
+├── My Contribution
+│ └── Contribution History
+│
+├── My Earnings
+│ ├── Monthly Earnings
+│ ├── Yearly Earnings
+│ └── Earnings History
+│
+├── My Wallet
+│ ├── Available Balance
+│ ├── Wallet Credits
+│ ├── Withdrawals
+│ └── Transaction History
+│
+├── Withdraw Money
+│
+├── Withdrawal History
+│
+├── Partnership Documents
+│
+├── Notifications
+│
+└── Profile
+25
+
+-- 25 of 30 --
+
+Bottom Navigation
+Home | Earnings | Wallet | Profile
+33. ROLE-BASED NAVIGATION STRUCTURE
+MOBILE APPLICATION
+│
+▼
+LOGIN
+│
+▼
+CHECK USER ROLE
+│
+┌─────────────────┼─────────────────┐
+│ 	│ 	│
+▼ 	▼ 	▼
+CUSTOMER 	AGENT 	INVESTOR
+│ 	│ 	│
+▼ 	▼ 	▼
+Customer 	Agent 	Investor
+Navigator 	Navigator 	Navigator
+│
+▼
+PARTNER
+Navigator
+The recommended React Native architecture is:
+App
+│
+├── AuthNavigator
+│
+└── RoleBasedNavigator
+│
+├── CustomerNavigator
+├── AgentNavigator
+├── InvestorNavigator
+└── PartnerNavigator
+26
+
+-- 26 of 30 --
+
+34. REPORTS
+The Admin should have access to:
+Customer Report
+Loan Report
+Collection Report
+Pending Payment Report
+Overdue Report
+Penalty Report
+Agent Collection Report
+Investor Report
+Investor Wallet Report
+Partner Contribution Report
+Partner Earnings Report
+Partner Wallet Report
+Income Report
+Expense Report
+Withdrawal Report
+Complete Transaction Report
+Reports should support:
+Daily filter
+Monthly filter
+Yearly filter
+Custom date filter
+35. IMPORTANT BUSINESS RULES
+Rule 1: Company Fund and Individual Wallet Must Be Separate
+Company money should not be directly confused with Investor or Partner wallet money.
+Rule 2: Investment Amount and Wallet Balance Must Be Separate
+Investment Amount ≠ Wallet Balance
+Rule 3: Partner Contribution and Earnings Must Be Separate
+Partner Contribution ≠ Partner Earnings ≠ Wallet Balance
+Rule 4: Every Wallet Credit Must Have a Transaction
+A wallet balance should never be manually increased without a transaction record.
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+27
+
+-- 27 of 30 --
+
+Rule 5: Every Withdrawal Must Have a Transaction
+A completed withdrawal must create a debit transaction.
+Rule 6: Wallet Balance Cannot Become Negative
+Users cannot withdraw more than their available balance.
+Rule 7: Customer Documents Must Be Traceable
+Every document must have an attachment and verification status.
+Rule 8: Penalties Must Be Configurable
+The Admin should configure penalty rules instead of hardcoding them.
+Rule 9: Every Financial Activity Must Be Recorded
+All money movement must create a transaction record.
+36. COMPLETE SYSTEM FLOW
+INVESTOR INVESTMENT ────────┐
+│
+PARTNER CONTRIBUTION ───────┤
+▼
+COMPANY FUND
+│
+CUSTOMER COLLECTION ────────┤
+│
+OTHER BUSINESS INCOME ──────┘
+│
+▼
+PUNNAIGAI FINANCES
+│
+┌───────────────┼────────────────┐
+│ 	│ 	│
+▼ 	▼ 	▼
+CUSTOMER LOANS 	EXPENSES 	INVESTOR PAYMENTS
+│
+▼
+INVESTOR WALLET
+│
+▼
+WITHDRAWAL
+│
+▼
+28
+
+-- 28 of 30 --
+
+PARTNER EARNINGS
+│
+▼
+PARTNER WALLET
+│
+▼
+WITHDRAWAL
+37. FINAL PROJECT SUMMARY
+Punnaigai Finances is a complete role-based financial management system consisting of an Admin Web
+Panel and a Mobile Application.
+The system manages the complete financial lifecycle:
+MONEY COMES INTO THE BUSINESS
+│
+▼
+COMPANY FUND RECORD
+│
+▼
+BUSINESS OPERATIONS
+│
+┌──────┼──────┐
+▼ 	▼ 	▼
+LOANS EXPENSES PAYMENTS
+│
+┌────────┴────────┐
+▼ 	▼
+INVESTOR WALLET 	PARTNER WALLET
+│ 	│
+▼ 	▼
+WITHDRAWAL 	WITHDRAWAL
+Company Incoming Money
+Investor Investments
+Partner Contributions
+Customer Collections
+Other Business Income
+Company Outgoing Money
+Customer Loan Disbursements
+Business Expenses
+Investor Payments
+Partner Earnings
+•
+•
+•
+•
+•
+•
+•
+•
+29
+
+-- 29 of 30 --
+
+Approved Withdrawals
+Investor Wallet
+Incoming:
+Periodic payments
+Approved wallet credits
+Outgoing:
+Completed withdrawals
+Partner Wallet
+Incoming:
+Approved business earnings
+Other approved credits
+Outgoing:
+Completed withdrawals
+Mobile Application Roles
+Customer
+Agent
+Investor
+Partner
+Each role has its own dashboard, navigation, permissions, and screens.
+This documentation provides the complete functional structure required for:
+UI/UX Design
+Admin Panel Development
+React Native Mobile App Development
+Backend API Development
+Database Design
+Wallet Calculation Logic
+Financial Transaction Management
+Role-Based Authentication
+Reports and Analytics
+The core principle of the Punnaigai Finances system is that every incoming and outgoing
+financial movement must be transparent, properly recorded, and traceable through a transaction
+history.
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+•
+30
+
+-- 30 of 30 --
+
