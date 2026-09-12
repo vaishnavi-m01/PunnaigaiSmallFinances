@@ -2,7 +2,7 @@ export enum APP_ROLES {
   CUSTOMER = 'customer',
   AGENT = 'agent',
   INVESTOR = 'investor',
-  PARTNERSHIP = 'partnership',
+  PARTNERSHIP = 'partner',
 }
 
 export type AppRoleType = `${APP_ROLES}`;

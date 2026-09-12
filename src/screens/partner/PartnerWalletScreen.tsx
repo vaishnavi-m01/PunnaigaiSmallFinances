@@ -1,177 +1,156 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Modal, TouchableOpacity, RefreshControl } from 'react-native';
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  StatusBar,
+} from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
+import { useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
-import { Header } from '../../component/Header';
-import { Card } from '../../component/Common/Card';
-import { CustomInput } from '../../component/Common/CustomInput';
-import { CustomButton } from '../../component/Common/CustomButton';
-import { Badge } from '../../component/Common/Badge';
-import { Skeleton } from '../../component/Common/Skeleton';
+import { AppIcon } from '../../component/AppIcon';
 import { formatINR } from '../../utils/currency';
-import { requestPartnerWithdrawal } from '../../store/partnerSlice';
-import { showToast } from '../../store/toastSlice';
-import { WithdrawalRequest } from '../../types/models';
 import { ROUTES } from '../../constants/routes';
 
 export const PartnerWalletScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const dispatch = useAppDispatch();
-  const { colors, typography, radius } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const { colors, typography } = useAppTheme();
   const partner = useAppSelector(state => state.partner);
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const onRefresh = React.useCallback(() => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
-  }, []);
-
-  const [amount, setAmount] = useState('10000');
-  const [bankAccount, setBankAccount] = useState('ICICI Bank •••• 8812');
-  const [ifsc, setIfsc] = useState('ICIC0002345');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleWithdrawRequest = () => {
-    const num = parseFloat(amount);
-    if (!num || num <= 0) {
-      dispatch(showToast({ type: 'error', title: 'Invalid Amount', message: 'Enter a valid amount.' }));
-      return;
-    }
-    if (num > partner.details.walletBalance) {
-      dispatch(showToast({ type: 'error', title: 'Insufficient Balance', message: 'Requested amount exceeds partner wallet balance.' }));
-      return;
-    }
-
-    setIsSubmitting(true);
-    setTimeout(() => {
-      dispatch(requestPartnerWithdrawal({ amount: num, bankAccount, ifsc }));
-      setIsSubmitting(false);
-      setModalVisible(false);
-      dispatch(
-        showToast({
-          type: 'success',
-          title: 'Withdrawal Submitted',
-          message: `Partner withdrawal request for ${formatINR(num)} submitted successfully.`,
-        })
-      );
-    }, 800);
-  };
+  const transactions = [
+    {
+      id: '1',
+      title: 'Investment Added',
+      subtitle: 'Initial investment by Kavin',
+      amount: partner.details.totalContribution,
+      date: '11 Sep 2026',
+      type: 'credit',
+      icon: 'triangle',
+      iconColor: '#10B981',
+      iconBg: '#D1FAE5',
+    },
+    {
+      id: '2',
+      title: 'Profit Share',
+      subtitle: 'Share from partnership profit',
+      amount: partner.details.totalEarnings,
+      date: '11 Sep 2026',
+      type: 'credit',
+      icon: 'briefcase',
+      iconColor: '#8B5CF6',
+      iconBg: '#EDE9FE',
+    },
+    {
+      id: '3',
+      title: 'Profit Withdrawal',
+      subtitle: 'Withdraw profit amount',
+      amount: 2000,
+      date: '15 Sep 2026',
+      type: 'debit',
+      icon: 'file-text',
+      iconColor: '#EF4444',
+      iconBg: '#FEE2E2',
+    },
+  ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Header title="Partner Wallet" showBack={false} showNotification={true} />
+    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
+      {/* Header Area */}
+      <LinearGradient
+        colors={['#0B533E', '#168B5E']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
       >
-        {isRefreshing ? (
-          <View style={{ paddingTop: 8 }}>
-            <Skeleton height={180} borderRadius={16} style={{ marginBottom: 30 }} />
-            <Skeleton width={180} height={24} style={{ marginBottom: 16 }} />
-            {[1, 2, 3].map(i => (
-              <Skeleton key={i} height={80} borderRadius={12} style={{ marginBottom: 12 }} />
-            ))}
-          </View>
-        ) : (
-          <>
-            {/* Wallet Balance Card */}
-            <Card style={[styles.walletCard, { backgroundColor: colors.primaryBackground, borderColor: colors.borderGreen }]} variant="flat">
-              <Text style={[typography.subtitle, { color: colors.primary, fontWeight: '700' }]}>
-                Available Partner Wallet Balance
-              </Text>
-              <Text style={[typography.statValue, { color: colors.primary, marginTop: 4, fontWeight: '800' }]}>
-                {formatINR(partner.details.walletBalance)}
-              </Text>
-              <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-                Formula: Partner Earnings - Completed Withdrawals
-              </Text>
+        <View style={styles.headerTitleRow}>
+          <Text style={[typography.h3, { color: colors.white }]}>
+            Wallet
+          </Text>
+        </View>
+      </LinearGradient>
 
-              <CustomButton
-                title="Request Earnings Withdrawal"
-                onPress={() => navigation.navigate(ROUTES.PARTNER_WITHDRAW as never)}
-                variant="primary"
-                style={{ marginTop: 16 }}
-                gradientColors={colors.buttonGradient}
-              />
-            </Card>
-
-            {/* Withdrawal History */}
-            <Text style={[typography.h3, styles.sectionTitle, { color: colors.textPrimary }]}>
-              Completed & Pending Withdrawals
-            </Text>
-
-            <View style={styles.list}>
-              {partner.withdrawals.map((w: WithdrawalRequest) => (
-                <Card key={w.id} style={[styles.card, { borderColor: colors.border }]} variant="flat" padding={14}>
-                  <View style={styles.row}>
-                    <View>
-                      <Text style={[typography.h4, { color: colors.textPrimary }]}>
-                        {formatINR(w.amount)}
-                      </Text>
-                      <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
-                        {w.requestedDate} • {w.bankAccount}
-                      </Text>
-                    </View>
-                    <Badge status={w.status} size="small" />
-                  </View>
-                </Card>
-              ))}
+      {/* Full Page White Container */}
+      <View style={styles.pageContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Balance Card */}
+          <View style={[styles.balanceCard, { backgroundColor: colors.white }]}>
+            <View style={styles.balanceTopRow}>
+              <View style={[styles.iconBox, { backgroundColor: '#ECFDF5' }]}>
+                <AppIcon name="pocket" size={20} color="#10B981" />
+              </View>
+              <View style={{ marginLeft: 16 }}>
+                <Text style={[typography.bodyMedium, { color: '#64748B' }]}>
+                  Available Profit Balance
+                </Text>
+                <Text style={[typography.h2, { color: '#0F172A', marginTop: 4 }]}>
+                  {formatINR(partner.details.walletBalance)}
+                </Text>
+              </View>
             </View>
-          </>
-        )}
-      </ScrollView>
-
-      {/* Withdrawal Modal */}
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={[styles.modalBackdrop, { backgroundColor: colors.modalOverlay }]}>
-          <View style={[styles.modalSheet, { borderRadius: radius.xl, backgroundColor: colors.surface }]}>
-            <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: 12 }]}>
-              Withdraw Earnings
-            </Text>
-
-            <CustomInput
-              label="Withdrawal Amount (₹)"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="number-pad"
-              leftIcon="wallet"
-            />
-
-            <CustomInput
-              label="Bank Account"
-              value={bankAccount}
-              onChangeText={setBankAccount}
-              leftIcon="credit-card"
-            />
-
-            <CustomInput
-              label="IFSC Code"
-              value={ifsc}
-              onChangeText={setIfsc}
-            />
-
-            <CustomButton
-              title={`Submit Request for ${formatINR(parseFloat(amount) || 0)}`}
-              onPress={handleWithdrawRequest}
-              variant="primary"
-              isLoading={isSubmitting}
-              style={{ marginTop: 12 }}
-              gradientColors={colors.buttonGradient}
-            />
-
-            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelBtn}>
-              <Text style={[typography.button, { color: colors.textSecondary }]}>Cancel</Text>
+            
+            <TouchableOpacity 
+              style={[styles.withdrawBtn, { backgroundColor: '#0D523B' }]}
+              onPress={() => navigation.navigate(ROUTES.PARTNER_WITHDRAW)}
+              activeOpacity={0.8}
+            >
+              <Text style={[typography.subtitle, { color: colors.white }]}>Withdraw Profit</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+
+          {/* Transaction History Header */}
+          <View style={styles.historyHeader}>
+            <Text style={[typography.h3, { color: '#0F172A' }]}>
+              Transaction History
+            </Text>
+            <TouchableOpacity>
+              <AppIcon name="filter" size={20} color="#10B981" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Transaction List */}
+          <View style={styles.txList}>
+            {transactions.map(tx => (
+              <View key={tx.id} style={[styles.txCard, { backgroundColor: colors.white }]}>
+                <View style={styles.txLeft}>
+                  <View style={[styles.txIconBox, { backgroundColor: tx.iconBg }]}>
+                    <AppIcon name={tx.icon} size={18} color={tx.iconColor} />
+                  </View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={[typography.subtitle, { color: '#0F172A' }]} numberOfLines={1}>
+                      {tx.title}
+                    </Text>
+                    <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]} numberOfLines={1}>
+                      {tx.subtitle}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.txRight}>
+                  <Text style={[
+                    typography.subtitle, 
+                    { color: tx.type === 'credit' ? '#10B981' : '#EF4444' }
+                  ]}>
+                    {tx.type === 'credit' ? '+ ' : '- '}{formatINR(tx.amount)}
+                  </Text>
+                  <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]}>
+                    {tx.date}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+        </ScrollView>
+      </View>
     </View>
   );
 };
@@ -180,42 +159,84 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 16,
+  header: {
+    position: 'relative',
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  walletCard: {
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 40,
+  },
+  pageContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -20,
+    overflow: 'hidden',
+  },
+  scrollContent: {
+    padding: 24,
+    paddingBottom: 40,
+  },
+  balanceCard: {
+    padding: 24,
+    borderRadius: 20,
+    marginBottom: 24,
     borderWidth: 1,
-    padding: 20,
-    marginBottom: 20,
+    borderColor: '#E2E8F0',
   },
-  sectionTitle: {
-    fontWeight: '700',
-    marginBottom: 12,
+  balanceTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  list: {
-    gap: 10,
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  card: {
-    borderWidth: 1,
+  withdrawBtn: {
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
   },
-  row: {
+  historyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
+  txList: {
+    gap: 8,
   },
-  modalSheet: {
-    padding: 24,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  cancelBtn: {
+  txCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 6,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  txLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  txIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  txRight: {
+    alignItems: 'flex-end',
   },
 });

@@ -4,7 +4,7 @@ import { AgentTabParamList } from '../../types/navigation';
 import { ROUTES } from '../../constants/routes';
 import { AgentDashboardScreen } from '../../screens/Agent/AgentDashboardScreen';
 import { AssignedCustomersScreen } from '../../screens/Agent/AssignedCustomersScreen';
-import { AddCollectionScreen } from '../../screens/Agent/AddCollectionScreen';
+import { CollectionHistoryScreen } from '../../screens/Agent/CollectionHistoryScreen';
 import { AgentProfileScreen } from '../../screens/Agent/AgentProfileScreen';
 import { AppIcon } from '../../component/AppIcon';
 import { CustomTabBar } from '../../component/Common/CustomTabBar';
@@ -40,12 +40,12 @@ export const AgentTabNavigator: React.FC = () => {
         }}
       />
       <Tab.Screen
-        name={ROUTES.ADD_COLLECTION}
-        component={AddCollectionScreen}
+        name={ROUTES.COLLECTION_HISTORY}
+        component={CollectionHistoryScreen}
         options={{
-          tabBarLabel: 'Collection',
+          tabBarLabel: 'Collections',
           tabBarIcon: ({ color, size }) => (
-            <AppIcon name="credit-card" size={size || 20} color={color} />
+            <AppIcon name="layers" size={size || 20} color={color} />
           ),
         }}
       />

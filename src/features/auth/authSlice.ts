@@ -1,12 +1,13 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { AuthState } from './authTypes';
-import { loginThunk, loadStoredAuth, logoutThunk } from './authThunks';
+import { loginThunk, loadStoredAuth, logoutThunk, fetchProfileThunk } from './authThunks';
 import { setActiveRole } from '../../theme/activeRole';
 
 const initialState: AuthState = {
   loading: false,
   error: null,
   user: null,
+  profile: null,
   role: null,
   token: null,
 };
@@ -18,6 +19,7 @@ const authSlice = createSlice({
     clearAuth: (state) => {
       state.token = null;
       state.user = null;
+      state.profile = null;
       state.role = null;
       state.error = null;
     },
@@ -58,7 +60,15 @@ const authSlice = createSlice({
       .addCase(logoutThunk.fulfilled, state => {
         state.token = null;
         state.user = null;
+        state.profile = null;
         state.role = null;
+      })
+
+      // Fetch Profile
+      .addCase(fetchProfileThunk.fulfilled, (state, action) => {
+        // The API returns { user: {...}, profile: {...}, role: "agent" }
+        // We can store `profile` which has agent/partner specific details
+        state.profile = action.payload?.profile || null;
       });
   },
 });

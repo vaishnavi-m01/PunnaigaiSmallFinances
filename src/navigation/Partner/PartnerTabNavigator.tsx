@@ -33,9 +33,9 @@ export const PartnerTabNavigator: React.FC = () => {
         name={ROUTES.MY_EARNINGS}
         component={PartnerEarningsReportScreen}
         options={{
-          tabBarLabel: 'Earnings',
+          tabBarLabel: 'Investment',
           tabBarIcon: ({ color, size }) => (
-            <AppIcon name="pie-chart" size={size || 20} color={color} />
+            <AppIcon name="trending-up" size={size || 20} color={color} />
           ),
         }}
       />
@@ -45,7 +45,7 @@ export const PartnerTabNavigator: React.FC = () => {
         options={{
           tabBarLabel: 'Wallet',
           tabBarIcon: ({ color, size }) => (
-            <AppIcon name="wallet" size={size || 20} color={color} />
+            <AppIcon name="credit-card" size={size || 20} color={color} />
           ),
         }}
       />

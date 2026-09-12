@@ -12,7 +12,6 @@ export interface RecordCollectionInput {
   remarks?: string;
 }
 
-/** Fetches customers allocated to the currently authenticated agent. */
 export const fetchAssignedCustomersThunk = createAsyncThunk<
   AssignedCustomer[],
   void,
@@ -23,33 +22,30 @@ export const fetchAssignedCustomersThunk = createAsyncThunk<
     return customers.map(customer => ({
       id: String(customer.id),
       name: customer.name,
-      phone: customer.phone,
-      loanId: String(customer.loan_id),
-      pendingAmount: Number(customer.pending_amount),
-      dueDate: customer.due_date,
-      isOverdue: Boolean(customer.is_overdue),
-      address: customer.address,
-      avatar: customer.avatar,
+      phone: customer.mobile,
+      loanId: customer.next_due ? String(customer.next_due.loan_id) : 'N/A',
+      pendingAmount: customer.next_due ? Number(customer.next_due.amount) : 0,
+      dueDate: customer.next_due ? customer.next_due.due_date : '',
+      isOverdue: customer.next_due ? new Date(customer.next_due.due_date) < new Date() && customer.next_due.status === 'pending' : false,
+      address: undefined, 
+      avatar: undefined,
     }));
   } catch (error: unknown) {
     return rejectWithValue(parseApiError(error));
   }
 });
 
-/**
- * Records an agent collection through the API. The fulfilled response is used
- * by agentSlice to update the dashboard and customer balance atomically.
- */
+
 export const recordCollectionThunk = createAsyncThunk(
   'agent/recordCollection',
   async (input: RecordCollectionInput, { rejectWithValue }) => {
     try {
       const collection = await agentApi.recordCollection({
-        customer_id: input.customerId,
-        loan_id: input.loanId,
+        customer_id: Number(input.customerId),
         amount: input.amount,
-        payment_method: input.paymentMethod,
-        remarks: input.remarks,
+        mode: input.paymentMethod.toLowerCase(),
+        notes: input.remarks,
+        collected_at: new Date().toISOString().split('T')[0], 
       });
 
       return { collection, input };

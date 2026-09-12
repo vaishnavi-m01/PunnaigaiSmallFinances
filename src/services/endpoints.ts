@@ -10,10 +10,10 @@ export const ENDPOINTS = {
     LOAN_PACKAGES: '/loan-packages',
     LOAN_REQUEST: '/loan-request',
     LOAN_REQUESTS: '/loan-requests',
-    LOAN_DETAIL: (id: number) => `/loan/${id}`,
+    LOAN_DETAIL: (id: number) => `/loanPackageDetail/${id}`,
   },
   AGENT: {
     ASSIGNED_CUSTOMERS: '/agent/assigned-customers',
-    COLLECTIONS: '/agent/collections',
+    COLLECTIONS: '/agent/collections/store',
   },
 } as const;

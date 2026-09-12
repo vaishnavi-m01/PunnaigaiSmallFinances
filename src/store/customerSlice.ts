@@ -85,9 +85,36 @@ export const fetchDashboardThunk = createAsyncThunk(
               status: data.active_loan.status,
             }
           : null,
+        finance: data.finance
+          ? {
+              id: data.finance.id,
+              financeCode: data.finance.finance_code,
+              totalAmount: parseFloat(data.finance.total_amount),
+              disbursedAmount: parseFloat(data.finance.disbursed_amount),
+              profitAmount: parseFloat(data.finance.profit_amount),
+              repaymentAmount: parseFloat(data.finance.repayment_amount),
+              paidAmount: parseFloat(data.finance.paid_amount),
+              outstandingAmount: parseFloat(data.finance.outstanding_amount),
+              status: data.finance.status,
+              startDate: data.finance.start_date,
+            }
+          : null,
         amountDue: data.amount_due,
         penalty: data.penalty,
+        totalDue: data.total_due,
         overdueStatus: data.overdue_status,
+        missedDues: data.missed_dues,
+        nextDue: data.next_due,
+        recentTransactions: data.recent_transactions?.map((t: any) => ({
+          paymentId: t.payment_id,
+          financeId: t.finance_id,
+          loanPackageId: t.loan_package_id,
+          loanPackageName: t.loan_package_name,
+          amount: t.amount,
+          mode: t.mode,
+          paidAt: t.paid_at,
+          status: t.status,
+        })) || [],
       };
 
       return mapped;

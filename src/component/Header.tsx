@@ -102,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
         </>
       ) : (
         <View style={styles.tabTitleContainer}>
-          {showLogo ? <BrandLogo size={28} style={styles.headerLogo} /> : null}
+          {/* {showLogo ? <BrandLogo size={28} style={styles.headerLogo} /> : null} */}
           {title ? (
             <Text
               style={[styles.title, { color: titleColor, textAlign: 'left' }]}

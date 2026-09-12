@@ -39,17 +39,23 @@ export type CustomerStackParamList = {
 export type AgentTabParamList = {
   [ROUTES.AGENT_DASHBOARD]: undefined;
   [ROUTES.ASSIGNED_CUSTOMERS]: undefined;
-  [ROUTES.ADD_COLLECTION]: undefined;
+  [ROUTES.COLLECTION_HISTORY]: undefined;
+  [ROUTES.AGENT_WALLET]: undefined;
   [ROUTES.AGENT_PROFILE]: undefined;
 };
 
 export type AgentStackParamList = {
   [ROUTES.AGENT_TABS]: NavigatorScreenParams<AgentTabParamList>;
   [ROUTES.CUSTOMER_DETAIL_VIEW]: { customerId: string };
+  [ROUTES.AGENT_CUSTOMER_PAYMENT_HISTORY]: {
+    customerId: string;
+    customerName?: string;
+  };
   [ROUTES.ADD_COLLECTION]: { customerId?: string; defaultAmount?: number };
   [ROUTES.COLLECTION_HISTORY]: undefined;
   [ROUTES.AGENT_REPORTS]: undefined;
   [ROUTES.AGENT_NOTIFICATIONS]: undefined;
+  [ROUTES.AGENT_WALLET]: undefined;
 };
 
 export type InvestorTabParamList = {

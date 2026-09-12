@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { useAppSelector } from '../../hooks/useAppHooks';
 import { Header } from '../../component/Header';
 import { Card } from '../../component/Common/Card';
 import { AppIcon } from '../../component/AppIcon';
@@ -20,20 +19,12 @@ import { formatDate } from '../../utils/date';
 import { ROUTES } from '../../constants/routes';
 import * as customerApi from '../../services/api/customerApi';
 
-/**
- * Screen 5: My Loan Screen
- * Flat, clean, dark forest green loan card, segmented pill toggle [ Loan Details ] / [ Summary ],
- * and financial breakdown card. Zero drop shadows.
- */
 export const MyLoanScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const loan = useAppSelector(state => state.customer.loan);
-  const dashboardData = useAppSelector(state => state.customer.dashboardData);
   const [myLoans, setMyLoans] = useState<customerApi.MyLoanResponse[]>([]);
   const [isLoansLoading, setIsLoansLoading] = useState(true);
   const [selectedLoanIndex, setSelectedLoanIndex] = useState(0);
-
-  const [activeTab, setActiveTab] = useState<'details' | 'summary'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'summary'>('summary');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadMyLoans = React.useCallback(async () => {
@@ -41,9 +32,7 @@ export const MyLoanScreen: React.FC = () => {
     try {
       const loans = await customerApi.getMyLoans();
       setMyLoans(loans);
-      setSelectedLoanIndex(index =>
-        Math.min(index, Math.max(loans.length - 1, 0)),
-      );
+      setSelectedLoanIndex(idx => Math.min(idx, Math.max((loans?.length ?? 1) - 1, 0)));
     } catch {
       setMyLoans([]);
     } finally {
@@ -62,49 +51,23 @@ export const MyLoanScreen: React.FC = () => {
   }, [loadMyLoans]);
 
   const selectedLoan = myLoans[selectedLoanIndex];
-  const displayLoan = selectedLoan
-    ? {
-        loanId: String(selectedLoan.id),
-        packageName: selectedLoan.loan_package.name,
-        loanAmount: Number(selectedLoan.requested_amount),
-        amountDisbursed: Number(selectedLoan.approved_amount),
-        amountReceived: Number(selectedLoan.approved_amount),
-        tenureMonths: selectedLoan.loan_package.repayment_period,
-        totalRepaymentAmount: Number(selectedLoan.repayment_obligation),
-        processingFee: Number(selectedLoan.deduction_amount),
-        nextPaymentDate: formatDate(
-          selectedLoan.repayment_schedules[0]?.due_date,
-        ),
-        status: selectedLoan.status,
-      }
-    : loan;
 
-  const totalRepayment = displayLoan.totalRepaymentAmount || 0;
-  const amountPaid = selectedLoan
-    ? selectedLoan.repayments.reduce(
-        (total, repayment) => total + Number(repayment.amount_paid || 0),
-        0,
-      )
-    : loan.amountReceived || 0;
-  const remainingAmount = Math.max(0, totalRepayment - amountPaid);
-  const percentPaid = Math.min(
-    100,
-    Math.round((amountPaid / totalRepayment) * 100),
+  // Derive display values from the new API shape
+  const schedule = selectedLoan?.repayment_schedule ?? [];
+  const totalLoanAmount = schedule.reduce((sum, s) => sum + s.amount, 0);
+  const totalPaid = schedule.reduce((sum, s) => sum + (s.paid_amount ?? 0), 0);
+  const totalBalance = schedule.reduce((sum, s) => sum + (s.balance ?? 0), 0);
+  const completedInstallments = schedule.filter(s =>
+    ['paid', 'completed'].includes(s.status?.toLowerCase()),
+  ).length;
+  const installmentCount = selectedLoan?.installment_count ?? 0;
+  const percentPaid =
+    totalLoanAmount > 0
+      ? Math.min(100, Math.round((totalPaid / totalLoanAmount) * 100))
+      : 0;
+  const nextSchedule = schedule.find(
+    s => !['paid', 'completed'].includes(s.status?.toLowerCase()),
   );
-  const completedInstallments = selectedLoan
-    ? selectedLoan.repayment_schedules.filter(schedule =>
-        ['paid', 'completed'].includes(schedule.status.toLowerCase()),
-      ).length
-    : 0;
-  const installmentCount = selectedLoan
-    ? selectedLoan.repayment_schedules.length
-    : displayLoan.tenureMonths || 0;
-
-  const openLoanDetail = () => {
-    const loanId =
-      selectedLoan?.id || dashboardData?.activeLoan?.id || Number(loan.id) || 1;
-    if (loanId) navigation.navigate(ROUTES.LOAN_DETAILS, { loanId });
-  };
 
   return (
     <View style={styles.container}>
@@ -124,317 +87,299 @@ export const MyLoanScreen: React.FC = () => {
       >
         {isRefreshing || isLoansLoading ? (
           <View style={{ paddingTop: 8 }}>
-            <Skeleton
-              height={220}
-              borderRadius={18}
-              style={{ marginBottom: 16 }}
-            />
-            <Skeleton
-              height={50}
-              borderRadius={25}
-              style={{ marginBottom: 20 }}
-            />
-            <Skeleton
-              height={200}
-              borderRadius={16}
-              style={{ marginBottom: 20 }}
-            />
+            <Skeleton height={50} borderRadius={18} style={{ marginBottom: 12 }} />
+            <Skeleton height={220} borderRadius={18} style={{ marginBottom: 16 }} />
+            <Skeleton height={50} borderRadius={25} style={{ marginBottom: 20 }} />
+            <Skeleton height={200} borderRadius={16} style={{ marginBottom: 20 }} />
           </View>
         ) : (
           <>
-            {myLoans.length > 1 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.loanSelector}
-              >
-                {myLoans.map((item, index) => (
+            {myLoans.length === 0 ? (
+              <View style={styles.emptyState}>
+                <AppIcon name="file-text" size={48} color="#94A3B8" />
+                <Text style={styles.emptyTitle}>No active loans found</Text>
+                <Text style={styles.emptyText}>
+                  Your approved loans will appear here.
+                </Text>
+              </View>
+            ) : (
+              <>
+                {/* Loan Filter — only shown if 2+ loans, equal width pills */}
+                {myLoans.length > 1 && (
+                  <View style={styles.loanSelector}>
+                    {myLoans.map((item, index) => (
+                      <TouchableOpacity
+                        key={item.finance_id}
+                        style={[
+                          styles.loanSelectorItem,
+                          index === selectedLoanIndex && styles.loanSelectorItemActive,
+                        ]}
+                        onPress={() => setSelectedLoanIndex(index)}
+                      >
+                        <Text
+                          style={[
+                            styles.loanSelectorText,
+                            index === selectedLoanIndex && styles.loanSelectorTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.loan_package_name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* Hero Loan Card */}
+                <LinearGradient
+                  colors={['#083827', '#0D523B', '#126349']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.loanCard}
+                >
+                  <View style={styles.loanHeaderRow}>
+                    <View>
+                      <Text style={styles.cardHeaderTitle}>
+                        {selectedLoan?.loan_package_name}
+                      </Text>
+                      <Text style={styles.cardHeaderSub}>
+                        Loan ID: #{selectedLoan?.finance_id}
+                      </Text>
+                    </View>
+                    <View style={styles.statusBadgePill}>
+                      <Text style={styles.statusBadgeText}>Active</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardDivider} />
+
+                  <View style={styles.detailsList}>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Total Loan Amount :</Text>
+                      <Text style={styles.detailValue}>
+                        {formatINR(totalLoanAmount)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Installments :</Text>
+                      <Text style={styles.detailValue}>
+                        {installmentCount} × {selectedLoan?.frequency}
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Interest Rate :</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedLoan?.interest_percentage}%
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Next Due Date :</Text>
+                      <Text style={styles.detailValue}>
+                        {nextSchedule ? formatDate(nextSchedule.due_date) : 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailCta}>
+                    <Text style={styles.detailCtaText}>
+                      {completedInstallments} of {installmentCount} installments completed
+                    </Text>
+                  </View>
+                </LinearGradient>
+
+                {/* Segmented Pill Tabs: Summary first, then Schedule */}
+                <View style={styles.tabContainer}>
                   <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.loanSelectorItem,
-                      index === selectedLoanIndex &&
-                        styles.loanSelectorItemActive,
-                    ]}
-                    onPress={() => setSelectedLoanIndex(index)}
+                    style={[styles.tabBtn, activeTab === 'summary' && styles.activeTabBtn]}
+                    onPress={() => setActiveTab('summary')}
+                    activeOpacity={0.8}
                   >
                     <Text
                       style={[
-                        styles.loanSelectorText,
-                        index === selectedLoanIndex &&
-                          styles.loanSelectorTextActive,
+                        styles.tabBtnText,
+                        { color: activeTab === 'summary' ? '#FFFFFF' : '#64748B' },
                       ]}
                     >
-                      {item.loan_package.name} ·{' '}
-                      {formatINR(Number(item.approved_amount))}
+                      Summary
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-            {/* Emerald Loan Details Hero Card */}
-            <TouchableOpacity activeOpacity={0.95} onPress={openLoanDetail}>
-              <LinearGradient
-                colors={['#083827', '#0D523B', '#126349']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.loanCard}
-              >
-                <View style={styles.loanHeaderRow}>
-                  <View>
-                    <Text style={styles.cardHeaderTitle}>Loan Details</Text>
-                    <Text style={styles.cardHeaderSub}>
-                      Loan ID: {displayLoan.loanId || 'PLN000123'}
-                    </Text>
-                  </View>
-                  <View style={styles.statusBadgePill}>
-                    <Text style={styles.statusBadgeText}>
-                      {displayLoan.status}
-                    </Text>
-                  </View>
-                </View>
 
-                <View style={styles.cardDivider} />
-
-                {/* Key-Value Details */}
-                <View style={styles.detailsList}>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Package :</Text>
-                    <Text style={styles.detailValue}>
-                      {displayLoan.packageName || 'Gold Loan'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Loan Amount :</Text>
-                    <Text style={styles.detailValue}>
-                      {formatINR(displayLoan.loanAmount || 0)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Amount Disbursed :</Text>
-                    <Text style={styles.detailValue}>
-                      {formatINR(displayLoan.amountDisbursed || 0)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Tenure :</Text>
-                    <Text style={styles.detailValue}>
-                      {displayLoan.tenureMonths || 12} Months
-                    </Text>
-                  </View>
-
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Status :</Text>
-                    <Text style={[styles.detailValue, { color: '#86EFAC' }]}>
-                      {displayLoan.status}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.detailCta}>
-                  <Text style={styles.detailCtaText}>
-                    View full loan details
-                  </Text>
-                  <AppIcon name="chevron-right" size={15} color="#D1FAE5" />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            {/* Segmented Pill Tabs: [ Loan Details ] | [ Summary ] */}
-            <View style={styles.tabContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.tabBtn,
-                  activeTab === 'details' && styles.activeTabBtn,
-                ]}
-                onPress={() => setActiveTab('details')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.tabBtnText,
-                    { color: activeTab === 'details' ? '#FFFFFF' : '#64748B' },
-                  ]}
-                >
-                  Loan Details
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.tabBtn,
-                  activeTab === 'summary' && styles.activeTabBtn,
-                ]}
-                onPress={() => setActiveTab('summary')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.tabBtnText,
-                    { color: activeTab === 'summary' ? '#FFFFFF' : '#64748B' },
-                  ]}
-                >
-                  Summary
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {activeTab === 'details' ? (
-              /* Financial Breakdown Card for Loan Details */
-              <Card style={styles.breakdownCard} variant="flat" padding={16}>
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Amount Received</Text>
-                  <Text style={styles.breakdownValue}>
-                    {formatINR(displayLoan.amountReceived || 0)}
-                  </Text>
-                </View>
-
-                <View style={styles.rowDivider} />
-
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>
-                    Total Repayment Amount
-                  </Text>
-                  <Text style={styles.breakdownValue}>
-                    {formatINR(displayLoan.totalRepaymentAmount || 0)}
-                  </Text>
-                </View>
-
-                <View style={styles.rowDivider} />
-
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Deduction Rate</Text>
-                  <Text style={styles.breakdownValue}>
-                    {selectedLoan
-                      ? `${selectedLoan.loan_package.deduction_percentage}%`
-                      : `${loan.interestRate || 0}%`}
-                  </Text>
-                </View>
-
-                <View style={styles.rowDivider} />
-
-                <View style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>Processing Fee</Text>
-                  <Text style={styles.breakdownValue}>
-                    {formatINR(displayLoan.processingFee || 0)}
-                  </Text>
-                </View>
-              </Card>
-            ) : (
-              /* Repayment Progress & Summary Card */
-              <View style={styles.summaryContainer}>
-                {/* Progress Card */}
-                <Card style={styles.progressCard} variant="flat" padding={16}>
-                  <View style={styles.progressHeaderRow}>
-                    <Text style={styles.progressHeaderTitle}>
-                      Repayment Progress
-                    </Text>
-                    <Text style={styles.progressPercentText}>
-                      {percentPaid}% Paid
-                    </Text>
-                  </View>
-
-                  {/* Progress Bar Track */}
-                  <View style={styles.progressBarTrack}>
-                    <View
+                  <TouchableOpacity
+                    style={[styles.tabBtn, activeTab === 'details' && styles.activeTabBtn]}
+                    onPress={() => setActiveTab('details')}
+                    activeOpacity={0.8}
+                  >
+                    <Text
                       style={[
-                        styles.progressBarFill,
-                        { width: `${percentPaid}%` },
+                        styles.tabBtnText,
+                        { color: activeTab === 'details' ? '#FFFFFF' : '#64748B' },
                       ]}
-                    />
-                  </View>
-
-                  <View style={styles.progressSubRow}>
-                    <Text style={styles.progressSubText}>
-                      Paid:{' '}
-                      <Text style={styles.paidValue}>
-                        {formatINR(amountPaid)}
-                      </Text>
+                    >
+                      Schedule
                     </Text>
-                    <Text style={styles.progressSubText}>
-                      Remaining:{' '}
-                      <Text style={styles.remainingValue}>
-                        {formatINR(remainingAmount)}
-                      </Text>
-                    </Text>
-                  </View>
-                </Card>
-
-                {/* Repayment Stats Breakdown Card */}
-                <Card style={styles.breakdownCard} variant="flat" padding={16}>
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Total Repayment</Text>
-                    <Text style={styles.breakdownValue}>
-                      {formatINR(totalRepayment)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.rowDivider} />
-
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Total Amount Paid</Text>
-                    <Text style={[styles.breakdownValue, styles.greenText]}>
-                      {formatINR(amountPaid)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.rowDivider} />
-
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Remaining Balance</Text>
-                    <Text style={[styles.breakdownValue, styles.amberText]}>
-                      {formatINR(remainingAmount)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.rowDivider} />
-
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>EMIs Completed</Text>
-                    <Text style={styles.breakdownValue}>
-                      {completedInstallments} of {installmentCount} completed
-                    </Text>
-                  </View>
-
-                  <View style={styles.rowDivider} />
-
-                  <View style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>Next Payment Date</Text>
-                    <Text style={styles.breakdownValue}>
-                      {displayLoan.nextPaymentDate || '15 Apr 2025'}
-                    </Text>
-                  </View>
-                </Card>
-
-                {/* Quick Action Navigation Links */}
-                <View style={styles.summaryActionsRow}>
-                  <TouchableOpacity
-                    style={styles.summaryActionBtn}
-                    onPress={() => navigation.navigate(ROUTES.PAYMENT_HISTORY)}
-                    activeOpacity={0.7}
-                  >
-                    <AppIcon name="credit-card" size={15} color="#0D523B" />
-                    <Text style={styles.summaryActionBtnText}>
-                      View Payment History
-                    </Text>
-                    <AppIcon name="chevron-right" size={14} color="#0D523B" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.summaryActionBtn}
-                    onPress={() => navigation.navigate(ROUTES.PAYMENT_SCHEDULE)}
-                    activeOpacity={0.7}
-                  >
-                    <AppIcon name="calendar" size={15} color="#0D523B" />
-                    <Text style={styles.summaryActionBtnText}>
-                      View EMI Schedule
-                    </Text>
-                    <AppIcon name="chevron-right" size={14} color="#0D523B" />
                   </TouchableOpacity>
                 </View>
-              </View>
+
+                {activeTab === 'details' ? (
+                  /* Repayment Schedule List */
+                  <Card style={styles.scheduleCard} variant="flat" padding={0}>
+                    {schedule.map((item, idx) => {
+                      const isPaid = ['paid', 'completed'].includes(
+                        item.status?.toLowerCase(),
+                      );
+                      const isLast = idx === schedule.length - 1;
+                      return (
+                        <View key={item.schedule_id}>
+                          <View style={styles.scheduleRow}>
+                            <View style={styles.scheduleLeft}>
+                              <View
+                                style={[
+                                  styles.installmentCircle,
+                                  isPaid && styles.installmentCirclePaid,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.installmentNo,
+                                    isPaid && { color: '#FFFFFF' },
+                                  ]}
+                                >
+                                  {item.installment}
+                                </Text>
+                              </View>
+                              <View>
+                                <Text style={styles.scheduleDate}>
+                                  {formatDate(item.due_date)}
+                                </Text>
+                                {item.paid_amount > 0 && (
+                                  <Text style={styles.schedulePaidNote}>
+                                    Paid: {formatINR(item.paid_amount)}
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+                            <View style={styles.scheduleRight}>
+                              <Text style={styles.scheduleAmount}>
+                                {formatINR(item.amount)}
+                              </Text>
+                              <View
+                                style={[
+                                  styles.scheduleBadge,
+                                  {
+                                    backgroundColor: isPaid ? '#DCFCE7' : '#FEF3C7',
+                                    borderColor: isPaid ? '#86EFAC' : '#FDE68A',
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.scheduleBadgeText,
+                                    { color: isPaid ? '#15803D' : '#D97706' },
+                                  ]}
+                                >
+                                  {isPaid ? 'Paid' : 'Pending'}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                          {!isLast && <View style={styles.rowDivider} />}
+                        </View>
+                      );
+                    })}
+                  </Card>
+                ) : (
+                  /* Summary Tab */
+                  <View style={styles.summaryContainer}>
+                    {/* Progress Card */}
+                    <Card style={styles.progressCard} variant="flat" padding={16}>
+                      <View style={styles.progressHeaderRow}>
+                        <Text style={styles.progressHeaderTitle}>
+                          Repayment Progress
+                        </Text>
+                        <Text style={styles.progressPercentText}>
+                          {percentPaid}% Paid
+                        </Text>
+                      </View>
+                      <View style={styles.progressBarTrack}>
+                        <View
+                          style={[
+                            styles.progressBarFill,
+                            { width: `${percentPaid}%` },
+                          ]}
+                        />
+                      </View>
+                      <View style={styles.progressSubRow}>
+                        <Text style={styles.progressSubText}>
+                          Paid:{' '}
+                          <Text style={styles.paidValue}>{formatINR(totalPaid)}</Text>
+                        </Text>
+                        <Text style={styles.progressSubText}>
+                          Balance:{' '}
+                          <Text style={styles.remainingValue}>
+                            {formatINR(totalBalance)}
+                          </Text>
+                        </Text>
+                      </View>
+                    </Card>
+
+                    {/* Breakdown Card */}
+                    <Card style={styles.breakdownCard} variant="flat" padding={16}>
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Total Loan</Text>
+                        <Text style={styles.breakdownValue}>
+                          {formatINR(totalLoanAmount)}
+                        </Text>
+                      </View>
+                      <View style={styles.rowDivider} />
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Total Paid</Text>
+                        <Text style={[styles.breakdownValue, styles.greenText]}>
+                          {formatINR(totalPaid)}
+                        </Text>
+                      </View>
+                      <View style={styles.rowDivider} />
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Remaining Balance</Text>
+                        <Text style={[styles.breakdownValue, styles.amberText]}>
+                          {formatINR(totalBalance)}
+                        </Text>
+                      </View>
+                      <View style={styles.rowDivider} />
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>EMIs Completed</Text>
+                        <Text style={styles.breakdownValue}>
+                          {completedInstallments} of {installmentCount}
+                        </Text>
+                      </View>
+                      <View style={styles.rowDivider} />
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Next Payment</Text>
+                        <Text style={styles.breakdownValue}>
+                          {nextSchedule ? formatDate(nextSchedule.due_date) : 'N/A'}
+                        </Text>
+                      </View>
+                    </Card>
+
+                    {/* Quick Action Links */}
+                    <View style={styles.summaryActionsRow}>
+                      <TouchableOpacity
+                        style={styles.summaryActionBtn}
+                        onPress={() => navigation.navigate(ROUTES.PAYMENT_SCHEDULE)}
+                        activeOpacity={0.7}
+                      >
+                        <AppIcon name="calendar" size={15} color="#0D523B" />
+                        <Text style={styles.summaryActionBtnText}>
+                          View Payment History
+                        </Text>
+                        <AppIcon name="chevron-right" size={14} color="#0D523B" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </>
             )}
           </>
         )}
@@ -452,17 +397,38 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 90,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 16,
+  },
+  emptyText: {
+    color: '#64748B',
+    fontSize: 13,
+    marginTop: 6,
+    textAlign: 'center',
+  },
   loanSelector: {
+    flexDirection: 'row',
     gap: 8,
-    paddingBottom: 12,
+    marginBottom: 12,
   },
   loanSelectorItem: {
+    flex: 1,
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
     backgroundColor: '#FFFFFF',
+    alignItems: 'center',
   },
   loanSelectorItemActive: {
     borderColor: '#0D523B',
@@ -470,7 +436,7 @@ const styles = StyleSheet.create({
   },
   loanSelectorText: {
     color: '#64748B',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
   },
   loanSelectorTextActive: {
@@ -538,14 +504,12 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255, 255, 255, 0.15)',
     marginTop: 14,
     paddingTop: 11,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   detailCtaText: {
     color: '#D1FAE5',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -566,6 +530,71 @@ const styles = StyleSheet.create({
   tabBtnText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  scheduleCard: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  scheduleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  installmentCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  installmentCirclePaid: {
+    backgroundColor: '#10B981',
+  },
+  installmentNo: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  scheduleDate: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  schedulePaidNote: {
+    color: '#10B981',
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  scheduleRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  scheduleAmount: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  scheduleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  scheduleBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   breakdownCard: {
     borderWidth: 1,

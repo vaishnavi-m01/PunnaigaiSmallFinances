@@ -7,27 +7,27 @@ import { AppIcon, IconName } from './AppIcon';
 
 /**
  * Global Toast Component
- * Clean, flat White card toast with colored icon badges and dark readable typography.
+ * Highly visible toast with solid background colors for distinct states.
  */
 export const GlobalToast: React.FC = () => {
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const { visible, type, title, message, duration } = useAppSelector(state => state.toast);
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-20)).current;
+  const translateY = useRef(new Animated.Value(-100)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 200,
+          duration: 250,
           useNativeDriver: true,
         }),
-        Animated.timing(translateY, {
+        Animated.spring(translateY, {
           toValue: 0,
-          duration: 200,
           useNativeDriver: true,
+          bounciness: 10,
         }),
       ]).start();
 
@@ -39,7 +39,7 @@ export const GlobalToast: React.FC = () => {
             useNativeDriver: true,
           }),
           Animated.timing(translateY, {
-            toValue: -20,
+            toValue: -100,
             duration: 200,
             useNativeDriver: true,
           }),
@@ -59,31 +59,35 @@ export const GlobalToast: React.FC = () => {
       case 'success':
         return {
           icon: 'check-circle' as IconName,
-          iconColor: '#10B981',
-          badgeBg: '#EAF5EE',
-          borderColor: '#A7F3D0',
+          bg: '#10B981',
+          iconColor: '#FFFFFF',
+          badgeBg: 'rgba(255,255,255,0.2)',
+          textColor: '#FFFFFF',
         };
       case 'error':
         return {
           icon: 'alert-circle' as IconName,
-          iconColor: '#EF4444',
-          badgeBg: '#FEE2E2',
-          borderColor: '#FECACA',
+          bg: '#EF4444',
+          iconColor: '#FFFFFF',
+          badgeBg: 'rgba(255,255,255,0.2)',
+          textColor: '#FFFFFF',
         };
       case 'warning':
         return {
           icon: 'alert-triangle' as IconName,
-          iconColor: '#F59E0B',
-          badgeBg: '#FEF3C7',
-          borderColor: '#FDE68A',
+          bg: '#F59E0B',
+          iconColor: '#FFFFFF',
+          badgeBg: 'rgba(255,255,255,0.2)',
+          textColor: '#FFFFFF',
         };
       case 'info':
       default:
         return {
           icon: 'info' as IconName,
-          iconColor: '#0284C7',
-          badgeBg: '#E0F2FE',
-          borderColor: '#BAE6FD',
+          bg: '#0F172A',
+          iconColor: '#FFFFFF',
+          badgeBg: 'rgba(255,255,255,0.2)',
+          textColor: '#FFFFFF',
         };
     }
   };
@@ -95,23 +99,21 @@ export const GlobalToast: React.FC = () => {
       style={[
         styles.toastContainer,
         {
-          top: Math.max(insets.top + 8, 16),
-          borderColor: config.borderColor,
+          top: Math.max(insets.top + 16, 32),
+          backgroundColor: config.bg,
           opacity,
           transform: [{ translateY }],
         },
       ]}
     >
-      {/* Icon Badge */}
       <View style={[styles.iconCircle, { backgroundColor: config.badgeBg }]}>
-        <AppIcon name={config.icon} size={18} color={config.iconColor} />
+        <AppIcon name={config.icon} size={20} color={config.iconColor} />
       </View>
 
-      {/* Message Text */}
       <View style={styles.textContainer}>
-        <Text style={styles.titleText}>{title}</Text>
+        <Text style={[styles.titleText, { color: config.textColor }]}>{title}</Text>
         {message ? (
-          <Text style={styles.messageText}>
+          <Text style={[styles.messageText, { color: config.textColor, opacity: 0.9 }]}>
             {message}
           </Text>
         ) : null}
@@ -123,39 +125,39 @@ export const GlobalToast: React.FC = () => {
 const styles = StyleSheet.create({
   toastContainer: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
+    padding: 16,
+    borderRadius: 16,
     zIndex: 9999,
-    elevation: 0,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
   },
   iconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   textContainer: {
     flex: 1,
   },
   titleText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '700',
   },
   messageText: {
-    fontSize: 11.5,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#475569',
-    marginTop: 2,
-    lineHeight: 16,
+    marginTop: 4,
+    lineHeight: 18,
   },
 });
 

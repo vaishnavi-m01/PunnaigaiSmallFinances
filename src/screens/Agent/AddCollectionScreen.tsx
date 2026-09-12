@@ -6,53 +6,51 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  RefreshControl,
+  TextInput,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
-import { Header } from '../../component/Header';
-import { Card } from '../../component/Common/Card';
-import { CustomInput } from '../../component/Common/CustomInput';
 import { CustomButton } from '../../component/Common/CustomButton';
-import { Skeleton } from '../../component/Common/Skeleton';
+import { AppIcon } from '../../component/AppIcon';
 import { recordCollectionThunk } from '../../features/agent/collectionThunks';
 import { showToast } from '../../store/toastSlice';
-import { formatINR } from '../../utils/currency';
 import { AssignedCustomer } from '../../types/models';
+
+const HeaderGraphic = () => (
+  <View style={[StyleSheet.absoluteFillObject, styles.graphicContainer]} pointerEvents="none">
+    <View style={styles.graphicCircle1} />
+    <View style={styles.graphicCircle2} />
+  </View>
+);
 
 export const AddCollectionScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
-  const { colors, typography, radius } = useAppTheme();
+  const { colors, typography } = useAppTheme();
 
   const customers = useAppSelector(state => state.agent.assignedCustomers);
   const defaultCustomerId = route.params?.customerId || customers[0]?.id;
   const initialCustomer =
-    customers.find((c: AssignedCustomer) => c.id === defaultCustomerId) ||
+    customers.find((c: AssignedCustomer) => String(c.id) === String(defaultCustomerId)) ||
     customers[0];
 
-  const [selectedCustomer, setSelectedCustomer] = useState(initialCustomer);
+  const [customerName, setCustomerName] = useState(initialCustomer?.name || 'Ramesh');
+  const [loanId, setLoanId] = useState(initialCustomer?.loanId || 'L12345');
+  const [paymentDate, setPaymentDate] = useState('15 Sep 2026');
   const [amount, setAmount] = useState(
-    String(
-      route.params?.defaultAmount || initialCustomer?.pendingAmount || '9000',
-    ),
+    String(route.params?.defaultAmount || initialCustomer?.pendingAmount || '50000'),
   );
-  const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI' | 'Cheque'>(
-    'UPI',
-  );
+  const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI' | 'Bank Transfer'>('Cash');
   const [remarks, setRemarks] = useState('');
   const isSubmitting = useAppSelector(state => state.agent.isSubmittingCollection);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const onRefresh = React.useCallback(() => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
-  }, []);
 
   const handleSubmit = async () => {
-    const numAmount = parseFloat(amount);
+    const numAmount = parseFloat(amount.replace(/[^0-9.]/g, ''));
     if (!numAmount || numAmount <= 0) {
       dispatch(
         showToast({
@@ -65,23 +63,23 @@ export const AddCollectionScreen: React.FC = () => {
     }
 
     try {
-      await dispatch(
-        recordCollectionThunk({
-          customerName: selectedCustomer.name,
-          customerId: selectedCustomer.id,
-          loanId: selectedCustomer.loanId,
-          amount: numAmount,
-          paymentMethod: paymentMode,
-          remarks,
-        }),
-      ).unwrap();
+      if (initialCustomer) {
+        await dispatch(
+          recordCollectionThunk({
+            customerName: initialCustomer.name,
+            customerId: initialCustomer.id,
+            loanId: initialCustomer.loanId,
+            amount: numAmount,
+            paymentMethod: paymentMode as any,
+            remarks,
+          }),
+        ).unwrap();
+      }
       dispatch(
         showToast({
           type: 'success',
           title: 'Collection Recorded',
-          message: `Recorded collection of ${formatINR(numAmount)} for ${
-            selectedCustomer.name
-          }`,
+          message: 'Successfully recorded the collection.',
         }),
       );
       navigation.goBack();
@@ -96,194 +94,155 @@ export const AddCollectionScreen: React.FC = () => {
     }
   };
 
-  const canGoBack = Boolean(route.params?.fromCustomerDetail);
+  const dynamicStyles = StyleSheet.create({
+    header: {
+      paddingTop: Math.max(insets.top, 16) + 8,
+    },
+    headerTitleText: {
+      color: colors.white,
+    },
+    inputContainer: {
+      backgroundColor: colors.white,
+    },
+  });
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="dark-content" />
-      <Header
-        title="Record Collection"
-        showBack={canGoBack}
-        showNotification={!canGoBack}
-      />
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      <LinearGradient
+        colors={['#0B533E', '#168B5E']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.header, dynamicStyles.header]}
       >
-        {isRefreshing ? (
-          <View style={{ paddingTop: 8 }}>
-            <Skeleton
-              height={200}
-              borderRadius={14}
-              style={{ marginBottom: 16 }}
-            />
-            <Skeleton
-              height={250}
-              borderRadius={14}
-              style={{ marginBottom: 16 }}
-            />
-            <Skeleton height={50} borderRadius={12} />
+        <HeaderGraphic />
+        <View style={styles.headerTitleRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <AppIcon name="arrow-left" size={24} color={colors.white} />
+          </TouchableOpacity>
+          <Text style={[typography.h3, dynamicStyles.headerTitleText]}>
+            Add Collection
+          </Text>
+          <View style={styles.backBtn} />
+        </View>
+      </LinearGradient>
+
+      <View style={styles.pageContainer}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.inputGroup}>
+            <Text style={[typography.bodyMedium, styles.label]}>
+              Customer Name
+            </Text>
+            <View style={[styles.inputContainer, dynamicStyles.inputContainer]}>
+              <TextInput
+                style={[styles.input, typography.bodyLarge, styles.inputText]}
+                value={customerName}
+                onChangeText={setCustomerName}
+              />
+            </View>
           </View>
-        ) : (
-          <>
-            {/* Customer Select Card */}
-            <Card
-              style={[styles.card, { borderColor: colors.border }]}
-              variant="elevated"
-              padding={16}
-            >
-              <Text
-                style={[
-                  typography.subtitle,
-                  {
-                    color: colors.textPrimary,
-                    marginBottom: 10,
-                    fontWeight: '700',
-                  },
-                ]}
-              >
-                Select Customer
-              </Text>
 
-              <View style={styles.customerPills}>
-                {customers.map((c: AssignedCustomer) => {
-                  const isSelected = selectedCustomer.id === c.id;
-                  return (
-                    <TouchableOpacity
-                      key={c.id}
-                      style={[
-                        styles.customerPill,
-                        {
-                          borderColor: isSelected
-                            ? colors.primary
-                            : colors.border,
-                          backgroundColor: isSelected
-                            ? colors.primarySoft
-                            : colors.surface,
-                          borderRadius: radius.md,
-                        },
-                      ]}
-                      onPress={() => {
-                        setSelectedCustomer(c);
-                        setAmount(String(c.pendingAmount));
-                      }}
-                    >
-                      <Text
-                        style={[
-                          typography.bodySmall,
-                          {
-                            color: isSelected
-                              ? colors.primary
-                              : colors.textPrimary,
-                            fontWeight: isSelected ? '700' : '500',
-                          },
-                        ]}
-                      >
-                        {c.name} ({c.loanId})
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </Card>
+          <View style={styles.inputGroup}>
+            <Text style={[typography.bodyMedium, styles.label]}>
+              Loan ID
+            </Text>
+            <View style={[styles.inputContainer, dynamicStyles.inputContainer]}>
+              <TextInput
+                style={[styles.input, typography.bodyLarge, styles.inputText]}
+                value={loanId}
+                onChangeText={setLoanId}
+              />
+            </View>
+          </View>
 
-            {/* Amount & Mode Card */}
-            <Card
-              style={[styles.card, { borderColor: colors.border }]}
-              variant="elevated"
-              padding={16}
-            >
-              <CustomInput
-                label="Collection Amount (₹)"
+          <View style={styles.inputGroup}>
+            <Text style={[typography.bodyMedium, styles.label]}>
+              Payment Date
+            </Text>
+            <View style={[styles.inputContainer, dynamicStyles.inputContainer]}>
+              <TextInput
+                style={[styles.input, typography.bodyLarge, styles.inputText]}
+                value={paymentDate}
+                onChangeText={setPaymentDate}
+              />
+              <AppIcon name="calendar" size={20} color="#94A3B8" />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[typography.bodyMedium, styles.label]}>
+              Collected Amount
+            </Text>
+            <View style={[styles.inputContainer, dynamicStyles.inputContainer]}>
+              <Text style={[typography.bodyLarge, styles.currencyText]}>₹</Text>
+              <TextInput
+                style={[styles.input, typography.bodyLarge, styles.inputText]}
                 value={amount}
                 onChangeText={setAmount}
-                keyboardType="number-pad"
-                leftIcon="credit-card"
+                keyboardType="numeric"
               />
+            </View>
+          </View>
 
-              <Text
-                style={[
-                  typography.subtitle,
-                  {
-                    color: colors.textPrimary,
-                    marginBottom: 8,
-                    fontWeight: '600',
-                  },
-                ]}
-              >
-                Payment Mode
-              </Text>
-
-              <View style={styles.modeRow}>
-                {(['UPI', 'Cash', 'Cheque'] as const).map(mode => {
-                  const isSelected = paymentMode === mode;
-                  return (
-                    <TouchableOpacity
-                      key={mode}
+          <View style={styles.inputGroup}>
+            <Text style={[typography.bodyMedium, styles.label]}>
+              Payment Method
+            </Text>
+            <View style={styles.paymentMethodsRow}>
+              {(['Cash', 'UPI', 'Bank Transfer'] as const).map(mode => {
+                const isSelected = paymentMode === mode;
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[
+                      styles.paymentMethodPill,
+                      isSelected ? styles.pillSelected : styles.pillUnselected,
+                      !isSelected && { backgroundColor: colors.white }
+                    ]}
+                    onPress={() => setPaymentMode(mode)}
+                  >
+                    <Text
                       style={[
-                        styles.modeBtn,
-                        {
-                          borderColor: isSelected
-                            ? colors.primary
-                            : colors.border,
-                          backgroundColor: isSelected
-                            ? colors.primarySoft
-                            : colors.surface,
-                          borderRadius: radius.md,
-                        },
+                        typography.bodyMedium,
+                        isSelected ? styles.pillTextSelected : styles.pillTextUnselected,
                       ]}
-                      onPress={() => setPaymentMode(mode)}
                     >
-                      <Text
-                        style={[
-                          typography.subtitle,
-                          {
-                            color: isSelected
-                              ? colors.primary
-                              : colors.textSecondary,
-                            fontWeight: isSelected ? '700' : '500',
-                          },
-                        ]}
-                      >
-                        {mode}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                      {mode}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
-              <CustomInput
-                label="Remarks (Optional)"
-                placeholder="e.g. Received April EMI via GPay"
+          <View style={styles.inputGroup}>
+            <Text style={[typography.bodyMedium, styles.label]}>
+              Remarks
+            </Text>
+            <View style={[styles.textAreaContainer, dynamicStyles.inputContainer]}>
+              <TextInput
+                style={[styles.textArea, typography.bodyMedium, styles.inputText]}
                 value={remarks}
                 onChangeText={setRemarks}
-                containerStyle={{ marginTop: 16 }}
+                placeholder="Enter remarks..."
+                placeholderTextColor="#94A3B8"
+                multiline
+                textAlignVertical="top"
               />
+            </View>
+          </View>
 
-              <CustomButton
-                title={
-                  isSubmitting
-                    ? 'Processing...'
-                    : `Confirm & Record ${formatINR(parseFloat(amount) || 0)}`
-                }
-                onPress={handleSubmit}
-                disabled={isSubmitting}
-                variant="primary"
-                style={styles.submitBtn}
-                gradientColors={colors.buttonGradient}
-              />
-            </Card>
-          </>
-        )}
-      </ScrollView>
+          <CustomButton
+            title={isSubmitting ? 'Processing...' : 'Submit Collection'}
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+            variant="primary"
+            size="large"
+            style={styles.submitBtn}
+          />
+        </ScrollView>
+      </View>
     </View>
   );
 };
@@ -291,34 +250,123 @@ export const AddCollectionScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#168B5E',
   },
-  scrollContent: {
-    padding: 16,
+  graphicContainer: {
+    overflow: 'hidden',
+  },
+  graphicCircle1: {
+    position: 'absolute',
+    top: -30,
+    right: -40,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  graphicCircle2: {
+    position: 'absolute',
+    top: 40,
+    right: -80,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  header: {
+    position: 'relative',
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  card: {
-    marginBottom: 16,
-    borderWidth: 1,
-    borderRadius: 16,
-  },
-  customerPills: {
-    gap: 8,
-  },
-  customerPill: {
-    padding: 12,
-    borderWidth: 1.5,
-  },
-  modeRow: {
+  headerTitleRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backBtn: {
+    padding: 8,
+    width: 40,
+  },
+  pageContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -20,
+    overflow: 'hidden',
+  },
+  scrollContent: {
+    padding: 24,
+    paddingBottom: 40,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    marginBottom: 8,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 52,
+    borderColor: '#E2E8F0',
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+  },
+  inputText: {
+    color: '#0F172A',
+  },
+  currencyText: {
+    color: '#0F172A',
+    marginRight: 8,
+  },
+  paymentMethodsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: 8,
   },
-  modeBtn: {
+  paymentMethodPill: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  pillSelected: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#16A34A',
+  },
+  pillUnselected: {
+    borderColor: '#E2E8F0',
+  },
+  pillTextSelected: {
+    color: '#166534',
+    fontWeight: '700',
+  },
+  pillTextUnselected: {
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  textAreaContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    height: 100,
+    borderColor: '#E2E8F0',
+  },
+  textArea: {
+    flex: 1,
   },
   submitBtn: {
-    marginTop: 8,
+    marginTop: 12,
   },
 });

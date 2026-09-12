@@ -5,10 +5,10 @@ export type CollectionPaymentMethod = 'Cash' | 'UPI' | 'Cheque';
 
 export interface RecordCollectionPayload {
   customer_id: string | number;
-  loan_id: string | number;
   amount: number;
-  payment_method: CollectionPaymentMethod;
-  remarks?: string;
+  mode: string;
+  notes?: string;
+  collected_at: string;
 }
 
 export interface CollectionResponse {
@@ -24,19 +24,32 @@ export interface CollectionResponse {
 }
 
 export interface AssignedCustomerResponse {
-  id: string | number;
+  id: number;
+  customer_code: string;
   name: string;
-  phone: string;
-  loan_id: string | number;
-  pending_amount: number | string;
-  due_date: string;
-  is_overdue: boolean | number;
-  address?: string;
-  avatar?: string;
+  mobile: string;
+  status: string;
+  outstanding: number;
+  next_due?: {
+    id: number;
+    customer_id: number;
+    finance_id: number;
+    loan_id: number | null;
+    due_date: string;
+    amount: string;
+    paid_amount: string;
+    penalty_amount: string;
+    penalty_paid_amount: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  };
 }
 
 /** GET /agent/assigned-customers — customers allocated to the logged-in agent. */
-export const getAssignedCustomers = async (): Promise<AssignedCustomerResponse[]> => {
+export const getAssignedCustomers = async (): Promise<
+  AssignedCustomerResponse[]
+> => {
   const response = await apiClient.get(ENDPOINTS.AGENT.ASSIGNED_CUSTOMERS);
   const body = response.data as any;
   return body.data ?? body;

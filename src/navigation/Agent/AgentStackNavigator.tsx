@@ -7,19 +7,24 @@ import { withRoleAccess } from '../../hoc/withRoleAccess';
 import { AgentTabNavigator } from './AgentTabNavigator';
 import { AddCollectionScreen } from '../../screens/Agent/AddCollectionScreen';
 import { CustomerDetailViewScreen } from '../../screens/Agent/CustomerDetailViewScreen';
+import { AgentCustomerPaymentHistoryScreen } from '../../screens/Agent/AgentCustomerPaymentHistoryScreen';
 import { AgentReportsScreen } from '../../screens/Agent/AgentReportsScreen';
-import { NotificationsScreen } from '../../screens/Customer/NotificationsScreen';
+import { AgentNotificationsScreen } from '../../screens/Agent/AgentNotificationsScreen';
 
 const Stack = createNativeStackNavigator<AgentStackParamList>();
+
+import { AgentWalletScreen } from '../../screens/Agent/AgentWalletScreen';
 
 function AgentStackNavigatorBase() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Screen name={ROUTES.AGENT_TABS} component={AgentTabNavigator} />
       <Stack.Screen name={ROUTES.CUSTOMER_DETAIL_VIEW} component={CustomerDetailViewScreen} />
+      <Stack.Screen name={ROUTES.AGENT_CUSTOMER_PAYMENT_HISTORY} component={AgentCustomerPaymentHistoryScreen} />
       <Stack.Screen name={ROUTES.ADD_COLLECTION} component={AddCollectionScreen} />
       <Stack.Screen name={ROUTES.AGENT_REPORTS} component={AgentReportsScreen} />
-      <Stack.Screen name={ROUTES.AGENT_NOTIFICATIONS} component={NotificationsScreen} />
+      <Stack.Screen name={ROUTES.AGENT_NOTIFICATIONS} component={AgentNotificationsScreen} />
+      <Stack.Screen name={ROUTES.AGENT_WALLET} component={AgentWalletScreen} />
     </Stack.Navigator>
   );
 }

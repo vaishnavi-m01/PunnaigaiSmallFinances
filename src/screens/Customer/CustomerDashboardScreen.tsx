@@ -17,11 +17,13 @@ import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
 import { fetchDashboardThunk } from '../../store/customerSlice';
 import { AppIcon, IconName } from '../../component/AppIcon';
 import { ROUTES } from '../../constants/routes';
-import { AppNotification, PaymentHistoryItem } from '../../types/models';
+import { AppNotification } from '../../types/models';
 import { formatINR } from '../../utils/currency';
 import { Card } from '../../component/Common/Card';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { Skeleton } from '../../component/Common/Skeleton';
+import * as customerApi from '../../services/api/customerApi';
+import { formatDate } from '../../utils/date';
 
 export const CustomerDashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -29,13 +31,13 @@ export const CustomerDashboardScreen: React.FC = () => {
 
   const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.auth.user);
-  const loan = useAppSelector(state => state.customer.loan);
-  const paymentHistory = useAppSelector(state => state.customer.paymentHistory);
   const unreadCount = useAppSelector(
     state =>
       state.customer.notifications.filter((n: AppNotification) => !n.isRead)
         .length,
   );
+  const dashboardData = useAppSelector(state => state.customer.dashboardData);
+  const isDashboardLoading = useAppSelector(state => state.customer.isDashboardLoading);
 
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -57,12 +59,12 @@ export const CustomerDashboardScreen: React.FC = () => {
     icon: IconName;
     route: string;
   }[] = [
-    {
-      id: 'packages',
-      title: 'Loan\nPackages',
-      icon: 'briefcase',
-      route: ROUTES.APPLY_LOAN,
-    },
+    // {
+    //   id: 'packages',
+    //   title: 'Loan\nPackages',
+    //   icon: 'briefcase',
+    //   route: ROUTES.APPLY_LOAN,
+    // },
 
     {
       id: 'profile',
@@ -72,7 +74,7 @@ export const CustomerDashboardScreen: React.FC = () => {
     },
     {
       id: 'schedule',
-      title: 'View\nSchedule',
+      title: 'Payment\nHistory',
       icon: 'calendar',
       route: ROUTES.PAYMENT_SCHEDULE,
     },
@@ -83,8 +85,6 @@ export const CustomerDashboardScreen: React.FC = () => {
       route: ROUTES.OVERDUE_DETAILS,
     },
   ];
-
-  const recentPayments = paymentHistory.slice(0, 2);
 
   return (
     <View style={styles.container}>
@@ -109,10 +109,10 @@ export const CustomerDashboardScreen: React.FC = () => {
           {/* Greeting Text */}
           <View style={styles.nameBlock}>
             <Text style={styles.greetingTitle}>
-              Hello, {user?.name || 'Raji Kumar'}
+              Hello, {user?.name || 'Customer'}
             </Text>
             <Text style={styles.greetingSubtitle}>
-              Welcome back! • {loan.loanId || 'PLN000123'}
+              Welcome back!
             </Text>
           </View>
         </View>
@@ -145,21 +145,18 @@ export const CustomerDashboardScreen: React.FC = () => {
           />
         }
       >
-        {isRefreshing ? (
+        {isRefreshing || isDashboardLoading ? (
           <View style={{ paddingTop: 16 }}>
-            {/* Skeleton Hero */}
             <Skeleton
               height={200}
               borderRadius={24}
               style={{ marginBottom: 20 }}
             />
-            {/* Skeleton Alert */}
             <Skeleton
               height={60}
               borderRadius={16}
               style={{ marginBottom: 24 }}
             />
-            {/* Skeleton Quick Actions */}
             <View
               style={{
                 flexDirection: 'row',
@@ -172,13 +169,7 @@ export const CustomerDashboardScreen: React.FC = () => {
               <Skeleton width={60} height={80} borderRadius={12} />
               <Skeleton width={60} height={80} borderRadius={12} />
             </View>
-            {/* Skeleton List */}
             <Skeleton height={30} width={150} style={{ marginBottom: 16 }} />
-            <Skeleton
-              height={80}
-              borderRadius={16}
-              style={{ marginBottom: 12 }}
-            />
             <Skeleton
               height={80}
               borderRadius={16}
@@ -187,7 +178,7 @@ export const CustomerDashboardScreen: React.FC = () => {
           </View>
         ) : (
           <>
-            {/* 1. Compact Active Loan Card (Deep Emerald Gradient with 2 Sub-Boxes) */}
+            {/* 1. Active Finance / Loan Card */}
             <LinearGradient
               colors={['#065F46', '#047857']}
               start={{ x: 0, y: 0 }}
@@ -200,13 +191,22 @@ export const CustomerDashboardScreen: React.FC = () => {
                   <View style={styles.activeLoanBadge}>
                     <Text style={styles.activeLoanLabel}>Active Loan</Text>
                   </View>
-                  <Text style={styles.loanAmountValue}>₹ 88,000</Text>
+                  <Text style={styles.loanAmountValue}>
+                    {formatINR(
+                      dashboardData?.activeLoan?.requestedAmount ??
+                      dashboardData?.finance?.totalAmount ??
+                      0
+                    )}
+                  </Text>
                   <Text style={styles.loanIdText}>
-                    Loan ID: {loan.loanId || 'PLN000123'}
+                    {dashboardData?.activeLoan
+                      ? `Loan ID: ${dashboardData.activeLoan.id}`
+                      : dashboardData?.finance
+                      ? `Finance: ${dashboardData.finance.financeCode}`
+                      : 'N/A'}
                   </Text>
                 </View>
 
-                {/* White View Details Pill Button */}
                 <TouchableOpacity
                   style={styles.viewDetailsPill}
                   onPress={() => navigation.navigate(ROUTES.MY_LOAN)}
@@ -216,9 +216,8 @@ export const CustomerDashboardScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Bottom Row: 2 Crisp White Sub-Boxes */}
+              {/* Bottom Row: 2 White Sub-Boxes */}
               <View style={styles.loanMetricsRow}>
-                {/* Box 1: Pending Amount */}
                 <TouchableOpacity
                   style={styles.metricWhiteBox}
                   onPress={() => navigation.navigate(ROUTES.PENDING_AMOUNT)}
@@ -228,12 +227,17 @@ export const CustomerDashboardScreen: React.FC = () => {
                     <View style={styles.miniGreenIcon}>
                       <AppIcon name="calendar" size={12} color="#0D523B" />
                     </View>
-                    <Text style={styles.metricTitleText}>Pending Amount</Text>
+                    <Text style={styles.metricTitleText}>Outstanding</Text>
                   </View>
-                  <Text style={styles.metricAmountText}>₹ 12,000</Text>
+                  <Text style={styles.metricAmountText}>
+                    {formatINR(
+                      dashboardData?.amountDue > 0
+                        ? dashboardData.amountDue
+                        : dashboardData?.finance?.outstandingAmount ?? 0
+                    )}
+                  </Text>
                 </TouchableOpacity>
 
-                {/* Box 2: Next Payment Date */}
                 <TouchableOpacity
                   style={styles.metricWhiteBox}
                   onPress={() => navigation.navigate(ROUTES.PAYMENT_SCHEDULE)}
@@ -241,31 +245,36 @@ export const CustomerDashboardScreen: React.FC = () => {
                 >
                   <View style={styles.metricHeaderRow}>
                     <View style={styles.miniGreenIcon}>
-                      <AppIcon name="calendar" size={12} color="#0D523B" />
+                      <AppIcon name="trending-up" size={12} color="#0D523B" />
                     </View>
-                    <Text style={styles.metricTitleText}>
-                      Next Payment Date
-                    </Text>
+                    <Text style={styles.metricTitleText}>Amount Paid</Text>
                   </View>
-                  <Text style={styles.metricAmountText}>15 Apr 2025</Text>
+                  <Text style={styles.metricAmountText}>
+                    {formatINR(dashboardData?.finance?.paidAmount ?? 0)}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </LinearGradient>
 
-            {/* 2. Upcoming EMI Due Alert Strip */}
-            <View style={styles.dueAlertCard}>
-              <View style={styles.dueAlertLeft}>
-                <View style={styles.dueAlertIconCircle}>
-                  <AppIcon name="bell" size={15} color="#D97706" />
-                </View>
-                <View style={styles.dueAlertTextCol}>
-                  <Text style={styles.dueAlertTitle}>
-                    Next EMI Due in 7 Days
-                  </Text>
-                  <Text style={styles.dueAlertSub}>₹ 9,000 on 15 Apr 2025</Text>
+
+            {/* 2. Upcoming EMI Due Alert Strip (Only if Overdue or Due) */}
+            {dashboardData?.overdueStatus && dashboardData.activeLoan && (
+              <View style={styles.dueAlertCard}>
+                <View style={styles.dueAlertLeft}>
+                  <View style={styles.dueAlertIconCircle}>
+                    <AppIcon name="alert-triangle" size={15} color="#D97706" />
+                  </View>
+                  <View style={styles.dueAlertTextCol}>
+                    <Text style={styles.dueAlertTitle}>
+                      Payment Overdue!
+                    </Text>
+                    <Text style={styles.dueAlertSub}>
+                      {formatINR(dashboardData.amountDue)} was due on {dashboardData.activeLoan.dueDate}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
+            )}
 
             {/* 3. Premium Gradient Quick Actions Bar */}
             <View style={styles.quickActionsContainer}>
@@ -303,12 +312,12 @@ export const CustomerDashboardScreen: React.FC = () => {
               </View>
 
               <View style={styles.transactionListCard}>
-                {recentPayments.length > 0 ? (
-                  recentPayments.map(
-                    (item: PaymentHistoryItem, index: number) => {
-                      const isLast = index === recentPayments.length - 1;
+                {dashboardData?.recentTransactions && dashboardData.recentTransactions.length > 0 ? (
+                  dashboardData.recentTransactions.slice(0, 2).map(
+                    (item, index) => {
+                      const isLast = index === Math.min(dashboardData.recentTransactions!.length, 2) - 1;
                       return (
-                        <React.Fragment key={item.id}>
+                        <React.Fragment key={item.paymentId}>
                           <TouchableOpacity
                             style={styles.transactionItem}
                             onPress={() =>
@@ -326,10 +335,10 @@ export const CustomerDashboardScreen: React.FC = () => {
                               </View>
                               <View>
                                 <Text style={styles.txDateText}>
-                                  {item.date}
+                                  {formatDate(item.paidAt)}
                                 </Text>
                                 <Text style={styles.txReceiptText}>
-                                  Receipt: {item.receiptNo || 'RCP-849201'}
+                                  {item.loanPackageName} • {item.mode ? item.mode.charAt(0).toUpperCase() + item.mode.slice(1) : ''}
                                 </Text>
                               </View>
                             </View>
@@ -338,8 +347,15 @@ export const CustomerDashboardScreen: React.FC = () => {
                               <Text style={styles.txAmountText}>
                                 {formatINR(item.amount)}
                               </Text>
-                              <View style={styles.txPaidBadge}>
-                                <Text style={styles.txPaidBadgeText}>Paid</Text>
+                              <View style={[styles.txPaidBadge, { 
+                                backgroundColor: item.status.toLowerCase() === 'approved' ? '#DCFCE7' : '#FEF3C7',
+                                borderColor: item.status.toLowerCase() === 'approved' ? '#86EFAC' : '#FDE68A' 
+                              }]}>
+                                <Text style={[styles.txPaidBadgeText, {
+                                  color: item.status.toLowerCase() === 'approved' ? '#15803D' : '#D97706'
+                                }]}>
+                                  {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                                </Text>
                               </View>
                             </View>
                           </TouchableOpacity>

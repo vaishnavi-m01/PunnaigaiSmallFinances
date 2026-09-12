@@ -1,4 +1,5 @@
 import apiClient from '../apiClient';
+import { ENDPOINTS } from '../endpoints';
 
 export interface LoanPackageResponse {
   id: number;
@@ -10,7 +11,18 @@ export interface LoanPackageResponse {
   repayment_frequency: string;
   due_calculation_type: 'lump_sum' | 'installments';
   installment_count: number;
+  penalty_enabled?: boolean;
+  missed_dues_before_penalty?: number | null;
+  penalty_type?: string | null;
+  penalty_amount_or_percentage?: string | null;
+  status?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
+
+export type LoanPackageDetailResponse = LoanPackageResponse & {
+  loan_requests_count?: number;
+};
 
 export interface DashboardResponse {
   active_loan: {
@@ -21,9 +33,25 @@ export interface DashboardResponse {
     due_date: string;
     status: string;
   } | null;
+  finance: {
+    id: number;
+    finance_code: string;
+    total_amount: string;
+    disbursed_amount: string;
+    profit_amount: string;
+    repayment_amount: string;
+    paid_amount: string;
+    outstanding_amount: string;
+    status: string;
+    start_date: string;
+  } | null;
   amount_due: number;
   penalty: number;
+  total_due: number;
   overdue_status: boolean;
+  missed_dues: number;
+  next_due: string | null;
+  recent_transactions?: PaymentHistoryRecord[];
 }
 
 export interface LoanRequestPayload {
@@ -88,7 +116,26 @@ export interface LoanDetailResponse {
   }[];
 }
 
-export type MyLoanResponse = LoanDetailResponse;
+export interface MyLoanResponse {
+  finance_id: number;
+  loan_package_id: number;
+  loan_package_name: string;
+  installment_count: number;
+  duration: number;
+  frequency: string;
+  interest_percentage: string;
+  repayment_schedule: {
+    installment: number;
+    schedule_id: number;
+    due_date: string;
+    amount: number;
+    paid_amount: number;
+    balance: number;
+    penalty_amount: number;
+    penalty_paid_amount: number;
+    status: string;
+  }[];
+}
 
 /**
  * GET /dashboard
@@ -106,6 +153,18 @@ export const getDashboard = async (): Promise<DashboardResponse> => {
  */
 export const getLoanPackages = async (): Promise<LoanPackageResponse[]> => {
   const response = await apiClient.get('/loan-packages');
+  const body = response.data as any;
+  return body.data ?? body;
+};
+
+/**
+ * GET /loanPackageDetail/{id}
+ * Returns the complete details for one active loan package.
+ */
+export const getLoanPackageDetail = async (
+  id: number,
+): Promise<LoanPackageDetailResponse> => {
+  const response = await apiClient.get(ENDPOINTS.CUSTOMER.LOAN_DETAIL(id));
   const body = response.data as any;
   return body.data ?? body;
 };
@@ -162,4 +221,32 @@ export const getRepaymentSchedules = async (): Promise<MyLoanResponse[]> => {
   const response = await apiClient.get('/repayments_schedules');
   const body = response.data as any;
   return body.data ?? body;
+};
+
+/**
+ * GET /mypaymentshistory
+ * Returns payment history for the logged-in customer filtered by date range.
+ */
+export interface PaymentHistoryRecord {
+  payment_id: number;
+  finance_id: number;
+  loan_package_id: number;
+  loan_package_name: string;
+  amount: number;
+  mode: string;
+  paid_at: string;
+  status: string;
+}
+
+export interface PaymentHistoryResponse {
+  total_payment: number;
+  data: PaymentHistoryRecord[];
+}
+
+export const getPaymentHistory = async (params: {
+  from_date: string;
+  to_date: string;
+}): Promise<PaymentHistoryResponse> => {
+  const response = await apiClient.get('/mypaymentshistory', { params });
+  return response.data;
 };

@@ -1,272 +1,187 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Modal,
-  RefreshControl,
+  StatusBar,
+  Alert,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
-import { Header } from '../../component/Header';
-import { Card } from '../../component/Common/Card';
-import { Badge } from '../../component/Common/Badge';
-import { AppIcon, IconName } from '../../component/AppIcon';
-import { CustomButton } from '../../component/Common/CustomButton';
-import { Skeleton } from '../../component/Common/Skeleton';
-import { logoutThunk } from '../../store/authSlice';
-import { showToast } from '../../store/toastSlice';
+import { AppIcon } from '../../component/AppIcon';
 import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
+import { logout } from '../../store/authSlice';
 
 export const PartnerProfileScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const dispatch = useAppDispatch();
-  const { colors, typography, radius } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const { colors, typography } = useAppTheme();
   const user = useAppSelector(state => state.auth.user);
   const partner = useAppSelector(state => state.partner);
+  const dispatch = useAppDispatch();
 
-  const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const name = user?.name?.split(' ')[0] || 'Kavin';
 
-  const onRefresh = React.useCallback(() => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
-  }, []);
-
-  const menuItems: { id: string; title: string; icon: IconName; route?: string; isLogout?: boolean }[] = [
-    { id: 'wallet', title: 'Partner Wallet & Withdrawals', icon: 'wallet', route: ROUTES.PARTNER_WALLET },
-    { id: 'partnership', title: 'Partnership Agreement & Terms', icon: 'file-text' },
-    { id: 'bank', title: 'Settlement Bank Account', icon: 'credit-card' },
-    { id: 'reports', title: 'Business Audit & Profit Statements', icon: 'pie-chart' },
-    { id: 'password', title: 'Change Password', icon: 'lock' },
-    { id: 'support', title: 'Partner Desk & Support', icon: 'help-circle' },
-    { id: 'logout', title: 'Logout', icon: 'logout', isLogout: true },
-  ];
-
-  const handleMenuPress = (item: typeof menuItems[0]) => {
-    if (item.isLogout) {
-      dispatch(logoutThunk());
-      dispatch(
-        showToast({
-          type: 'info',
-          title: 'Logged Out',
-          message: 'Partner session ended.',
-        })
-      );
-    } else if (item.route) {
-      navigation.navigate(item.route);
-    } else {
-      setActiveModal(item.id);
-    }
+  const handleLogout = () => {
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to log out of your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log Out', style: 'destructive', onPress: () => dispatch(logout()) },
+      ],
+      { cancelable: true }
+    );
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Header title="Partner Profile" showBack={false} showNotification={true} />
+    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
+      {/* Header Area */}
+      <LinearGradient
+        colors={['#0B533E', '#168B5E']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
       >
-        {isRefreshing ? (
-          <View style={{ paddingTop: 8 }}>
-            <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
-            <Skeleton height={150} borderRadius={16} style={{ marginBottom: 16 }} />
-            <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
-            <Skeleton height={350} borderRadius={16} />
-          </View>
-        ) : (
-          <>
-            {/* Partner Info Card */}
-            <Card style={styles.userCard} variant="flat" padding={18}>
-              <View style={styles.userInfoRow}>
-                <View style={[styles.avatarCircle, { backgroundColor: colors.primarySoft }]}>
-                  <AppIcon name="user" size={32} color={colors.primary} />
-                </View>
-                <View style={styles.userDetails}>
-                  <View style={styles.nameBadgeRow}>
-                    <Text style={[typography.h3, { color: colors.textPrimary, flex: 1 }]}>
-                      {user?.name || 'Arun & Kumar Partners'}
-                    </Text>
-                    <Badge status="Active" label="Partner" size="small" />
-                  </View>
-                  <Text style={[typography.bodyMedium, { color: colors.textSecondary, marginTop: 4 }]}>
-                    {user?.phone || '+91 97890 55443'}
-                  </Text>
-                  <Text style={[typography.caption, { color: colors.primary, marginTop: 2, fontWeight: '600' }]}>
-                    Partner ID: PRT-004 • Profit Share: 25%
-                  </Text>
-                </View>
-              </View>
-            </Card>
+        <View style={styles.headerTitleRow}>
+          <Text style={[typography.h3, { color: colors.white }]}>
+            Profile
+          </Text>
+        </View>
+      </LinearGradient>
 
-            {/* Partnership Capital & Earnings Summary */}
-            <Card style={styles.summaryCard} variant="flat" padding={16}>
-              <Text style={[typography.h4, { color: colors.textPrimary, marginBottom: 12, fontWeight: '700' }]}>
-                Partnership Financial Summary
-              </Text>
-
-              <View style={styles.statsRow}>
-                <View style={styles.statBox}>
-                  <Text style={[typography.caption, { color: colors.textSecondary }]}>Contribution</Text>
-                  <Text style={[typography.h4, { color: colors.primary, fontWeight: '800', marginTop: 2 }]}>
-                    {formatINR(partner.details.totalContribution)}
-                  </Text>
-                </View>
-
-                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-
-                <View style={styles.statBox}>
-                  <Text style={[typography.caption, { color: colors.textSecondary }]}>Total Profit</Text>
-                  <Text style={[typography.h4, { color: colors.primary, fontWeight: '800', marginTop: 2 }]}>
-                    {formatINR(partner.details.totalEarnings)}
-                  </Text>
-                </View>
-
-                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-
-                <View style={styles.statBox}>
-                  <Text style={[typography.caption, { color: colors.textSecondary }]}>Wallet Bal</Text>
-                  <Text style={[typography.h4, { color: colors.textPrimary, fontWeight: '800', marginTop: 2 }]}>
-                    {formatINR(partner.details.walletBalance)}
-                  </Text>
-                </View>
-              </View>
-            </Card>
-
-            {/* Linked Bank Card */}
-            <Card style={[styles.bankCard, { borderColor: colors.border }]} variant="flat" padding={14}>
-              <View style={styles.bankRow}>
-                <View style={styles.bankLeft}>
-                  <View style={[styles.bankIconCircle, { backgroundColor: colors.primarySoft }]}>
-                    <AppIcon name="credit-card" size={20} color={colors.primary} />
-                  </View>
-                  <View>
-                    <Text style={[typography.h4, { color: colors.textPrimary }]}>
-                      ICICI Bank •••• 8812
-                    </Text>
-                    <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>
-                      Firm Current Account • IFSC: ICIC0002345
-                    </Text>
-                  </View>
-                </View>
-                <Badge status="Verified" size="small" />
-              </View>
-            </Card>
-
-            {/* Menu Items */}
-            <Card style={styles.menuCard} variant="flat" padding={6}>
-              {menuItems.map((item, index) => {
-                const isLast = index === menuItems.length - 1;
-                return (
-                  <React.Fragment key={item.id}>
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => handleMenuPress(item)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.menuLeft}>
-                        <View
-                          style={[
-                            styles.menuIconCircle,
-                            { backgroundColor: item.isLogout ? colors.errorLight : colors.primarySoft },
-                          ]}
-                        >
-                          <AppIcon
-                            name={item.icon}
-                            size={18}
-                            color={item.isLogout ? colors.error : colors.primary}
-                          />
-                        </View>
-                        <Text
-                          style={[
-                            typography.subtitle,
-                            {
-                              color: item.isLogout ? colors.errorText : colors.textPrimary,
-                              fontWeight: item.isLogout ? '700' : '500',
-                            },
-                          ]}
-                        >
-                          {item.title}
-                        </Text>
-                      </View>
-
-                      {!item.isLogout && (
-                        <AppIcon name="chevron-right" size={18} color={colors.textMuted} />
-                      )}
-                    </TouchableOpacity>
-
-                    {!isLast && <View style={[styles.menuDivider, { backgroundColor: colors.borderLight }]} />}
-                  </React.Fragment>
-                );
-              })}
-            </Card>
-
-            <View style={styles.versionContainer}>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Punnaigai Partner Portal v1.0.0
+      {/* Full Page White Container */}
+      <View style={styles.pageContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Profile Header */}
+          <View style={styles.profileRow}>
+            <View style={[styles.avatarCircle, { backgroundColor: '#10B981' }]}>
+              <Text style={[typography.h3, { color: colors.white }]}>
+                {name.charAt(0)}
               </Text>
             </View>
-          </>
-        )}
-      </ScrollView>
-
-      {/* Info Modal */}
-      <Modal visible={!!activeModal} transparent animationType="fade">
-        <View style={[styles.modalBackdrop, { backgroundColor: colors.modalOverlay }]}>
-          <View style={[styles.modalCard, { borderRadius: radius.xl, backgroundColor: colors.surface }]}>
-            <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: 12 }]}>
-              {activeModal === 'partnership'
-                ? 'Partnership Deed & Terms'
-                : activeModal === 'bank'
-                ? 'Settlement Bank Account'
-                : activeModal === 'reports'
-                ? 'Profit & Loss Statement'
-                : activeModal === 'password'
-                ? 'Change Password'
-                : 'Partner Support Desk'}
-            </Text>
-
-            {activeModal === 'partnership' && (
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                <Text style={typography.bodyMedium}>Partnership Deed: DEED-PRT-2023-04</Text>
-                <Text style={typography.bodyMedium}>Capital: {formatINR(partner.details.totalContribution)}</Text>
-                <Text style={typography.bodyMedium}>Profit Sharing Ratio: 25% net monthly revenue</Text>
-                <Text style={typography.bodyMedium}>Start Date: {partner.details.partnershipAgreementDate}</Text>
-              </View>
-            )}
-
-            {activeModal === 'reports' && (
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                <Text style={typography.bodyMedium}>Audited FY: 2024-2025</Text>
-                <Text style={typography.bodyMedium}>Company Total Profit: ₹ 2,20,000</Text>
-                <Text style={typography.bodyMedium}>Partner Share (25%): {formatINR(partner.details.totalEarnings)}</Text>
-              </View>
-            )}
-
-            {activeModal === 'support' && (
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                <Text style={typography.bodyMedium}>Partner Board Desk: +91 427 244 9900</Text>
-                <Text style={typography.bodyMedium}>Official Email: partners@punnaigaifinances.com</Text>
-              </View>
-            )}
-
-            <CustomButton
-              title="Close"
-              variant="primary"
-              onPress={() => setActiveModal(null)}
-              gradientColors={colors.buttonGradient}
-            />
+            <View style={{ marginLeft: 16 }}>
+              <Text style={[typography.h3, { color: '#0F172A' }]}>
+                {name}
+              </Text>
+              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>
+                Partner
+              </Text>
+            </View>
           </View>
-        </View>
-      </Modal>
+
+          {/* Investment Summary */}
+          <View style={[styles.card, { backgroundColor: colors.white }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.smallIconCircle, { backgroundColor: '#E0F2FE' }]}>
+                <AppIcon name="briefcase" size={14} color="#0284C7" />
+              </View>
+              <Text style={[typography.subtitle, { color: '#0F172A', marginLeft: 8 }]}>
+                Investment Summary
+              </Text>
+            </View>
+            <View style={styles.divider} />
+            
+            <View style={styles.dataRow}>
+              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Total Investment</Text>
+              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
+                {formatINR(partner.details.totalContribution)}
+              </Text>
+            </View>
+            <View style={styles.dataRow}>
+              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Investment Withdrawn</Text>
+              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
+                {formatINR(0)}
+              </Text>
+            </View>
+            <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
+              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Remaining Investment</Text>
+              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
+                {formatINR(partner.details.totalContribution)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Profit Summary */}
+          <View style={[styles.card, { backgroundColor: '#FFF5F5', borderColor: '#FEE2E2' }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.smallIconCircle, { backgroundColor: '#FEE2E2' }]}>
+                <AppIcon name="pie-chart" size={14} color="#EF4444" />
+              </View>
+              <Text style={[typography.subtitle, { color: '#EF4444', marginLeft: 8 }]}>
+                Profit Summary
+              </Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: '#FEE2E2' }]} />
+            
+            <View style={[styles.dataRow, { borderBottomColor: '#FEE2E2' }]}>
+              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Total Profit Earned</Text>
+              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
+                {formatINR(partner.details.totalEarnings)}
+              </Text>
+            </View>
+            <View style={[styles.dataRow, { borderBottomColor: '#FEE2E2' }]}>
+              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Profit Withdrawn</Text>
+              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
+                {formatINR(0)}
+              </Text>
+            </View>
+            <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
+              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Available Profit (Wallet)</Text>
+              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
+                {formatINR(partner.details.walletBalance)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Wallet Balance */}
+          <View style={[styles.card, { backgroundColor: '#F5F3FF', borderColor: '#EDE9FE' }]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.smallIconCircle, { backgroundColor: '#EDE9FE' }]}>
+                <AppIcon name="credit-card" size={14} color="#8B5CF6" />
+              </View>
+              <Text style={[typography.subtitle, { color: '#8B5CF6', marginLeft: 8 }]}>
+                Wallet Balance
+              </Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: '#EDE9FE' }]} />
+            
+            <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
+              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Total Wallet Balance</Text>
+              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
+                {formatINR(partner.details.walletBalance)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Logout Button */}
+          <TouchableOpacity
+            style={[styles.bottomBtn, { backgroundColor: '#FEF2F2', position: 'relative', justifyContent: 'center', marginTop: 16 }]}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <Text style={[typography.subtitle, { color: '#EF4444', fontWeight: '700' }]}>
+              Log Out
+            </Text>
+            <View style={{ position: 'absolute', right: 20 }}>
+              <AppIcon name="log-out" size={20} color="#EF4444" />
+            </View>
+          </TouchableOpacity>
+
+        </ScrollView>
+      </View>
+
     </View>
   );
 };
@@ -275,110 +190,78 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 16,
+  header: {
+    position: 'relative',
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  userCard: {
-    marginBottom: 16,
-  },
-  userInfoRow: {
+  headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    height: 40,
   },
-  avatarCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  userDetails: {
+  pageContainer: {
     flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -20,
+    overflow: 'hidden',
   },
-  nameBadgeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  scrollContent: {
+    padding: 24,
+    paddingBottom: 100, // Make room for sticky bottom
   },
-  summaryCard: {
-    marginBottom: 16,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: 36,
-  },
-  bankCard: {
-    marginBottom: 16,
-    borderWidth: 1,
-  },
-  bankRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  bankLeft: {
+  profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-  },
-  bankIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  menuCard: {
     marginBottom: 24,
   },
-  menuItem: {
+  avatarCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  card: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  smallIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginBottom: 16,
+  },
+  dataRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingBottom: 12,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
   },
-  menuLeft: {
+  bottomBtn: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  menuIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  menuDivider: {
-    height: 1,
-    marginHorizontal: 12,
-  },
-  versionContainer: {
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 380,
-    padding: 24,
+    padding: 16,
+    borderRadius: 12,
   },
 });

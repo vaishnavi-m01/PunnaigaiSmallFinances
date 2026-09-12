@@ -12,8 +12,18 @@ export interface UserProfile {
 
 export type LoanStatus = 'Active' | 'Pending' | 'Closed' | 'Defaulted';
 export type PaymentStatus = 'Paid' | 'Pending' | 'Overdue' | 'Partially Paid';
-export type DocumentStatus = 'Verified' | 'Pending' | 'Rejected' | 'Not Uploaded';
-export type NotificationType = 'reminder' | 'approval' | 'document' | 'offer' | 'welcome' | 'system';
+export type DocumentStatus =
+  | 'Verified'
+  | 'Pending'
+  | 'Rejected'
+  | 'Not Uploaded';
+export type NotificationType =
+  | 'reminder'
+  | 'approval'
+  | 'document'
+  | 'offer'
+  | 'welcome'
+  | 'system';
 
 export interface CustomerLoan {
   id: string;
@@ -132,10 +142,10 @@ export interface CollectionRecord {
 export interface InvestorDetails {
   id: string;
   name: string;
-  totalInvestment: number; // ₹5,00,000
-  walletBalance: number; // ₹30,000 (separate from investment!)
-  totalPaymentsReceived: number; // ₹30,000
-  monthlyReturnRate: number; // 2% / ₹10,000/mo
+  totalInvestment: number; 
+  walletBalance: number;
+  totalPaymentsReceived: number; 
+  monthlyReturnRate: number; 
   agreementDate: string;
   tenureMonths: number;
 }
@@ -165,10 +175,10 @@ export interface WithdrawalRequest {
 export interface PartnerDetails {
   id: string;
   name: string;
-  totalContribution: number; // ₹5,00,000 (separate from wallet!)
-  totalEarnings: number; // ₹55,000
-  walletBalance: number; // ₹35,000
-  profitSharePercentage: number; // 25%
+  totalContribution: number; 
+  totalEarnings: number;
+  walletBalance: number; 
+  profitSharePercentage: number; 
   partnershipAgreementDate: string;
 }
 
@@ -179,18 +189,24 @@ export interface PartnerEarningsItem {
   date: string;
 }
 
-// ─── API-mapped Types ────────────────────────────────────────────────────────
 
 export interface LoanPackage {
   id: number;
   name: string;
-  minAmount: number;      // parsed from min_amount
-  maxAmount: number;      // parsed from max_amount
+  minAmount: number; 
+  maxAmount: number; 
   deductionPercentage: number;
   repaymentPeriod: number;
-  repaymentFrequency: string;  // 'Months' | 'Weeks' | 'Days'
+  repaymentFrequency: string; 
   dueCalculationType: 'lump_sum' | 'installments';
   installmentCount: number;
+  penaltyEnabled?: boolean;
+  missedDuesBeforePenalty?: number | null;
+  penaltyType?: string | null;
+  penaltyAmountOrPercentage?: number | null;
+  status?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LoanRequest {
@@ -211,7 +227,32 @@ export interface DashboardData {
     dueDate: string;
     status: string;
   } | null;
+  finance: {
+    id: number;
+    financeCode: string;
+    totalAmount: number;
+    disbursedAmount: number;
+    profitAmount: number;
+    repaymentAmount: number;
+    paidAmount: number;
+    outstandingAmount: number;
+    status: string;
+    startDate: string;
+  } | null;
   amountDue: number;
   penalty: number;
+  totalDue: number;
   overdueStatus: boolean;
+  missedDues: number;
+  nextDue: string | null;
+  recentTransactions?: {
+    paymentId: number;
+    financeId: number;
+    loanPackageId: number;
+    loanPackageName: string;
+    amount: number;
+    mode: string;
+    paidAt: string;
+    status: string;
+  }[];
 }

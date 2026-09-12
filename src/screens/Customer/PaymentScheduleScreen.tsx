@@ -8,162 +8,101 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useAppSelector } from '../../hooks/useAppHooks';
+import LinearGradient from 'react-native-linear-gradient';
 import { Header } from '../../component/Header';
 import { Card } from '../../component/Common/Card';
 import { AppIcon } from '../../component/AppIcon';
 import { formatINR } from '../../utils/currency';
-import { PaymentScheduleItem, PaymentHistoryItem } from '../../types/models';
-import { ROUTES } from '../../constants/routes';
 import { Skeleton } from '../../component/Common/Skeleton';
 import * as customerApi from '../../services/api/customerApi';
 import { formatDate } from '../../utils/date';
 
-/**
- * Screen 6: Payments Tab Screen
- * Features two segmented tabs:
- * 1. [ Payment Schedule ] - Side-by-side Total Amount & Monthly EMI cards, 4-column schedule table
- * 2. [ Payment History ] - Filter pills [ All ] / [ Paid ] / [ Pending ] & payment transaction cards
- */
+type TimeFilter = 'Today' | 'Week' | 'Month' | 'Year';
+
+// Build date range strings from filter
+const getDateRange = (filter: TimeFilter): { from_date: string; to_date: string } => {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+  const to_date = fmt(now);
+  let from = new Date(now);
+
+  switch (filter) {
+    case 'Today':
+      // from = today, to = today
+      break; 
+    case 'Week':
+      // start of week (Sunday or Monday, depending on locale, let's use 7 days ago or start of current week)
+      // The prompt says: "week na week start panna start date and enddate la tdy date"
+      // Assuming week starts on Sunday
+      from.setDate(now.getDate() - now.getDay());
+      break;
+    case 'Month':
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case 'Year':
+      from = new Date(now.getFullYear(), 0, 1);
+      break;
+  }
+
+  return { from_date: fmt(from), to_date };
+};
+
 export const PaymentScheduleScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const schedule = useAppSelector(state => state.customer.paymentSchedule);
-  const paymentHistory = useAppSelector(state => state.customer.paymentHistory);
-  const loan = useAppSelector(state => state.customer.loan);
-
-  const [activeTab, setActiveTab] = useState<'schedule' | 'history'>(
-    'schedule',
-  );
-  const [activeFilter, setActiveFilter] = useState<'All' | 'Paid' | 'Pending'>(
-    'All',
-  );
+  const [activeFilter, setActiveFilter] = useState<TimeFilter>('Month');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [apiLoans, setApiLoans] = useState<customerApi.MyLoanResponse[]>([]);
-  const [isScheduleLoading, setIsScheduleLoading] = useState(true);
+  const [historyData, setHistoryData] = useState<customerApi.PaymentHistoryRecord[]>([]);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const loadSchedules = React.useCallback(async () => {
-    setIsScheduleLoading(true);
+  const loadData = React.useCallback(async (filter: TimeFilter) => {
+    setIsLoading(true);
     try {
-      const loans = await customerApi.getRepaymentSchedules();
-      setApiLoans(loans);
+      const range = getDateRange(filter);
+      console.log(`[PaymentHistory] Filter: ${filter} => calling API with from_date: ${range.from_date}, to_date: ${range.to_date}`);
+      const data = await customerApi.getPaymentHistory(range);
+      setHistoryData(Array.isArray(data?.data) ? data.data : []);
+      setTotalAmount(data?.total_payment ?? 0);
     } catch {
-      setApiLoans([]);
+      setHistoryData([]);
     } finally {
-      setIsScheduleLoading(false);
+      setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadSchedules();
-  }, [loadSchedules]);
+    loadData(activeFilter);
+  }, [activeFilter, loadData]);
 
   const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    await loadSchedules();
+    await loadData(activeFilter);
     setIsRefreshing(false);
-  }, [loadSchedules]);
+  }, [activeFilter, loadData]);
 
-  const selectedApiLoan = apiLoans[0];
-  const apiSchedule: PaymentScheduleItem[] = selectedApiLoan
-    ? selectedApiLoan.repayment_schedules.map((item, index) => ({
-        no: index + 1,
-        dueDate: formatDate(item.due_date),
-        amount: Number(item.amount),
-        status: ['paid', 'completed'].includes(item.status.toLowerCase())
-          ? 'Paid'
-          : item.status.toLowerCase() === 'overdue'
-          ? 'Overdue'
-          : 'Pending',
-      }))
-    : schedule;
-  const visibleSchedule = apiLoans.length > 0 ? apiSchedule : schedule;
-  const apiPaymentHistory: PaymentHistoryItem[] = apiLoans.flatMap(loanItem =>
-    loanItem.repayment_schedules
-      .filter(item => Number(item.paid_amount || 0) > 0)
-      .map(item => ({
-        id: String(item.id),
-        date: formatDate(item.due_date),
-        amount: Number(item.paid_amount),
-        status: 'Paid' as const,
-        receiptNo: `SCHEDULE-${item.id}`,
-      })),
-  );
-  const visiblePaymentHistory =
-    apiLoans.length > 0 ? apiPaymentHistory : paymentHistory;
-  const totalLoanAmount = selectedApiLoan
-    ? Number(selectedApiLoan.requested_amount)
-    : loan.loanAmount || 0;
-  const installmentAmount = visibleSchedule[0]?.amount || loan.monthlyEmi || 0;
-
-  const filteredHistory = visiblePaymentHistory.filter(
-    (item: PaymentHistoryItem) => {
-      if (activeFilter === 'All') return true;
-      return item.status.toLowerCase() === activeFilter.toLowerCase();
-    },
-  );
-
-  const renderScheduleItem = ({ item }: { item: PaymentScheduleItem }) => {
-    const isPaid = item.status.toLowerCase() === 'paid';
-    return (
-      <View style={styles.scheduleCard}>
-        <View style={styles.scheduleLeft}>
-          <View style={styles.scheduleNoCircle}>
-            <Text style={styles.scheduleNoText}>{item.no}</Text>
-          </View>
-          <View>
-            <Text style={styles.scheduleDateLabel}>Due Date</Text>
-            <Text style={styles.scheduleDateText}>{item.dueDate}</Text>
-          </View>
-        </View>
-        <View style={styles.scheduleRight}>
-          <Text style={styles.scheduleAmountText}>
-            {formatINR(item.amount)}
-          </Text>
-          <View
-            style={[
-              styles.badgePill,
-              {
-                backgroundColor: isPaid ? '#DCFCE7' : '#FEF3C7',
-                borderColor: isPaid ? '#86EFAC' : '#FDE68A',
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.badgeText,
-                { color: isPaid ? '#15803D' : '#D97706' },
-              ]}
-            >
-              {item.status}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderHistoryCard = ({ item }: { item: PaymentHistoryItem }) => {
-    const isPaid = item.status.toLowerCase() === 'paid';
+  const renderHistoryCard = ({ item }: { item: customerApi.PaymentHistoryRecord }) => {
+    const isPaid = ['paid', 'completed', 'approved'].includes(item.status?.toLowerCase());
     return (
       <Card style={styles.historyCard} variant="flat" padding={12}>
         <View style={styles.cardContent}>
-          {/* Left Info: Calendar Icon & Date / Receipt */}
+          {/* Left: Icon + Date */}
           <View style={styles.leftInfo}>
             <View style={styles.iconCircle}>
               <AppIcon name="calendar" size={16} color="#0D523B" />
             </View>
             <View>
-              <Text style={styles.dateText}>{item.date}</Text>
-              {item.receiptNo ? (
-                <Text style={styles.receiptText}>
-                  Receipt: {item.receiptNo}
-                </Text>
-              ) : null}
+              <Text style={styles.dateText}>
+                {formatDate(item.paid_at)}
+              </Text>
+              <Text style={styles.receiptText}>
+                {item.loan_package_name} • {item.mode ? item.mode.charAt(0).toUpperCase() + item.mode.slice(1) : ''}
+              </Text>
             </View>
           </View>
 
-          {/* Right Info: Amount & Status Badge */}
+          {/* Right: Amount + Badge */}
           <View style={styles.rightInfo}>
             <Text style={styles.amountText}>{formatINR(item.amount)}</Text>
             <View
@@ -181,7 +120,7 @@ export const PaymentScheduleScreen: React.FC = () => {
                   { color: isPaid ? '#15803D' : '#D97706' },
                 ]}
               >
-                {item.status}
+                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
               </Text>
             </View>
           </View>
@@ -193,209 +132,90 @@ export const PaymentScheduleScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <Header title="Payments" showBack={false} showNotification={true} />
+      <Header title="Payment History" showBack={false} showNotification={true} />
 
       <View style={styles.content}>
-        {/* Top 2 Segmented Tabs: [ Payment Schedule ] | [ Payment History ] */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tabBtn,
-              activeTab === 'schedule' && styles.activeTabBtn,
-            ]}
-            onPress={() => setActiveTab('schedule')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.tabBtnText,
-                { color: activeTab === 'schedule' ? '#FFFFFF' : '#64748B' },
-              ]}
-            >
-              Payment Schedule
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tabBtn,
-              activeTab === 'history' && styles.activeTabBtn,
-            ]}
-            onPress={() => setActiveTab('history')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.tabBtnText,
-                { color: activeTab === 'history' ? '#FFFFFF' : '#64748B' },
-              ]}
-            >
-              Payment History
-            </Text>
-          </TouchableOpacity>
+        {/* Time Filter Pills */}
+        <View style={styles.filterRow}>
+          {(['Today', 'Week', 'Month', 'Year'] as TimeFilter[]).map(filter => {
+            const isActive = activeFilter === filter;
+            return (
+              <TouchableOpacity
+                key={filter}
+                style={[styles.filterPill, isActive && styles.activeFilterPill]}
+                onPress={() => setActiveFilter(filter)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    isActive && styles.activeFilterPillText,
+                  ]}
+                >
+                  {filter}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {activeTab === 'schedule' ? (
-          /* TAB 1: Payment Schedule View */
-          <View style={styles.tabInner}>
-            {/* Top 2 Side-by-Side Summary Cards */}
-            <View style={styles.summaryRow}>
-              {/* Card 1: Total Amount */}
-              <View style={styles.summaryCardLight}>
-                <View style={styles.summaryCardTopRow}>
-                  <View style={styles.summaryIconGreen}>
-                    <AppIcon name="pie-chart" size={13} color="#0D523B" />
-                  </View>
-                  <Text style={styles.summaryCardLabel}>Total Amount</Text>
-                </View>
-                <Text style={styles.summaryCardValue}>
-                  {formatINR(totalLoanAmount)}
-                </Text>
-                <View style={styles.summaryCardFooter}>
-                  <View style={styles.summaryDot} />
-                  <Text style={styles.summaryCardTag}>Loan Principal</Text>
-                </View>
-              </View>
-
-              {/* Card 2: Monthly EMI */}
-              <View
-                style={[styles.summaryCardLight, styles.summaryCardEmiAccent]}
-              >
-                <View style={styles.summaryCardTopRow}>
-                  <View style={styles.summaryIconTeal}>
-                    <AppIcon name="calendar" size={13} color="#0D523B" />
-                  </View>
-                  <Text style={styles.summaryCardLabel}>Monthly EMI</Text>
-                </View>
-                <Text style={styles.summaryCardValue}>
-                  {formatINR(installmentAmount)}
-                </Text>
-                <View style={styles.summaryCardFooter}>
-                  <View
-                    style={[styles.summaryDot, { backgroundColor: '#10B981' }]}
-                  />
-                  <Text style={styles.summaryCardTag}>Per Month</Text>
-                </View>
-              </View>
+        {/* Hero Summary Card */}
+        <LinearGradient
+          colors={['#083827', '#0D523B', '#126349']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          <View style={styles.heroHeader}>
+            <View style={styles.heroIconCircle}>
+              <AppIcon name="pie-chart" size={18} color="#FFFFFF" />
             </View>
+            <Text style={styles.heroTitle}>Total Payments ({activeFilter})</Text>
+          </View>
+          <Text style={styles.heroAmount}>{formatINR(totalAmount)}</Text>
+          <Text style={styles.heroSubtitle}>
+            {isLoading
+              ? 'Loading...'
+              : `${historyData.length} transaction${historyData.length !== 1 ? 's' : ''}`}
+          </Text>
+        </LinearGradient>
 
-            {/* Premium Schedule List */}
-            <View style={styles.scheduleListContainer}>
-              {isRefreshing || isScheduleLoading ? (
-                <View style={{ paddingTop: 16 }}>
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <Skeleton
-                      key={i}
-                      height={60}
-                      borderRadius={12}
-                      style={{ marginBottom: 12 }}
-                    />
-                  ))}
-                </View>
-              ) : (
-                <FlatList
-                  data={visibleSchedule}
-                  keyExtractor={item => String(item.no)}
-                  renderItem={renderScheduleItem}
-                  ItemSeparatorComponent={() => (
-                    <View style={styles.scheduleSeparator} />
-                  )}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.listContent}
-                  refreshControl={
-                    <RefreshControl
-                      refreshing={isRefreshing}
-                      onRefresh={onRefresh}
-                      tintColor="#10B981"
-                    />
-                  }
-                />
-              )}
-            </View>
+        {/* History List */}
+        {isLoading ? (
+          <View style={{ paddingTop: 8 }}>
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton
+                key={i}
+                height={70}
+                borderRadius={12}
+                style={{ marginBottom: 10 }}
+              />
+            ))}
           </View>
         ) : (
-          /* TAB 2: Payment History Records View */
-          <View style={styles.tabInner}>
-            {/* Filter Pills */}
-            <View style={styles.filterRow}>
-              {(['All', 'Paid', 'Pending'] as const).map(filter => {
-                const isActive = activeFilter === filter;
-                return (
-                  <TouchableOpacity
-                    key={filter}
-                    style={[
-                      styles.filterPill,
-                      {
-                        backgroundColor: isActive ? '#0D523B' : '#FFFFFF',
-                        borderColor: isActive ? '#0D523B' : '#E2E8F0',
-                      },
-                    ]}
-                    onPress={() => setActiveFilter(filter)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.filterPillText,
-                        {
-                          color: isActive ? '#FFFFFF' : '#64748B',
-                          fontWeight: isActive ? '800' : '600',
-                        },
-                      ]}
-                    >
-                      {filter}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* History List of Records */}
-            {isRefreshing ? (
-              <View style={{ paddingTop: 16 }}>
-                {[1, 2, 3, 4, 5].map(i => (
-                  <Skeleton
-                    key={i}
-                    height={70}
-                    borderRadius={12}
-                    style={{ marginBottom: 12 }}
-                  />
-                ))}
-              </View>
-            ) : (
-              <FlatList
-                data={filteredHistory}
-                keyExtractor={item => item.id}
-                renderItem={renderHistoryCard}
-                ItemSeparatorComponent={() => (
-                  <View style={styles.historySeparator} />
-                )}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.historyListContent}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={isRefreshing}
-                    onRefresh={onRefresh}
-                    tintColor="#10B981"
-                  />
-                }
-                ListEmptyComponent={
-                  <View style={styles.emptyContainer}>
-                    <AppIcon name="file-text" size={36} color="#94A3B8" />
-                    <Text style={styles.emptyText}>
-                      No payment records found for this filter.
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.makePayBtn}
-                      onPress={() => navigation.navigate(ROUTES.PENDING_AMOUNT)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.makePayBtnText}>Make a Payment</Text>
-                    </TouchableOpacity>
-                  </View>
-                }
+          <FlatList
+            data={historyData}
+            keyExtractor={item => String(item.payment_id)}
+            renderItem={renderHistoryCard}
+            ItemSeparatorComponent={() => <View style={styles.historySeparator} />}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.historyListContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                tintColor="#10B981"
               />
-            )}
-          </View>
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <AppIcon name="file-text" size={36} color="#94A3B8" />
+                <Text style={styles.emptyText}>
+                  No payments found for {activeFilter.toLowerCase()}.
+                </Text>
+              </View>
+            }
+          />
         )}
       </View>
     </View>
@@ -411,181 +231,70 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    padding: 3,
-    borderRadius: 20,
-    marginBottom: 14,
-  },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 18,
-  },
-  activeTabBtn: {
-    backgroundColor: '#0D523B',
-  },
-  tabBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  tabInner: {
-    flex: 1,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 14,
-  },
-  summaryCardLight: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-    borderTopWidth: 3,
-    borderTopColor: '#0D523B',
-  },
-  summaryCardEmiAccent: {
-    borderTopColor: '#10B981',
-  },
-  summaryCardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  summaryIconGreen: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#EAF5EE',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  summaryIconTeal: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#D1FAE5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  summaryCardLabel: {
-    color: '#64748B',
-    fontSize: 10.5,
-    fontWeight: '600',
-  },
-  summaryCardValue: {
-    color: '#0F172A',
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-    marginBottom: 8,
-  },
-  summaryCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  summaryDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#0D523B',
-  },
-  summaryCardTag: {
-    color: '#94A3B8',
-    fontSize: 9.5,
-    fontWeight: '600',
-  },
-  scheduleListContainer: {
-    flex: 1,
-  },
-  listContent: {
-    paddingVertical: 2,
-    paddingBottom: 24,
-  },
-  scheduleSeparator: {
-    height: 10,
-  },
-  scheduleCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  scheduleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  scheduleNoCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  scheduleNoText: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  scheduleDateLabel: {
-    color: '#94A3B8',
-    fontSize: 10,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  scheduleDateText: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  scheduleRight: {
-    alignItems: 'flex-end',
-  },
-  scheduleAmountText: {
-    color: '#0F172A',
-    fontSize: 13.5,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
-  badgePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
   filterRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 16,
   },
   filterPill: {
     flex: 1,
-    paddingVertical: 7,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  activeFilterPill: {
+    backgroundColor: '#0D523B',
+    borderColor: '#0D523B',
   },
   filterPillText: {
     fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  activeFilterPillText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  heroCard: {
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 16,
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  heroIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  heroTitle: {
+    color: '#A7F3D0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  heroAmount: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  heroSubtitle: {
+    color: '#D1FAE5',
+    fontSize: 11,
+    fontWeight: '500',
+    opacity: 0.9,
   },
   historyListContent: {
     paddingBottom: 24,
@@ -637,6 +346,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 3,
   },
+  badgePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
   emptyContainer: {
     padding: 36,
     alignItems: 'center',
@@ -646,18 +365,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
     marginTop: 10,
-    marginBottom: 16,
     fontWeight: '500',
-  },
-  makePayBtn: {
-    backgroundColor: '#0D523B',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  makePayBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
+    textAlign: 'center',
   },
 });

@@ -5,10 +5,10 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
   Platform,
   StatusBar,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
@@ -202,16 +202,20 @@ export const OtpVerificationScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[
-        styles.container,
-        {
-          paddingTop: Math.max(insets.top + 8, 24),
-          paddingBottom: Math.max(insets.bottom + 8, 24),
-        },
-      ]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.container}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: Math.max(insets.top + 8, 24),
+            paddingBottom: Math.max(insets.bottom + 8, 24),
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid={true}
+        extraScrollHeight={20}
+      >
       <StatusBar barStyle="dark-content" />
       {/* Top Back Arrow Header */}
       <View style={[styles.headerRow, { top: Math.max(insets.top + 8, 16) }]}>
@@ -295,8 +299,9 @@ export const OtpVerificationScreen: React.FC = () => {
         >
           <Text style={styles.backToLoginText}>Back to Login</Text>
         </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+        </View>
+      </KeyboardAwareScrollView>
+    </View>
   );
 };
 
@@ -304,8 +309,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 24,
     position: 'relative',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
     justifyContent: 'center',
   },
   bottomLeaves: {

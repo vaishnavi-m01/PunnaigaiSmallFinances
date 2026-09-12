@@ -6,6 +6,7 @@ export const ROUTES = {
   REGISTER: 'RegisterScreen',
   FORGOT_PASSWORD: 'ForgotPasswordScreen',
   ROLE_SELECTION: 'RoleSelectionScreen',
+ 
 
   // Customer Routes
   CUSTOMER_ROOT: 'CustomerRoot',
@@ -31,11 +32,13 @@ export const ROUTES = {
   AGENT_DASHBOARD: 'AgentDashboardScreen',
   ASSIGNED_CUSTOMERS: 'AssignedCustomersScreen',
   CUSTOMER_DETAIL_VIEW: 'CustomerDetailViewScreen',
+  AGENT_CUSTOMER_PAYMENT_HISTORY: 'AgentCustomerPaymentHistoryScreen',
   ADD_COLLECTION: 'AddCollectionScreen',
   COLLECTION_HISTORY: 'CollectionHistoryScreen',
   AGENT_REPORTS: 'AgentReportsScreen',
   AGENT_PROFILE: 'AgentProfileScreen',
   AGENT_NOTIFICATIONS: 'AgentNotificationsScreen',
+  AGENT_WALLET: 'AgentWalletScreen',
 
   // Investor Routes
   INVESTOR_ROOT: 'InvestorRoot',

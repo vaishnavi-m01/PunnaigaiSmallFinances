@@ -7,21 +7,21 @@ import {
   TouchableOpacity,
   StatusBar,
   RefreshControl,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
-import { Header } from '../../component/Header';
-import { Card } from '../../component/Common/Card';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
-import { PartnerEarningsItem } from '../../types/models';
 
 export const PartnerDashboardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { colors, typography } = useAppTheme();
   const partner = useAppSelector(state => state.partner);
   const user = useAppSelector(state => state.auth.user);
@@ -35,241 +35,256 @@ export const PartnerDashboardScreen: React.FC = () => {
     }, 1500);
   }, []);
 
+  const recentTransactions = [
+    {
+      id: '1',
+      title: 'Investment Added',
+      amount: partner.details.totalContribution,
+      date: '11 Sep 2026',
+      type: 'credit',
+      icon: 'triangle',
+      iconColor: '#10B981',
+      iconBg: '#D1FAE5',
+    },
+    {
+      id: '2',
+      title: 'Profit Share',
+      amount: partner.details.totalEarnings,
+      date: '11 Sep 2026',
+      type: 'credit',
+      icon: 'briefcase',
+      iconColor: '#8B5CF6',
+      iconBg: '#EDE9FE',
+    }
+  ];
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="dark-content" />
-      <Header
-        title={user?.name || 'Arun & Kumar'}
-        showBack={false}
-        showNotification={true}
-        showLogo={true}
-      />
+    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
-        }
+      {/* Header Area */}
+      <LinearGradient
+        colors={['#0B533E', '#168B5E']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 16 }]}
       >
-        {isRefreshing ? (
-          <View style={{ paddingTop: 16 }}>
-            {/* Skeleton Hero Card */}
-            <Skeleton
-              height={200}
-              borderRadius={24}
-              style={{ marginBottom: 24 }}
+        <View style={styles.headerTop}>
+          <View style={styles.logoRow}>
+            <Image 
+              source={require('../../assets/images/logo.png')} 
+              style={{ width: 32, height: 32, resizeMode: 'contain', tintColor: '#FFFFFF' }} 
             />
-
-            {/* Skeleton Wallet Banner */}
-            <Skeleton
-              height={70}
-              borderRadius={16}
-              style={{ marginBottom: 32 }}
-            />
-
-            {/* Skeleton Earnings History List */}
-            <Skeleton width={200} height={24} style={{ marginBottom: 16 }} />
-            <Skeleton
-              height={80}
-              borderRadius={16}
-              style={{ marginBottom: 12 }}
-            />
-            <Skeleton
-              height={80}
-              borderRadius={16}
-              style={{ marginBottom: 12 }}
-            />
-            <Skeleton
-              height={80}
-              borderRadius={16}
-              style={{ marginBottom: 12 }}
-            />
+            <Text style={[typography.h3, { color: colors.white, marginLeft: 8 }]}>
+              Punnaigai{'\n'}Small Finances
+            </Text>
           </View>
-        ) : (
-          <>
-            {/* Partner Hero Contribution & Wallet Card */}
-            <LinearGradient
-              colors={[
-                colors.heroGradient[0],
-                colors.heroGradient[1],
-                colors.heroGradient[2],
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.heroCard}
-            >
-              <Text style={[styles.heroSub, { color: colors.borderGreen }]}>
-                Partner Capital Contribution
-              </Text>
-              <Text style={styles.heroMain}>
-                {formatINR(partner.details.totalContribution)}
-              </Text>
+          <TouchableOpacity
+            style={styles.notifBadge}
+            onPress={() => {}}
+          >
+            <AppIcon name="bell" size={24} color={colors.white} />
+            <View style={styles.badgeDot} />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
-              <View style={styles.divider} />
-
-              <View style={styles.metricsRow}>
-                <View>
-                  <Text
-                    style={[styles.metricLabel, { color: colors.borderGreen }]}
-                  >
-                    Total Profit Earnings
+      {/* Full Page White Container */}
+      <View style={styles.pageContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {isRefreshing ? (
+            <View style={{ paddingTop: 16 }}>
+              <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+              <Skeleton height={120} borderRadius={16} style={{ marginBottom: 16 }} />
+            </View>
+          ) : (
+            <>
+              {/* Greeting Section */}
+              <View style={styles.greetingSection}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[typography.h3, { color: '#0F172A' }]}>
+                    Hello, {user?.name?.split(' ')[0] || 'Kavin'} 👋
                   </Text>
-                  <Text style={styles.metricValue}>
+                  <Text style={[typography.bodyMedium, { color: '#64748B', marginTop: 4 }]}>
+                    Welcome back to your partnership
+                  </Text>
+                </View>
+                <View style={styles.leafPlaceholder}>
+                   <AppIcon name="feather" size={40} color="#D1FAE5" />
+                   <View style={{ position: 'absolute', top: -10, right: 15, transform: [{ rotate: '45deg' }] }}>
+                     <AppIcon name="feather" size={24} color="#A7F3D0" />
+                   </View>
+                </View>
+              </View>
+
+              {/* My Investment Card */}
+              <LinearGradient
+                colors={['#10B981', '#059669']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.investmentCard}
+              >
+                <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', borderRadius: 20 }]} pointerEvents="none">
+                  <View style={{ position: 'absolute', bottom: -40, right: -20, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                  <View style={{ position: 'absolute', top: -20, right: 60, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                </View>
+                <View style={styles.investmentTop}>
+                  <View style={[styles.investIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                    <AppIcon name="briefcase" size={18} color="#FFFFFF" />
+                  </View>
+                  <Text style={[typography.subtitle, { color: colors.white, marginLeft: 12, opacity: 0.9 }]}>
+                    My Investment
+                  </Text>
+                </View>
+                <Text style={[typography.h1, { color: colors.white, marginTop: 16, fontSize: 36, fontWeight: 'bold' }]}>
+                  {formatINR(partner.details.totalContribution)}
+                </Text>
+              </LinearGradient>
+
+              {/* Profit & Wallet Row */}
+              <View style={styles.splitRow}>
+                {/* My Profit */}
+                <View style={[styles.splitCard, { backgroundColor: '#FFF5F5' }]}>
+                  <View style={styles.splitIconRow}>
+                    <View style={[styles.smallIconCircle, { backgroundColor: '#FEE2E2' }]}>
+                      <AppIcon name="pie-chart" size={14} color="#EF4444" />
+                    </View>
+                    <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>
+                      My Profit
+                    </Text>
+                  </View>
+                  <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
                     {formatINR(partner.details.totalEarnings)}
                   </Text>
                 </View>
 
-                <View style={styles.verticalDivider} />
-
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 10,
-                  }}
-                >
-                  <View>
-                    <Text
-                      style={[
-                        styles.metricLabel,
-                        { color: colors.borderGreen },
-                      ]}
-                    >
-                      Wallet Balance
-                    </Text>
-                    <Text style={styles.metricValue}>
-                      {formatINR(partner.details.walletBalance)}
+                {/* My Wallet */}
+                <View style={[styles.splitCard, { backgroundColor: '#F5F3FF' }]}>
+                  <View style={styles.splitIconRow}>
+                    <View style={[styles.smallIconCircle, { backgroundColor: '#EDE9FE' }]}>
+                      <AppIcon name="credit-card" size={14} color="#8B5CF6" />
+                    </View>
+                    <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>
+                      My Wallet
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.withdrawPill}
-                    onPress={() => navigation.navigate(ROUTES.PARTNER_WITHDRAW)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[styles.withdrawText, { color: colors.primary }]}
-                    >
-                      Withdraw
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </LinearGradient>
-
-            {/* Action Button to Wallet */}
-            <TouchableOpacity
-              style={[
-                styles.walletBanner,
-                {
-                  backgroundColor: colors.primaryBackground,
-                  borderColor: colors.borderGreen,
-                },
-              ]}
-              onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.bannerLeft}>
-                <AppIcon name="wallet" size={24} color={colors.primary} />
-                <View style={{ marginLeft: 12 }}>
-                  <Text
-                    style={[
-                      typography.h4,
-                      { color: colors.primary, fontWeight: '700' },
-                    ]}
-                  >
-                    Partner Wallet
-                  </Text>
-                  <Text
-                    style={[
-                      typography.caption,
-                      { color: colors.primaryLight, marginTop: 2 },
-                    ]}
-                  >
-                    Balance available for withdrawal:{' '}
+                  <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
                     {formatINR(partner.details.walletBalance)}
                   </Text>
                 </View>
               </View>
-              <AppIcon name="chevron-right" size={20} color={colors.primary} />
-            </TouchableOpacity>
 
-            {/* Monthly Earnings Breakdown */}
-            <Text
-              style={[
-                typography.h3,
-                styles.sectionTitle,
-                { color: colors.textPrimary, fontWeight: '800' },
-              ]}
-            >
-              Monthly Earnings History
-            </Text>
-
-            <View style={styles.earningsList}>
-              {partner.earnings.map((e: PartnerEarningsItem, idx: number) => (
-                <Card
-                  key={idx}
-                  style={styles.card}
-                  variant="elevated"
-                  padding={14}
+              {/* Quick Access */}
+              <Text style={[typography.h3, styles.sectionTitle, { color: '#0F172A' }]}>
+                Quick Access
+              </Text>
+              
+              <View style={styles.quickAccessGrid}>
+                <TouchableOpacity 
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate(ROUTES.MY_EARNINGS)}
+                  activeOpacity={0.7}
                 >
-                  <View style={styles.row}>
-                    <View style={styles.rowLeft}>
-                      <View
-                        style={[
-                          styles.iconCircle,
-                          { backgroundColor: colors.primarySoft },
-                        ]}
-                      >
-                        <AppIcon
-                          name="trending-up"
-                          size={18}
-                          color={colors.primary}
-                        />
+                  <View style={[styles.quickIconBox, { backgroundColor: '#ECFDF5' }]}>
+                    <AppIcon name="trending-up" size={24} color="#10B981" />
+                  </View>
+                  <Text style={[typography.caption, { color: '#64748B' }]}>
+                    Investment
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate(ROUTES.MY_EARNINGS)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: '#FEF2F2' }]}>
+                    <AppIcon name="pie-chart" size={24} color="#F43F5E" />
+                  </View>
+                  <Text style={[typography.caption, { color: '#64748B' }]}>
+                    Profit
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: '#EEF2FF' }]}>
+                    <AppIcon name="credit-card" size={24} color="#6366F1" />
+                  </View>
+                  <Text style={[typography.caption, { color: '#64748B' }]}>
+                    Wallet
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: '#F0FDF4' }]}>
+                    <AppIcon name="file-text" size={24} color="#22C55E" />
+                  </View>
+                  <Text style={[typography.caption, { color: '#64748B' }]}>
+                    Transactions
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Recent Transactions */}
+              <View style={styles.historyHeader}>
+                <Text style={[typography.h3, { color: '#0F172A' }]}>
+                  Recent Transactions
+                </Text>
+                <TouchableOpacity onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)}>
+                  <Text style={[typography.subtitle, { color: '#16A34A' }]}>See All</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.txList}>
+                {recentTransactions.map(tx => (
+                  <View key={tx.id} style={styles.txCard}>
+                    <View style={styles.txLeft}>
+                      <View style={[styles.txIconBox, { backgroundColor: tx.iconBg }]}>
+                        <AppIcon name={tx.icon} size={16} color={tx.iconColor} />
                       </View>
-                      <View>
-                        <Text
-                          style={[
-                            typography.h4,
-                            {
-                              color: colors.textPrimary,
-                              fontWeight: '700',
-                              fontSize: 14,
-                            },
-                          ]}
-                        >
-                          {e.month}
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={[typography.subtitle, { color: '#0F172A' }]} numberOfLines={1}>
+                          {tx.title}
                         </Text>
-                        <Text
-                          style={[
-                            typography.caption,
-                            { color: colors.textMuted, marginTop: 2 },
-                          ]}
-                        >
-                          Credited on {e.date}
+                        <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]} numberOfLines={1}>
+                          {tx.date}
                         </Text>
                       </View>
                     </View>
-
-                    <Text
-                      style={[
-                        typography.h4,
-                        { color: colors.primary, fontWeight: '800' },
-                      ]}
-                    >
-                      + {formatINR(e.amount)}
-                    </Text>
+                    <View style={styles.txRight}>
+                      <Text style={[
+                        typography.subtitle, 
+                        { color: tx.type === 'credit' ? '#10B981' : '#EF4444' }
+                      ]}>
+                        {tx.type === 'credit' ? '+ ' : '- '}{formatINR(tx.amount)}
+                      </Text>
+                    </View>
                   </View>
-                </Card>
-              ))}
-            </View>
-          </>
-        )}
-      </ScrollView>
+                ))}
+              </View>
+
+            </>
+          )}
+        </ScrollView>
+      </View>
     </View>
   );
 };
@@ -278,105 +293,152 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 16,
+  header: {
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  heroCard: {
-    padding: 20,
-    borderRadius: 18,
-    marginBottom: 20,
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
-  heroSub: {
-    color: '#B8D5D5',
-    fontSize: 12,
-    fontWeight: '600',
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  heroMain: {
-    color: '#FFFFFF',
-    fontSize: 30,
-    fontWeight: '800',
-    marginTop: 4,
+  notifBadge: {
+    position: 'relative',
+    padding: 4,
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginVertical: 16,
+  badgeDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1,
+    borderColor: '#0B533E',
   },
-  metricsRow: {
+  pageContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -20,
+    overflow: 'hidden',
+  },
+  scrollContent: {
+    padding: 24,
+    paddingBottom: 80,
+  },
+  greetingSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 24,
   },
-  metricLabel: {
-    color: '#B8D5D5',
-    fontSize: 11,
-    fontWeight: '500',
+  leafPlaceholder: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
   },
-  metricValue: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 2,
+  investmentCard: {
+    padding: 24,
+    borderRadius: 20,
+    marginBottom: 20,
   },
-  verticalDivider: {
-    width: 1,
+  investmentTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  investIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splitRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  splitCard: {
+    width: '48%',
+    padding: 16,
+    borderRadius: 16,
+  },
+  splitIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallIconCircle: {
+    width: 28,
     height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  walletBanner: {
+  sectionTitle: {
+    fontWeight: '800',
+    marginBottom: 16,
+  },
+  quickAccessGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  quickAccessItem: {
+    width: '23%',
+    alignItems: 'center',
+  },
+  quickIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 24,
+  },
+  txList: {
+    gap: 8,
+  },
+  txCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#B8D5D5',
-    backgroundColor: '#F0F7F7',
     borderRadius: 16,
-    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
   },
-  bannerLeft: {
+  txLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  sectionTitle: {
-    marginBottom: 12,
-  },
-  earningsList: {
-    gap: 10,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  txIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  withdrawPill: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 18,
-  },
-  withdrawText: {
-    color: '#0D523B',
-    fontSize: 12,
-    fontWeight: '800',
+  txRight: {
+    alignItems: 'flex-end',
   },
 });

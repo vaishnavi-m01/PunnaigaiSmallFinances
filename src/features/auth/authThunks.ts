@@ -45,6 +45,8 @@ export const loadStoredAuth = createAsyncThunk(
       const role = await StorageService.getItem<AppRoleType>(STORAGE_KEYS.USER_ROLE);
 
       if (token && user && role) {
+        // Dispatch fetch profile independently
+        dispatch(fetchProfileThunk());
         return { token, user, role };
       }
 
@@ -56,6 +58,18 @@ export const loadStoredAuth = createAsyncThunk(
       await StorageService.clearAuth();
       dispatch(clearAuth());
       return rejectWithValue('Failed to load auth');
+    }
+  }
+);
+
+export const fetchProfileThunk = createAsyncThunk(
+  'auth/fetchProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await authService.getProfile();
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(parseApiError(error));
     }
   }
 );

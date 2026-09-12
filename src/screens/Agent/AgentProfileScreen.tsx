@@ -7,28 +7,50 @@ import {
   TouchableOpacity,
   Modal,
   RefreshControl,
+  StatusBar,
+  Alert,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
-import { Header } from '../../component/Header';
-import { Card } from '../../component/Common/Card';
-import { Badge } from '../../component/Common/Badge';
 import { AppIcon, IconName } from '../../component/AppIcon';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { logoutThunk } from '../../store/authSlice';
-import { showToast } from '../../store/toastSlice';
 import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
 
+const HeaderGraphic = () => (
+  <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]} pointerEvents="none">
+    <View style={{
+      position: 'absolute',
+      top: -30,
+      right: -40,
+      width: 180,
+      height: 180,
+      borderRadius: 90,
+      backgroundColor: 'rgba(255,255,255,0.06)'
+    }} />
+    <View style={{
+      position: 'absolute',
+      top: 40,
+      right: -80,
+      width: 200,
+      height: 200,
+      borderRadius: 100,
+      backgroundColor: 'rgba(255,255,255,0.04)'
+    }} />
+  </View>
+);
+
 export const AgentProfileScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
-  const { colors, typography, radius } = useAppTheme();
+  const { colors, typography } = useAppTheme();
   const user = useAppSelector(state => state.auth.user);
-  // const agent = useAppSelector(state => state.agent);
-
   const agent = useAppSelector(state => state.agent);
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -39,202 +61,203 @@ export const AgentProfileScreen: React.FC = () => {
     setTimeout(() => setIsRefreshing(false), 1500);
   }, []);
 
-  const menuItems: { id: string; title: string; icon: IconName; route?: string; isLogout?: boolean }[] = [
-    { id: 'customers', title: 'Assigned Customer List', icon: 'users', route: ROUTES.ASSIGNED_CUSTOMERS },
-    { id: 'collection', title: 'Record Customer Collection', icon: 'credit-card', route: ROUTES.ADD_COLLECTION },
+  const menuItems: { id: string; title: string; icon: IconName; route?: string; }[] = [
     { id: 'reports', title: 'Daily & Monthly Performance', icon: 'trending-up' },
     { id: 'branch', title: 'Branch & Territory Info', icon: 'home' },
     { id: 'password', title: 'Change Password', icon: 'lock' },
     { id: 'support', title: 'Help & Admin Support', icon: 'help-circle' },
-    { id: 'logout', title: 'Logout', icon: 'logout', isLogout: true },
   ];
 
   const handleMenuPress = (item: typeof menuItems[0]) => {
-    if (item.isLogout) {
-      dispatch(logoutThunk());
-      dispatch(
-        showToast({
-          type: 'info',
-          title: 'Logged Out',
-          message: 'Agent session ended.',
-        })
-      );
-    } else if (item.route) {
+    if (item.route) {
       navigation.navigate(item.route);
     } else {
       setActiveModal(item.id);
     }
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to log out of your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Log Out', style: 'destructive', onPress: () => dispatch(logoutThunk()) },
+      ],
+      { cancelable: true }
+    );
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Header title="Agent Profile" showBack={false} showNotification={true} />
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
+    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      <LinearGradient
+        colors={['#0B533E', '#168B5E']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
       >
-        {isRefreshing ? (
-          <View style={{ paddingTop: 8 }}>
-            <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
-            <Skeleton height={150} borderRadius={16} style={{ marginBottom: 16 }} />
-            <Skeleton height={350} borderRadius={16} />
-          </View>
-        ) : (
-          <>
-            {/* Agent Info Card */}
-            <Card style={styles.userCard} variant="flat" padding={18}>
-              <View style={styles.userInfoRow}>
-                <View style={[styles.avatarCircle, { backgroundColor: colors.primarySoft }]}>
-                  <AppIcon name="user" size={32} color={colors.primary} />
-                </View>
-                <View style={styles.userDetails}>
-                  <View style={styles.nameBadgeRow}>
-                    <Text style={[typography.h3, { color: colors.textPrimary, flex: 1 }]}>
-                      {user?.name || 'Karthik Subramanian'}
-                    </Text>
-                    <Badge status="Active" label="Agent" size="small" />
-                  </View>
-                  <Text style={[typography.bodyMedium, { color: colors.textSecondary, marginTop: 4 }]}>
-                    {user?.phone || '+91 98450 11223'}
-                  </Text>
-                  <Text style={[typography.caption, { color: colors.primary, marginTop: 2, fontWeight: '600' }]}>
-                    Agent ID: AGT-002 • Salem Branch
-                  </Text>
-                </View>
-              </View>
-            </Card>
+        <HeaderGraphic />
+        <View style={styles.headerTitleRow}>
+          <Text style={[typography.h3, { color: colors.white }]}>
+            Profile
+          </Text>
+        </View>
+      </LinearGradient>
 
-            {/* Agent Performance Summary */}
-            <Card style={styles.summaryCard} variant="flat" padding={16}>
-              <Text style={[typography.h4, { color: colors.textPrimary, marginBottom: 12, fontWeight: '700' }]}>
-                Field Performance Overview
-              </Text>
-
-              <View style={styles.statsRow}>
-                <View style={styles.statBox}>
-                  <Text style={[typography.caption, { color: colors.textSecondary }]}>Today's Collection</Text>
-                  <Text style={[typography.h4, { color: colors.primary, fontWeight: '800', marginTop: 2 }]}>
-                    {formatINR(agent.todayCollection)}
-                  </Text>
-                </View>
-
-                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-
-                <View style={styles.statBox}>
-                  <Text style={[typography.caption, { color: colors.textSecondary }]}>Total Collected</Text>
-                  <Text style={[typography.h4, { color: colors.textPrimary, fontWeight: '800', marginTop: 2 }]}>
-                    {formatINR(agent.totalCollection)}
-                  </Text>
-                </View>
-
-                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-
-                <View style={styles.statBox}>
-                  <Text style={[typography.caption, { color: colors.textSecondary }]}>Customers</Text>
-                  <Text style={[typography.h4, { color: colors.textPrimary, fontWeight: '800', marginTop: 2 }]}>
-                    {agent.assignedCustomers.length}
-                  </Text>
-                </View>
-              </View>
-            </Card>
-
-            {/* Menu Items */}
-            <Card style={styles.menuCard} variant="flat" padding={6}>
-              {menuItems.map((item, index) => {
-                const isLast = index === menuItems.length - 1;
-                return (
-                  <React.Fragment key={item.id}>
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => handleMenuPress(item)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.menuLeft}>
-                        <View
-                          style={[
-                            styles.menuIconCircle,
-                            { backgroundColor: item.isLogout ? colors.errorLight : colors.primarySoft },
-                          ]}
-                        >
-                          <AppIcon
-                            name={item.icon}
-                            size={18}
-                            color={item.isLogout ? colors.error : colors.primary}
-                          />
-                        </View>
-                        <Text
-                          style={[
-                            typography.subtitle,
-                            {
-                              color: item.isLogout ? colors.errorText : colors.textPrimary,
-                              fontWeight: item.isLogout ? '700' : '500',
-                            },
-                          ]}
-                        >
-                          {item.title}
+      <View style={styles.pageContainer}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+        >
+          {isRefreshing ? (
+            <View style={{ paddingTop: 8 }}>
+              <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+              <Skeleton height={150} borderRadius={16} style={{ marginBottom: 16 }} />
+              <Skeleton height={350} borderRadius={16} />
+            </View>
+          ) : (
+            <>
+              {/* Agent Info Card */}
+              <View style={[styles.profileCard, { backgroundColor: colors.white }]}>
+                <View style={styles.profileHeaderRow}>
+                  <View style={styles.profileLeft}>
+                    <View style={[styles.avatarCircle, { backgroundColor: '#E0F2FE' }]}>
+                      <Text style={[typography.h2, { color: '#0284C7' }]}>
+                        {user?.name?.charAt(0) || 'A'}
+                      </Text>
+                    </View>
+                    <View style={{ marginLeft: 16 }}>
+                      <Text style={[typography.h3, { color: '#0F172A' }]}>
+                        {user?.name || 'Agent User'}
+                      </Text>
+                      <Text style={[typography.bodyMedium, { color: '#64748B', marginTop: 4 }]}>
+                        {user?.phone || '+91 9000000000'}
+                      </Text>
+                      <View style={styles.locationRow}>
+                        <AppIcon name="map-pin" size={12} color="#94A3B8" />
+                        <Text style={[typography.caption, { color: '#64748B', marginLeft: 4 }]}>
+                          Salem Branch
                         </Text>
                       </View>
+                    </View>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
+                    <Text style={[typography.caption, { color: '#16A34A' }]}>
+                      Active
+                    </Text>
+                  </View>
+                </View>
+              </View>
 
-                      {!item.isLogout && (
-                        <AppIcon name="chevron-right" size={18} color={colors.textMuted} />
-                      )}
-                    </TouchableOpacity>
 
-                    {!isLast && <View style={[styles.menuDivider, { backgroundColor: colors.borderLight }]} />}
-                  </React.Fragment>
-                );
-              })}
-            </Card>
 
-            {/* App Version Info */}
-            <View style={styles.versionContainer}>
-              <Text style={[typography.caption, { color: colors.textMuted }]}>
-                Punnaigai Agent App v1.0.0
-              </Text>
-            </View>
-          </>
-        )}
-      </ScrollView>
+              {/* Menu Items */}
+              <View style={[styles.menuList, { backgroundColor: colors.white }]}>
+                {menuItems.map((item, index) => {
+                  const isLast = index === menuItems.length - 1;
+                  return (
+                    <View key={item.id}>
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => handleMenuPress(item)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.menuLeft}>
+                          <View
+                            style={[
+                              styles.menuIconCircle,
+                              { backgroundColor: '#F8FAFC' },
+                            ]}
+                          >
+                            <AppIcon
+                              name={item.icon}
+                              size={18}
+                              color="#64748B"
+                            />
+                          </View>
+                          <Text
+                            style={[
+                              typography.bodyLarge,
+                              {
+                                color: '#0F172A',
+                                fontWeight: '500',
+                              },
+                            ]}
+                          >
+                            {item.title}
+                          </Text>
+                        </View>
+                        <AppIcon name="chevron-right" size={20} color="#94A3B8" />
+                      </TouchableOpacity>
+                      {!isLast && <View style={[styles.menuDivider, { backgroundColor: '#F1F5F9' }]} />}
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* Logout Button */}
+              <TouchableOpacity
+                style={[styles.bottomBtn, { backgroundColor: '#FEF2F2', position: 'relative', justifyContent: 'center', marginTop: 24 }]}
+                onPress={handleLogout}
+                activeOpacity={0.8}
+              >
+                <Text style={[typography.subtitle, { color: '#EF4444', fontWeight: '700' }]}>
+                  Log Out
+                </Text>
+                <View style={{ position: 'absolute', right: 20 }}>
+                  <AppIcon name="log-out" size={20} color="#EF4444" />
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
+        </ScrollView>
+      </View>
 
       {/* Info Modal */}
       <Modal visible={!!activeModal} transparent animationType="fade">
-        <View style={[styles.modalBackdrop, { backgroundColor: colors.modalOverlay }]}>
-          <View style={[styles.modalCard, { borderRadius: radius.xl, backgroundColor: colors.surface }]}>
-            <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: 12 }]}>
+        <View style={[styles.modalBackdrop, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+          <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
+            <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: 16 }]}>
               {activeModal === 'reports'
-                ? 'Performance & Daily Reports'
+                ? 'Performance Reports'
                 : activeModal === 'branch'
-                ? 'Branch & Territory Information'
+                ? 'Branch Info'
                 : activeModal === 'password'
                 ? 'Change Password'
-                : 'Help & Admin Support'}
+                : 'Support'}
             </Text>
 
             {activeModal === 'reports' && (
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                <Text style={typography.bodyMedium}>Daily Target: ₹ 50,000</Text>
-                <Text style={typography.bodyMedium}>Achieved Today: {formatINR(agent.todayCollection)} (90%)</Text>
-                <Text style={typography.bodyMedium}>Monthly Target: ₹ 10,00,000</Text>
-                <Text style={typography.bodyMedium}>Total Achieved: {formatINR(agent.totalCollection)} (85%)</Text>
+              <View style={{ gap: 12, marginBottom: 24 }}>
+                <View style={styles.modalRow}>
+                  <Text style={[typography.bodyMedium, { color: colors.textSecondary }]}>Daily Target</Text>
+                  <Text style={[typography.bodyLarge, { color: colors.textPrimary }]}>₹ 50,000</Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={[typography.bodyMedium, { color: colors.textSecondary }]}>Achieved Today</Text>
+                  <Text style={[typography.bodyLarge, { color: colors.success }]}>{formatINR(agent.todayCollection)}</Text>
+                </View>
               </View>
             )}
 
             {activeModal === 'branch' && (
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                <Text style={typography.bodyMedium}>Branch: Salem Main Branch</Text>
-                <Text style={typography.bodyMedium}>Territory: Salem South & Omalur Region</Text>
-                <Text style={typography.bodyMedium}>Supervisor: Regional Manager</Text>
+              <View style={{ gap: 12, marginBottom: 24 }}>
+                <Text style={[typography.bodyLarge, { color: colors.textPrimary }]}>Salem Main Branch</Text>
+                <Text style={[typography.bodyMedium, { color: colors.textSecondary }]}>Territory: Salem South</Text>
+                <Text style={[typography.bodyMedium, { color: colors.textSecondary }]}>Supervisor: Regional Manager</Text>
               </View>
             )}
 
             {activeModal === 'support' && (
-              <View style={{ gap: 8, marginBottom: 16 }}>
-                <Text style={typography.bodyMedium}>Admin Desk: +91 427 244 5566</Text>
-                <Text style={typography.bodyMedium}>Escalation Email: admin@punnaigaifinances.com</Text>
+              <View style={{ gap: 12, marginBottom: 24 }}>
+                <Text style={[typography.bodyLarge, { color: colors.textPrimary }]}>Admin Desk</Text>
+                <Text style={[typography.bodyMedium, { color: colors.primary }]}>+91 427 244 5566</Text>
+                <Text style={[typography.bodyMedium, { color: colors.textSecondary }]}>admin@punnaigaifinances.com</Text>
               </View>
             )}
 
@@ -242,7 +265,7 @@ export const AgentProfileScreen: React.FC = () => {
               title="Close"
               variant="primary"
               onPress={() => setActiveModal(null)}
-              gradientColors={colors.buttonGradient}
+              size="large"
             />
           </View>
         </View>
@@ -255,14 +278,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 16,
+  header: {
+    position: 'relative',
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  userCard: {
-    marginBottom: 16,
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 40,
   },
-  userInfoRow: {
+  pageContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -20,
+    overflow: 'hidden',
+  },
+  scrollContent: {
+    padding: 24,
+    paddingBottom: 100, // For fixed bottom button
+  },
+  profileCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  profileHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  profileLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -272,61 +322,52 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
-  userDetails: {
-    flex: 1,
-  },
-  nameBadgeRow: {
+  locationRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 6,
   },
-  summaryCard: {
-    marginBottom: 16,
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: 36,
-  },
-  menuCard: {
-    marginBottom: 24,
+
+  menuList: {
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   menuItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 12,
   },
   menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   menuIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   menuDivider: {
     height: 1,
-    marginHorizontal: 12,
+    marginVertical: 4,
   },
-  versionContainer: {
+  bottomBtn: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
+    padding: 16,
+    borderRadius: 12,
   },
   modalBackdrop: {
     flex: 1,
@@ -336,7 +377,12 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    maxWidth: 380,
+    borderRadius: 24,
     padding: 24,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });

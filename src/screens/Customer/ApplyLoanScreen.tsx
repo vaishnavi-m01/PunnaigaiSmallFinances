@@ -42,7 +42,7 @@ export const ApplyLoanScreen: React.FC = () => {
   }, [dispatch]);
 
   const openLoanDetails = (pkg: LoanPackage) => {
-    navigation.navigate(ROUTES.LOAN_DETAILS, { loanId: pkg.id || 1 });
+    navigation.navigate(ROUTES.LOAN_PACKAGE_DETAIL, { pkg });
   };
 
   return (
@@ -126,46 +126,46 @@ export const ApplyLoanScreen: React.FC = () => {
                 <View
                   style={[
                     styles.pkgIconCircle,
-                    { backgroundColor: colors.primarySoft },
+                    { backgroundColor: colors.primary + '1A' },
                   ]}
                 >
-                  <AppIcon name="briefcase" size={22} color={colors.primary} />
+                  <AppIcon name="star" size={20} color={colors.primary} />
                 </View>
                 <View style={styles.pkgHeaderTexts}>
                   <Text style={styles.pkgName}>{pkg.name}</Text>
-                  <Text
-                    style={[
-                      typography.caption,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
+                  <Text style={styles.pkgSubText}>
                     {pkg.repaymentPeriod} {pkg.repaymentFrequency} {'•'}{' '}
                     {pkg.dueCalculationType === 'lump_sum'
                       ? 'Lump Sum'
                       : `${pkg.installmentCount} Installments`}
                   </Text>
                 </View>
-                <AppIcon
-                  name="chevron-right"
-                  size={18}
-                  color={colors.textMuted}
-                />
+                <View style={styles.arrowIcon}>
+                  <AppIcon
+                    name="arrow-right"
+                    size={16}
+                    color={colors.primary}
+                  />
+                </View>
               </View>
-              <View
-                style={[styles.pkgGrid, { borderTopColor: colors.borderLight }]}
-              >
+              <View style={styles.pkgGrid}>
                 <PackageValue
                   label="Min Amount"
                   value={formatINR(pkg.minAmount)}
+                  icon="trending-down"
                 />
+                <View style={styles.gridDivider} />
                 <PackageValue
                   label="Max Amount"
                   value={formatINR(pkg.maxAmount)}
+                  icon="trending-up"
                 />
+                <View style={styles.gridDivider} />
                 <PackageValue
                   label="Deduction"
                   value={`${pkg.deductionPercentage}%`}
-                  accent={colors.primary}
+                  icon="percent"
+                  accent="#C2410C"
                 />
               </View>
             </TouchableOpacity>
@@ -180,13 +180,18 @@ const PackageValue = ({
   label,
   value,
   accent,
+  icon,
 }: {
   label: string;
   value: string;
   accent?: string;
+  icon?: string;
 }) => (
   <View style={styles.pkgGridCol}>
-    <Text style={styles.gridLabel}>{label}</Text>
+    <View style={styles.gridLabelRow}>
+      {icon && <AppIcon name={icon as any} size={12} color="#94A3B8" />}
+      <Text style={styles.gridLabel}>{label}</Text>
+    </View>
     <Text style={[styles.gridValue, accent ? { color: accent } : null]}>
       {value}
     </Text>
@@ -221,43 +226,89 @@ const styles = StyleSheet.create({
   emptyText: { color: '#64748B', marginTop: 8, textAlign: 'center' },
   packageCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
+    borderColor: '#F1F5F9',
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
   },
   popularBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
+    position: 'absolute',
+    top: 0,
+    right: 16,
+    paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: 20,
-    marginBottom: 12,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
   },
-  popularText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
-  pkgHeader: { flexDirection: 'row', alignItems: 'center' },
+  popularText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  pkgHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   pkgIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pkgHeaderTexts: { flex: 1, marginLeft: 12 },
-  pkgName: { color: '#0F172A', fontSize: 15, fontWeight: '800' },
+  pkgName: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  pkgSubText: { color: '#64748B', fontSize: 12, fontWeight: '500' },
+  arrowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pkgGrid: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    marginTop: 14,
-    paddingTop: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  pkgGridCol: { flex: 1 },
-  gridLabel: { color: '#64748B', fontSize: 10, fontWeight: '600' },
+  pkgGridCol: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  gridDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E2E8F0',
+  },
+  gridLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  gridLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
   gridValue: {
-    color: '#0F172A',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '800',
+    color: '#0F172A',
     marginTop: 3,
   },
 });
