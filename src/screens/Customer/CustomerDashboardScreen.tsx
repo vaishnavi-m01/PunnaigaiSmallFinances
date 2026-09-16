@@ -180,7 +180,7 @@ export const CustomerDashboardScreen: React.FC = () => {
           <>
             {/* 1. Active Finance / Loan Card */}
             <LinearGradient
-              colors={['#065F46', '#047857']}
+              colors={['#047857', '#064E3B']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.activeLoanCard}
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   activeLoanBadge: {
-    backgroundColor: 'rgba(167, 243, 208, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -594,9 +594,9 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   activeLoanLabel: {
-    color: '#A7F3D0',
+    color: '#FFFFFF',
     fontSize: 10.5,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 0.3,
   },
   loanAmountValue: {

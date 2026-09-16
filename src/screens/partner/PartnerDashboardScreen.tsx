@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,132 +9,129 @@ import {
   RefreshControl,
   Image,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAppSelector } from '../../hooks/useAppHooks';
+import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
+import { fetchPartnerDashboardThunk } from '../../store/partnerSlice';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
 
-export const PartnerDashboardScreen: React.FC = () => {
+const PartnerDashboardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { colors, typography } = useAppTheme();
+  const dispatch = useAppDispatch();
   const partner = useAppSelector(state => state.partner);
   const user = useAppSelector(state => state.auth.user);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
+  useEffect(() => {
+    dispatch(fetchPartnerDashboardThunk());
+  }, [dispatch]);
+
+  const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1500);
-  }, []);
+    await dispatch(fetchPartnerDashboardThunk());
+    setIsRefreshing(false);
+  }, [dispatch]);
 
   const recentTransactions = [
-    {
-      id: '1',
+    ...(partner.contributions || []).map(c => ({
+      id: `c_${c.id}`,
       title: 'Investment Added',
-      amount: partner.details.totalContribution,
-      date: '11 Sep 2026',
+      amount: Number(c.amount),
+      date: new Date(c.contribution_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       type: 'credit',
       icon: 'triangle',
       iconColor: '#10B981',
       iconBg: '#D1FAE5',
-    },
-    {
-      id: '2',
+    })),
+    ...(partner.earnings || []).map(e => ({
+      id: `e_${e.id}`,
       title: 'Profit Share',
-      amount: partner.details.totalEarnings,
-      date: '11 Sep 2026',
+      amount: Number(e.share_amount),
+      date: new Date(e.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       type: 'credit',
       icon: 'briefcase',
       iconColor: '#8B5CF6',
       iconBg: '#EDE9FE',
-    }
-  ];
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
   return (
-    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
 
-      {/* Header Area */}
-      <LinearGradient
-        colors={['#0B533E', '#168B5E']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 16 }]}
+      {/* Top Header Bar */}
+      <View
+        style={[styles.topHeader, { paddingTop: Math.max(insets.top + 6, 16) }]}
       >
-        <View style={styles.headerTop}>
-          <View style={styles.logoRow}>
-            <Image 
-              source={require('../../assets/images/logo.png')} 
-              style={{ width: 32, height: 32, resizeMode: 'contain', tintColor: '#FFFFFF' }} 
-            />
-            <Text style={[typography.h3, { color: colors.white, marginLeft: 8 }]}>
-              Punnaigai{'\n'}Small Finances
+        <View style={styles.headerLeft}>
+          {/* User Avatar Circle */}
+          <TouchableOpacity
+            style={styles.avatarCircleHeader}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate(ROUTES.PARTNER_PROFILE)}
+          >
+            <View style={styles.avatarInner}>
+              <AppIcon name="user" size={18} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+
+          {/* Greeting Text */}
+          <View style={styles.nameBlock}>
+            <Text style={styles.greetingTitle}>
+              Hello, {user?.name?.split(' ')[0] || 'Kavin'}
+            </Text>
+            <Text style={styles.greetingSubtitle}>
+              Welcome back to your partnership!
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.notifBadge}
-            onPress={() => {}}
-          >
-            <AppIcon name="bell" size={24} color={colors.white} />
-            <View style={styles.badgeDot} />
-          </TouchableOpacity>
         </View>
-      </LinearGradient>
 
-      {/* Full Page White Container */}
-      <View style={styles.pageContainer}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
+        {/* Notification Bell */}
+        <TouchableOpacity
+          style={styles.bellButton}
+          onPress={() => {}}
+          activeOpacity={0.7}
         >
-          {isRefreshing ? (
-            <View style={{ paddingTop: 16 }}>
-              <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
-              <Skeleton height={120} borderRadius={16} style={{ marginBottom: 16 }} />
-            </View>
-          ) : (
-            <>
-              {/* Greeting Section */}
-              <View style={styles.greetingSection}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[typography.h3, { color: '#0F172A' }]}>
-                    Hello, {user?.name?.split(' ')[0] || 'Kavin'} 👋
-                  </Text>
-                  <Text style={[typography.bodyMedium, { color: '#64748B', marginTop: 4 }]}>
-                    Welcome back to your partnership
-                  </Text>
-                </View>
-                <View style={styles.leafPlaceholder}>
-                   <AppIcon name="feather" size={40} color="#D1FAE5" />
-                   <View style={{ position: 'absolute', top: -10, right: 15, transform: [{ rotate: '45deg' }] }}>
-                     <AppIcon name="feather" size={24} color="#A7F3D0" />
-                   </View>
-                </View>
-              </View>
+          <AppIcon name="bell" size={20} color="#0F172A" />
+          <View style={styles.badgeDot} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {isRefreshing ? (
+          <View style={{ paddingTop: 16 }}>
+            <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+            <Skeleton height={120} borderRadius={16} style={{ marginBottom: 16 }} />
+          </View>
+        ) : (
+          <>
 
               {/* My Investment Card */}
               <LinearGradient
-                colors={['#10B981', '#059669']}
+                colors={['#047857', '#064E3B']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.investmentCard}
               >
-                <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', borderRadius: 20 }]} pointerEvents="none">
+                <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 20 }]} pointerEvents="none">
                   <View style={{ position: 'absolute', bottom: -40, right: -20, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.1)' }} />
                   <View style={{ position: 'absolute', top: -20, right: 60, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.1)' }} />
                 </View>
@@ -147,7 +144,7 @@ export const PartnerDashboardScreen: React.FC = () => {
                   </Text>
                 </View>
                 <Text style={[typography.h1, { color: colors.white, marginTop: 16, fontSize: 36, fontWeight: 'bold' }]}>
-                  {formatINR(partner.details.totalContribution)}
+                  {formatINR(partner.summary.contributions || 0)}
                 </Text>
               </LinearGradient>
 
@@ -164,7 +161,7 @@ export const PartnerDashboardScreen: React.FC = () => {
                     </Text>
                   </View>
                   <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
-                    {formatINR(partner.details.totalEarnings)}
+                    {formatINR(partner.summary.earnings || 0)}
                   </Text>
                 </View>
 
@@ -179,7 +176,7 @@ export const PartnerDashboardScreen: React.FC = () => {
                     </Text>
                   </View>
                   <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
-                    {formatINR(partner.details.walletBalance)}
+                    {formatINR(partner.summary.available_balance || 0)}
                   </Text>
                 </View>
               </View>
@@ -281,75 +278,102 @@ export const PartnerDashboardScreen: React.FC = () => {
                 ))}
               </View>
 
-            </>
-          )}
-        </ScrollView>
-      </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 };
+export { PartnerDashboardScreen };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F4F9F6',
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  logoRow: {
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  notifBadge: {
-    position: 'relative',
-    padding: 4,
-  },
-  badgeDot: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    borderWidth: 1,
-    borderColor: '#0B533E',
-  },
-  pageContainer: {
-    flex: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20,
-    overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 80,
-  },
-  greetingSection: {
+  headerLeft: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    flex: 1,
   },
-  leafPlaceholder: {
-    width: 48,
-    height: 48,
+  avatarCircleHeader: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0D523B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  avatarInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0D523B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nameBlock: {
+    justifyContent: 'center',
+  },
+  greetingTitle: {
+    color: '#0F172A',
+    fontSize: 14.5,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  greetingSubtitle: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  bellButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
+  badgeDot: {
+    position: 'absolute',
+    top: 0,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 80,
+  },
   investmentCard: {
-    padding: 24,
+    padding: 16,
     borderRadius: 20,
     marginBottom: 20,
+    elevation: 4,
+    shadowColor: '#047857',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   investmentTop: {
     flexDirection: 'row',

@@ -48,6 +48,14 @@ export const recordCollectionThunk = createAsyncThunk(
         collected_at: new Date().toISOString().split('T')[0], 
       });
 
+      if (collection && collection.id) {
+        try {
+          await agentApi.updateCollectionStatus(collection.id, 'collected');
+        } catch (statusError) {
+          console.warn('Failed to update collection status:', statusError);
+        }
+      }
+
       return { collection, input };
     } catch (error: unknown) {
       return rejectWithValue(parseApiError(error));

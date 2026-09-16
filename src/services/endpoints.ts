@@ -15,5 +15,15 @@ export const ENDPOINTS = {
   AGENT: {
     ASSIGNED_CUSTOMERS: '/agent/assigned-customers',
     COLLECTIONS: '/agent/collections/store',
+    COLLECTION_STATUS: (id: string | number) => `/agent/collections/${id}/status`,
+  },
+  PARTNER: {
+    DASHBOARD: '/partner/dashboard',
+    PROFILE: '/partner/profile',
+    WALLET: '/partner/wallet',
+    EARNINGS: '/partner/earnings',
+    CONTRIBUTIONS: '/partner/contributions',
+    TRANSACTIONS: '/partner/transactions',
+    WITHDRAWALS: '/partner/withdrawals',
   },
 } as const;

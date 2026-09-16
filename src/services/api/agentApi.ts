@@ -63,3 +63,12 @@ export const recordCollection = async (
   const body = response.data as any;
   return body.data ?? body;
 };
+
+export const updateCollectionStatus = async (
+  id: string | number,
+  status: string
+): Promise<any> => {
+  const response = await apiClient.patch(ENDPOINTS.AGENT.COLLECTION_STATUS(id), { status });
+  const body = response.data as any;
+  return body.data ?? body;
+};

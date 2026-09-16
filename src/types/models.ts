@@ -172,24 +172,89 @@ export interface WithdrawalRequest {
 }
 
 // Partner Domain
-export interface PartnerDetails {
-  id: string;
+export interface PartnerProfile {
+  id: number;
+  user_id: number;
+  par_code: string;
   name: string;
-  totalContribution: number; 
-  totalEarnings: number;
-  walletBalance: number; 
-  profitSharePercentage: number; 
-  partnershipAgreementDate: string;
+  mobile: string;
+  email: string;
+  status: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  partner_type: string;
+  partnership_name: string;
+  profit_share_percentage: string;
+  principal_withdrawal_permission: number;
+  profit_withdrawal_permission: number;
 }
 
-export interface PartnerEarningsItem {
-  month: string;
-  amount: number;
-  status: 'Credited' | 'Pending';
-  date: string;
+export interface PartnerContribution {
+  id: number;
+  contribution_code: string;
+  partner_id: number;
+  amount: string;
+  contribution_date: string;
+  payment_method: string;
+  reference_number: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
+export interface PartnerProfitShare {
+  id: number;
+  partner_id: number;
+  source_type: string;
+  source_id: number;
+  total_profit: string;
+  share_percentage: string;
+  share_amount: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
+export interface PartnerSummary {
+  contributions: number;
+  earnings: number;
+  withdrawals: number;
+  available_balance: number;
+  available_principal: number;
+  available_profit: number;
+  pending_withdrawals: number;
+}
+
+export interface PartnerTransaction {
+  id: number;
+  transaction_code: string;
+  transaction_type: string;
+  reference_type: string;
+  reference_id: number;
+  direction: 'in' | 'out';
+  amount: string;
+  description: string;
+  transaction_date: string;
+  created_by: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PartnerDashboardResponse {
+  partner: PartnerProfile & {
+    contributions: PartnerContribution[];
+    profit_shares: PartnerProfitShare[];
+    withdrawals: any[]; // Assuming any for now
+  };
+  summary: PartnerSummary;
+}
 export interface LoanPackage {
   id: number;
   name: string;

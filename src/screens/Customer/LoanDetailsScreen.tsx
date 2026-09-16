@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -10,33 +9,22 @@ import {
   View,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import { AppIcon } from '../../component/AppIcon';
 import { Header } from '../../component/Header';
-import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
-import { submitLoanRequestThunk } from '../../store/customerSlice';
-import { showToast } from '../../store/toastSlice';
 import * as customerApi from '../../services/api/customerApi';
 import { formatINR } from '../../utils/currency';
 import { formatDate } from '../../utils/date';
+import { ROUTES } from '../../constants/routes';
 
 export const LoanDetailsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const dispatch = useAppDispatch();
-  const insets = useSafeAreaInsets();
   const loanId = Number(route.params?.loanId || 1);
-  const isSubmitting = useAppSelector(state => state.customer.isSubmittingLoan);
-  const [detail, setDetail] = useState<customerApi.LoanDetailResponse | null>(
-    null,
-  );
+  
+  const [detail, setDetail] = useState<customerApi.LoanDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const openApplyConfirmation = () => {
-    setShowConfirm(true);
-  };
 
   useEffect(() => {
     let mounted = true;
@@ -57,6 +45,30 @@ export const LoanDetailsScreen: React.FC = () => {
     };
   }, [loanId]);
 
+  if (loading) {
+    return (
+      <View style={styles.centerState}>
+        <ActivityIndicator size="large" color="#10B981" />
+      </View>
+    );
+  }
+
+  if (hasError || !detail) {
+    return (
+      <View style={styles.centerState}>
+        <AppIcon name="alert-circle" size={28} color="#EF4444" />
+        <Text style={styles.stateText}>Unable to load loan details</Text>
+      </View>
+    );
+  }
+
+  // Derive stats
+  const totalLoanAmount = detail.repayment_schedules.reduce((sum, s) => sum + Number(s.amount), 0);
+  const totalPaid = detail.repayment_schedules.reduce((sum, s) => sum + Number(s.paid_amount || 0), 0);
+  const remaining = totalLoanAmount - totalPaid;
+  const nextEMI = detail.repayment_schedules.find(s => !['paid', 'completed'].includes(s.status.toLowerCase()));
+  const isGold = detail.loan_package.name.toLowerCase().includes('gold');
+  
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -66,502 +78,185 @@ export const LoanDetailsScreen: React.FC = () => {
         onBackPress={() => navigation.goBack()}
       />
 
-      {loading ? (
-        <View style={styles.centerState}>
-          <ActivityIndicator size="large" color="#0D523B" />
-          <Text style={styles.stateText}>Loading loan details...</Text>
-        </View>
-      ) : hasError || !detail ? (
-        <View style={styles.centerState}>
-          <AppIcon name="alert-circle" size={28} color="#B45309" />
-          <Text style={styles.errorTitle}>Unable to load loan details</Text>
-          <Text style={styles.stateText}>Please try again later.</Text>
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: insets.bottom + 104 },
-          ]}
-          showsVerticalScrollIndicator={false}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Top Hero Gradient Card */}
+        <LinearGradient
+          colors={isGold ? ['#8B5CF6', '#6D28D9'] : ['#10B981', '#047857']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
         >
-          <View style={styles.overviewCard}>
-            <View style={styles.overviewHeader}>
-              <Text style={styles.overviewTitle}>Loan summary</Text>
-              <View style={styles.statusPill}>
-                <Text style={styles.statusPillText}>{detail.status}</Text>
+          <View style={styles.heroHeaderRow}>
+            <View style={styles.heroLeft}>
+              <View style={[styles.heroIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                <AppIcon name={isGold ? 'lock' : 'user'} size={20} color="#FFFFFF" />
+              </View>
+              <View>
+                <Text style={styles.heroTitle}>{detail.loan_package.name}</Text>
+                <Text style={styles.heroSubtitle}>Loan No : {detail.loan_package.name.charAt(0)}L{loanId}</Text>
               </View>
             </View>
-            <View style={styles.overviewAmounts}>
-              <View style={styles.overviewItem}>
-                <Text style={styles.overviewLabel}>Total loan amount</Text>
-                <Text style={styles.overviewValue}>
-                  {formatINR(detail.requested_amount)}
-                </Text>
-                <Text style={styles.overviewHint}>Requested</Text>
-              </View>
-              <View style={styles.overviewDivider} />
-              <View style={styles.overviewItem}>
-                <Text style={styles.overviewLabel}>Amount you receive</Text>
-                <Text style={styles.overviewValue}>
-                  {formatINR(detail.approved_amount)}
-                </Text>
-                <Text style={styles.overviewHint}>After deduction</Text>
-              </View>
+            <View style={styles.heroBadge}>
+              <Text style={styles.heroBadgeText}>Active</Text>
             </View>
           </View>
+          
+          <Text style={styles.heroAmount}>{formatINR(totalLoanAmount)}</Text>
+          <Text style={styles.heroAmountLabel}>Total Loan Amount</Text>
+        </LinearGradient>
 
-          <Text style={styles.sectionTitle}>Financial summary</Text>
-          <View style={styles.summaryCard}>
-            <SummaryItem
-              label="Total repayment"
-              value={formatINR(detail.repayment_obligation)}
-            />
-            <SummaryItem
-              label="Upfront deduction"
-              value={formatINR(detail.deduction_amount)}
-            />
-            <SummaryItem
-              label="Final due date"
-              value={formatDate(detail.due_date)}
-            />
-          </View>
+        {/* Details List Card */}
+        <View style={styles.detailsCard}>
+          <DetailRow icon="clock" label="Tenure" value={`${detail.loan_package.installment_count} Months`} />
+          <DetailRow icon="percent" label="Interest Rate" value={`${detail.loan_package.deduction_percentage}% p.a.`} />
+          <DetailRow icon="arrow-down-circle" label="Monthly EMI" value={formatINR(detail.repayment_schedules[0]?.amount || 0)} />
+          <DetailRow icon="calendar" label="Start Date" value={formatDate(detail.repayment_schedules[0]?.due_date || new Date().toISOString())} />
+          <DetailRow icon="calendar" label="End Date" value={formatDate(detail.repayment_schedules[detail.repayment_schedules.length - 1]?.due_date || new Date().toISOString())} isLast />
+        </View>
 
-          <Text style={styles.sectionTitle}>Loan package</Text>
-          <View style={styles.packageCard}>
-            <Text style={styles.packageName}>{detail.loan_package.name}</Text>
-            <Text style={styles.packageText}>
-              {detail.loan_package.repayment_period}{' '}
-              {detail.loan_package.repayment_frequency} ·{' '}
-              {detail.loan_package.installment_count} installments
-            </Text>
-            <Text style={styles.packageText}>
-              Deduction: {detail.loan_package.deduction_percentage}%
-            </Text>
-          </View>
-
-          <View style={styles.scheduleHeader}>
-            <Text style={styles.sectionTitle}>Repayment schedule</Text>
-            <Text style={styles.scheduleCount}>
-              {detail.repayment_schedules.length} dues
-            </Text>
-          </View>
-          <View style={styles.scheduleCard}>
-            {detail.repayment_schedules.map((item, index) => (
-              <View key={item.id} style={styles.scheduleRow}>
-                <View style={styles.numberCircle}>
-                  <Text style={styles.numberText}>{index + 1}</Text>
+        <Text style={styles.sectionTitle}>Payment Schedule</Text>
+        <View style={styles.scheduleCard}>
+          {detail.repayment_schedules.map((item, index) => {
+            const isPaid = ['paid', 'completed'].includes(item.status?.toLowerCase());
+            const isLast = index === detail.repayment_schedules.length - 1;
+            return (
+              <View key={item.id} style={[styles.historyRow, !isLast && styles.rowBorder]}>
+                <View style={styles.historyLeft}>
+                  <AppIcon name={isPaid ? 'check-circle' : 'clock'} size={20} color={isPaid ? '#10B981' : '#F59E0B'} />
+                  <View style={{ marginLeft: 12 }}>
+                    <Text style={styles.historyDate}>{formatDate(item.due_date)}</Text>
+                    <Text style={styles.historySubtitle}>EMI Payment</Text>
+                  </View>
                 </View>
-                <View style={styles.scheduleInfo}>
-                  <Text style={styles.scheduleDate}>
-                    {formatDate(item.due_date)}
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.historyAmount}>{formatINR(item.amount)}</Text>
+                  <Text style={[styles.historyStatus, { color: isPaid ? '#10B981' : '#F59E0B' }]}>
+                    {isPaid ? 'Paid' : 'Pending'}
                   </Text>
-                  <Text style={styles.scheduleStatus}>{item.status}</Text>
                 </View>
-                <Text style={styles.scheduleAmount}>
-                  {formatINR(item.amount)}
-                </Text>
               </View>
-            ))}
-          </View>
-
-          <View style={styles.applySpace} />
-        </ScrollView>
-      )}
-
-      {!loading && detail && !hasError && (
-        <View
-          style={[
-            styles.applyFooter,
-            { paddingBottom: Math.max(insets.bottom, 16) },
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.applyButton}
-            onPress={openApplyConfirmation}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Apply for this loan"
-          >
-            <AppIcon name="file-text" size={18} color="#FFFFFF" />
-            <Text style={styles.applyButtonText}>Apply for this loan</Text>
-          </TouchableOpacity>
+            );
+          })}
         </View>
-      )}
-
-      <Modal visible={showConfirm} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.confirmCard}>
-            <View style={styles.confirmIcon}>
-              <AppIcon name="file-text" size={28} color="#0D523B" />
-            </View>
-            <Text style={styles.confirmTitle}>Confirm loan request</Text>
-            <Text style={styles.confirmMessage}>
-              Apply for {detail?.loan_package.name} with a requested amount of{' '}
-              {formatINR(detail?.requested_amount)}?
-            </Text>
-            <View style={styles.confirmActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setShowConfirm(false)}
-                disabled={isSubmitting}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={async () => {
-                  if (!detail) return;
-                  const result = await dispatch(
-                    submitLoanRequestThunk({
-                      loan_package_id: detail.loan_package_id,
-                      requested_amount: Number(detail.requested_amount),
-                    }),
-                  );
-                  if (submitLoanRequestThunk.fulfilled.match(result)) {
-                    setShowConfirm(false);
-                    dispatch(
-                      showToast({
-                        type: 'success',
-                        title: 'Request submitted',
-                        message:
-                          'Your loan request was submitted successfully.',
-                      }),
-                    );
-                  } else {
-                    dispatch(
-                      showToast({
-                        type: 'error',
-                        title: 'Submission failed',
-                        message:
-                          (result.payload as string) || 'Please try again.',
-                      }),
-                    );
-                  }
-                }}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.confirmButtonText}>Apply</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      </ScrollView>
     </View>
   );
 };
 
-const SummaryItem = ({ label, value }: { label: string; value: string }) => (
-  <View style={styles.summaryItem}>
-    <Text style={styles.summaryLabel}>{label}</Text>
-    <Text style={styles.summaryValue}>{value}</Text>
+const DetailRow = ({ icon, label, value, isLast }: { icon: any, label: string, value: string, isLast?: boolean }) => (
+  <View style={[styles.detailRow, !isLast && styles.detailRowBorder]}>
+    <View style={styles.detailRowLeft}>
+      <View style={styles.detailIconCircle}>
+        <AppIcon name={icon} size={14} color="#10B981" />
+      </View>
+      <Text style={styles.detailLabel}>{label}</Text>
+    </View>
+    <Text style={styles.detailValue}>{value}</Text>
   </View>
 );
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: {
-    height: 74,
-    paddingHorizontal: 18,
-    paddingTop: 28,
+  centerState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  stateText: { marginTop: 12, color: '#64748B', fontSize: 14 },
+  content: { padding: 16, paddingBottom: 100 },
+  heroCard: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  heroHeaderRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  headerTitle: { color: '#0F172A', fontSize: 18, fontWeight: '900' },
-  headerSpacer: { flex: 1 },
-  content: { padding: 18, paddingBottom: 32 },
-  applySpace: { height: 72 },
-  overviewCard: {
-    backgroundColor: '#0D523B',
-    borderRadius: 18,
-    padding: 16,
     marginBottom: 20,
   },
-  overviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  overviewTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  overviewAmounts: { flexDirection: 'row', alignItems: 'center' },
-  overviewItem: { flex: 1, minWidth: 0 },
-  overviewLabel: { color: '#D1FAE5', fontSize: 11, fontWeight: '700' },
-  overviewValue: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900',
-    marginTop: 5,
-  },
-  overviewHint: {
-    color: '#A7F3D0',
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 3,
-  },
-  overviewDivider: {
-    width: 1,
-    height: 48,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginHorizontal: 12,
-  },
-  statusPill: {
-    backgroundColor: 'rgba(167,243,208,0.18)',
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  statusPillText: {
-    color: '#D1FAE5',
-    fontSize: 9,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  centerState: {
-    flex: 1,
-    alignItems: 'center',
+  heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  heroIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
-    padding: 24,
+    alignItems: 'center',
   },
-  stateText: {
-    color: '#64748B',
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  errorTitle: {
-    color: '#0F172A',
-    fontSize: 16,
-    fontWeight: '900',
-    marginTop: 14,
-  },
-  approvedCard: {
-    backgroundColor: '#0D523B',
-    borderRadius: 18,
-    padding: 20,
-    marginBottom: 14,
-  },
-  cardLabel: { color: '#A7F3D0', fontSize: 12, fontWeight: '800' },
-  approvedValue: {
-    color: '#FFFFFF',
-    fontSize: 30,
-    fontWeight: '900',
-    marginTop: 6,
-  },
-  cardMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
-  },
-  cardHint: { color: '#D1FAE5', fontSize: 11, fontWeight: '600' },
-  status: {
-    color: '#D1FAE5',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  cardHintDark: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 5,
-  },
-  receiveCard: {
-    backgroundColor: '#EAF5EE',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    padding: 18,
-    marginBottom: 24,
-  },
-  receiveCardLabel: { color: '#0D523B', fontSize: 12, fontWeight: '800' },
-  receiveCardValue: {
-    color: '#0D523B',
-    fontSize: 24,
-    fontWeight: '900',
-    marginTop: 6,
-  },
-  sectionTitle: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '900',
-    marginBottom: 10,
-  },
-  summaryCard: {
-    flexDirection: 'column',
+  heroTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
+  heroSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500', marginTop: 2 },
+  heroBadge: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 24,
-  },
-  summaryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  summaryLabel: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  summaryValue: { color: '#0F172A', fontSize: 13, fontWeight: '800' },
-  packageCard: {
-    backgroundColor: '#EAF5EE',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 24,
-  },
-  packageName: { color: '#0D523B', fontSize: 15, fontWeight: '900' },
-  packageText: {
-    color: '#475569',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 6,
-  },
-  scheduleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  scheduleCount: {
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  scheduleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-  },
-  scheduleRow: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  heroBadgeText: { color: '#047857', fontSize: 11, fontWeight: '800' },
+  heroAmount: { color: '#FFFFFF', fontSize: 32, fontWeight: '900', marginTop: 4 },
+  heroAmountLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600', marginTop: 4 },
+  
+  detailsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  detailRowBorder: {
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
-  numberCircle: {
+  detailRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  detailIconCircle: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#EAF5EE',
-    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
     justifyContent: 'center',
-    marginRight: 10,
-  },
-  numberText: { color: '#0D523B', fontSize: 11, fontWeight: '900' },
-  scheduleInfo: { flex: 1 },
-  scheduleDate: { color: '#0F172A', fontSize: 12, fontWeight: '800' },
-  scheduleStatus: {
-    color: '#D97706',
-    fontSize: 10,
-    fontWeight: '700',
-    marginTop: 3,
-    textTransform: 'capitalize',
-  },
-  scheduleAmount: { color: '#0F172A', fontSize: 13, fontWeight: '900' },
-  applyFooter: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    zIndex: 20,
-    elevation: 12,
-  },
-  applyButton: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#0D523B',
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
   },
-  applyButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+  detailLabel: { color: '#64748B', fontSize: 13, fontWeight: '500' },
+  detailValue: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
+  
+  sectionTitle: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 12,
+    marginLeft: 4,
   },
-  confirmCard: {
-    width: '100%',
+  
+  scheduleCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 22,
-  },
-  confirmIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#EAF5EE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginBottom: 14,
-  },
-  confirmTitle: {
-    color: '#0F172A',
-    fontSize: 19,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  confirmMessage: {
-    color: '#64748B',
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  confirmActions: { flexDirection: 'row', gap: 12, marginTop: 22 },
-  cancelButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#E2E8F0',
   },
-  cancelButtonText: { color: '#475569', fontSize: 14, fontWeight: '800' },
-  confirmButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#0D523B',
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 14,
   },
-  confirmButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  rowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  historyLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyDate: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
+  historySubtitle: { color: '#64748B', fontSize: 11, fontWeight: '500', marginTop: 2 },
+  historyAmount: { color: '#0F172A', fontSize: 13, fontWeight: '800' },
+  historyStatus: { fontSize: 11, fontWeight: '700', marginTop: 2 },
 });

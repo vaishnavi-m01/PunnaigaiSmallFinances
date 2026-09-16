@@ -1,25 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  StatusBar,
-  RefreshControl,
-} from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, ScrollView, Modal, Platform, RefreshControl } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Header } from '../../component/Header';
-import { Card } from '../../component/Common/Card';
 import { AppIcon } from '../../component/AppIcon';
 import { formatINR } from '../../utils/currency';
-import { Skeleton } from '../../component/Common/Skeleton';
 import * as customerApi from '../../services/api/customerApi';
 import { formatDate } from '../../utils/date';
+import LinearGradient from 'react-native-linear-gradient';
 
 type TimeFilter = 'Today' | 'Week' | 'Month' | 'Year';
 
-// Build date range strings from filter
 const getDateRange = (filter: TimeFilter): { from_date: string; to_date: string } => {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -30,13 +20,8 @@ const getDateRange = (filter: TimeFilter): { from_date: string; to_date: string 
   let from = new Date(now);
 
   switch (filter) {
-    case 'Today':
-      // from = today, to = today
-      break; 
+    case 'Today': break; 
     case 'Week':
-      // start of week (Sunday or Monday, depending on locale, let's use 7 days ago or start of current week)
-      // The prompt says: "week na week start panna start date and enddate la tdy date"
-      // Assuming week starts on Sunday
       from.setDate(now.getDate() - now.getDay());
       break;
     case 'Month':
@@ -46,178 +31,324 @@ const getDateRange = (filter: TimeFilter): { from_date: string; to_date: string 
       from = new Date(now.getFullYear(), 0, 1);
       break;
   }
-
   return { from_date: fmt(from), to_date };
 };
 
 export const PaymentScheduleScreen: React.FC = () => {
-  const [activeFilter, setActiveFilter] = useState<TimeFilter>('Month');
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const initialLoanId = route.params?.loanId;
+
+  const [myLoans, setMyLoans] = useState<customerApi.MyLoanResponse[]>([]);
   const [historyData, setHistoryData] = useState<customerApi.PaymentHistoryRecord[]>([]);
   const [totalAmount, setTotalAmount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('all');
+  const [expandedLoans, setExpandedLoans] = useState<Record<string, boolean>>({});
+  
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('Month');
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const timeOptions: TimeFilter[] = ['Today', 'Week', 'Month', 'Year'];
 
-  const loadData = React.useCallback(async (filter: TimeFilter) => {
-    setIsLoading(true);
+  const toggleExpand = (loanId: string) => {
+    setExpandedLoans(prev => ({ ...prev, [loanId]: !prev[loanId] }));
+  };
+
+  const loadHistoryData = useCallback(async (filter: TimeFilter) => {
     try {
       const range = getDateRange(filter);
-      console.log(`[PaymentHistory] Filter: ${filter} => calling API with from_date: ${range.from_date}, to_date: ${range.to_date}`);
       const data = await customerApi.getPaymentHistory(range);
       setHistoryData(Array.isArray(data?.data) ? data.data : []);
       setTotalAmount(data?.total_payment ?? 0);
     } catch {
       setHistoryData([]);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadData(activeFilter);
-  }, [activeFilter, loadData]);
-
-  const onRefresh = React.useCallback(async () => {
+  const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await loadData(activeFilter);
-    setIsRefreshing(false);
-  }, [activeFilter, loadData]);
+    try {
+      const loans = await customerApi.getMyLoans();
+      setMyLoans(loans);
+      await loadHistoryData(timeFilter);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [timeFilter, loadHistoryData]);
 
-  const renderHistoryCard = ({ item }: { item: customerApi.PaymentHistoryRecord }) => {
-    const isPaid = ['paid', 'completed', 'approved'].includes(item.status?.toLowerCase());
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      customerApi.getMyLoans(),
+      loadHistoryData(timeFilter)
+    ]).then(([loans]) => {
+      if (mounted) {
+        setMyLoans(loans);
+        if (initialLoanId) {
+          const found = loans.find(l => String(l.finance_id) === String(initialLoanId));
+          if (found) {
+            setActiveTab(String(found.finance_id));
+          }
+        }
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (mounted) setLoading(false);
+    });
+    return () => { mounted = false; };
+  }, [initialLoanId, timeFilter, loadHistoryData]);
+
+  if (loading) {
     return (
-      <Card style={styles.historyCard} variant="flat" padding={12}>
-        <View style={styles.cardContent}>
-          {/* Left: Icon + Date */}
-          <View style={styles.leftInfo}>
-            <View style={styles.iconCircle}>
-              <AppIcon name="calendar" size={16} color="#0D523B" />
-            </View>
-            <View>
-              <Text style={styles.dateText}>
-                {formatDate(item.paid_at)}
-              </Text>
-              <Text style={styles.receiptText}>
-                {item.loan_package_name} • {item.mode ? item.mode.charAt(0).toUpperCase() + item.mode.slice(1) : ''}
-              </Text>
-            </View>
-          </View>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#10B981" />
+      </View>
+    );
+  }
 
-          {/* Right: Amount + Badge */}
-          <View style={styles.rightInfo}>
-            <Text style={styles.amountText}>{formatINR(item.amount)}</Text>
-            <View
-              style={[
-                styles.badgePill,
-                {
-                  backgroundColor: isPaid ? '#DCFCE7' : '#FEF3C7',
-                  borderColor: isPaid ? '#86EFAC' : '#FDE68A',
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.badgeText,
-                  { color: isPaid ? '#15803D' : '#D97706' },
-                ]}
-              >
-                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-              </Text>
-            </View>
+  // Build Tabs: All Loans + each loan
+  const tabs = [{ id: 'all', label: 'All Loans' }];
+  myLoans.forEach(loan => {
+    tabs.push({ id: String(loan.finance_id), label: loan.loan_package_name });
+  });
+
+  const getLoanIconColor = (name: string) => name.toLowerCase().includes('gold') ? '#8B5CF6' : '#10B981';
+  const getLoanIconName = (name: string) => name.toLowerCase().includes('gold') ? 'lock' : 'user';
+
+  const renderSingleLoanView = (loan: customerApi.MyLoanResponse) => {
+    const accentColor = getLoanIconColor(loan.loan_package_name);
+    const iconName = getLoanIconName(loan.loan_package_name);
+
+    // Filter history for this loan based on API response
+    const filteredHistory = historyData.filter(h => String(h.finance_id) === String(loan.finance_id));
+    const filteredTotalAmount = filteredHistory.reduce((sum, h) => sum + Number(h.amount), 0);
+
+    return (
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />}
+      >
+        <LinearGradient
+          colors={[accentColor, accentColor + 'DD']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.globalSummaryCard}
+        >
+          <View style={[styles.watermarkContainer, { top: -20, right: -10 }]}>
+            <AppIcon name={iconName} size={150} color="rgba(255,255,255,0.08)" />
           </View>
+          <View style={styles.globalSummaryMain}>
+            <Text style={styles.globalSummaryLabelPremium}>{loan.loan_package_name} - Paid ({timeFilter})</Text>
+            <Text style={styles.globalSummaryAmountPremium}>{formatINR(filteredTotalAmount)}</Text>
+          </View>
+        </LinearGradient>
+
+        <Text style={styles.sectionTitle}>Transactions ({timeFilter})</Text>
+        
+        <View style={styles.listCard}>
+          {filteredHistory.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No transactions found for {timeFilter.toLowerCase()}.</Text>
+            </View>
+          ) : (
+            filteredHistory.map((item, index) => {
+              const isPaid = ['paid', 'completed', 'approved'].includes(item.status?.toLowerCase());
+              const isLast = index === filteredHistory.length - 1;
+              return (
+                <View key={item.payment_id || index} style={[styles.historyRow, !isLast && styles.rowBorder]}>
+                  <View style={styles.historyLeft}>
+                    <AppIcon name={isPaid ? 'check-circle' : 'clock'} size={20} color={isPaid ? '#10B981' : '#F59E0B'} />
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={styles.historyDate}>{formatDate(item.paid_at || (item as any).due_date)}</Text>
+                      <Text style={styles.historySubtitle}>{item.mode ? item.mode.toUpperCase() : 'EMI Payment'}</Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.historyAmount}>{formatINR(Number(item.amount))}</Text>
+                    <Text style={[styles.historyStatus, { color: isPaid ? '#10B981' : '#F59E0B' }]}>
+                      {isPaid ? 'Paid' : 'Pending'}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
         </View>
-      </Card>
+      </ScrollView>
     );
   };
+
+  const renderAllLoansView = () => {
+    return (
+      <View style={styles.content}>
+        <LinearGradient
+          colors={['#047857', '#064E3B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.globalSummaryCard}
+        >
+          <View style={[styles.watermarkContainer, { top: -20, right: -10 }]}>
+            <AppIcon name="pie-chart" size={150} color="rgba(255,255,255,0.08)" />
+          </View>
+          <View style={styles.globalSummaryMain}>
+            <Text style={styles.globalSummaryLabelPremium}>Total Amount ({timeFilter})</Text>
+            <Text style={styles.globalSummaryAmountPremium}>{formatINR(totalAmount)}</Text>
+          </View>
+        </LinearGradient>
+
+        <FlatList
+          data={historyData.length === 0 ? [] : myLoans}
+          keyExtractor={item => String(item.finance_id)}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />}
+          ListEmptyComponent={
+            <View style={[styles.emptyContainer, { marginTop: 40 }]}>
+              <AppIcon name="file-text" size={48} color="#E2E8F0" style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyText}>
+                {myLoans.length === 0 
+                  ? 'No active loans found.' 
+                  : `No payment history found for ${timeFilter.toLowerCase()}.`}
+              </Text>
+            </View>
+          }
+          renderItem={({ item: loan }) => {
+            const filteredHistory = historyData.filter(h => String(h.finance_id) === String(loan.finance_id));
+            if (filteredHistory.length === 0) return null; // Don't show loans with no transactions in this filter
+
+            const accentColor = getLoanIconColor(loan.loan_package_name);
+            const iconName = getLoanIconName(loan.loan_package_name);
+            
+            return (
+                <View style={styles.loanGroupCard}>
+                  <View style={styles.loanGroupHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={[styles.iconCircle, { backgroundColor: accentColor + '15', width: 24, height: 24 }]}>
+                        <AppIcon name={iconName} size={12} color={accentColor} />
+                      </View>
+                      <Text style={[styles.loanGroupTitle, { color: '#0F172A', marginLeft: 8 }]}>
+                        {loan.loan_package_name}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.loanGroupList}>
+                    {(() => {
+                    const isExpanded = expandedLoans[String(loan.finance_id)] || false;
+                    const itemsToShow = isExpanded ? filteredHistory : filteredHistory.slice(0, 3);
+                    const hasMore = filteredHistory.length > 3;
+
+                    return (
+                      <>
+                        {itemsToShow.map((item, index) => {
+                          const isPaid = ['paid', 'completed', 'approved'].includes(item.status?.toLowerCase());
+                          return (
+                            <View key={item.payment_id || index} style={styles.historyRowCompact}>
+                              <View style={styles.historyLeft}>
+                                <AppIcon name={isPaid ? 'check-circle' : 'clock'} size={16} color={isPaid ? '#10B981' : '#F59E0B'} />
+                                <View style={{ marginLeft: 10 }}>
+                                  <Text style={styles.historyDate}>{formatDate(item.paid_at || (item as any).due_date)}</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.historySubtitle}>{item.mode ? item.mode.toUpperCase() : 'EMI'}</Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', width: 90, justifyContent: 'space-between' }}>
+                                <Text style={styles.historyAmountCompact}>{formatINR(Number(item.amount))}</Text>
+                                <Text style={[styles.historyStatusCompact, { color: isPaid ? '#10B981' : '#F59E0B' }]}>
+                                  {isPaid ? 'Paid' : 'Pending'}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                        {hasMore && (
+                          <TouchableOpacity 
+                            style={styles.viewMoreBtn} 
+                            onPress={() => toggleExpand(String(loan.finance_id))}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.viewMoreBtnText}>
+                              {isExpanded ? 'Hide transactions' : `View ${filteredHistory.length - 3} more`}
+                            </Text>
+                            <AppIcon name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color="#10B981" />
+                          </TouchableOpacity>
+                        )}
+                      </>
+                    );
+                  })()}
+                </View>
+              </View>
+            );
+          }}
+        />
+      </View>
+    );
+  };
+
+  const renderHeaderRight = () => (
+    <View style={{ zIndex: 10 }}>
+      <TouchableOpacity 
+        style={styles.dropdownButton}
+        onPress={() => setDropdownVisible(true)}
+      >
+        <Text style={styles.dropdownButtonText}>{timeFilter}</Text>
+        <AppIcon name="chevron-down" size={12} color="#64748B" />
+      </TouchableOpacity>
+      
+      {dropdownVisible && (
+        <Modal transparent animationType="fade" visible={dropdownVisible} onRequestClose={() => setDropdownVisible(false)}>
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDropdownVisible(false)}>
+            <View style={styles.dropdownMenu}>
+              {timeOptions.map((opt, index) => {
+                const isLast = index === timeOptions.length - 1;
+                return (
+                  <TouchableOpacity 
+                    key={opt}
+                    style={[styles.dropdownMenuItem, !isLast && { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }, timeFilter === opt && styles.dropdownMenuItemActive]}
+                    onPress={() => { setTimeFilter(opt); setDropdownVisible(false); }}
+                  >
+                    <Text style={[styles.dropdownMenuItemText, timeFilter === opt && styles.dropdownMenuItemTextActive]}>{opt}</Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <Header title="Payment History" showBack={false} showNotification={true} />
+      <Header title="Payments" showBack={false} showNotification={true} rightComponent={renderHeaderRight()} />
 
-      <View style={styles.content}>
-        {/* Time Filter Pills */}
-        <View style={styles.filterRow}>
-          {(['Today', 'Week', 'Month', 'Year'] as TimeFilter[]).map(filter => {
-            const isActive = activeFilter === filter;
-            return (
-              <TouchableOpacity
-                key={filter}
-                style={[styles.filterPill, isActive && styles.activeFilterPill]}
-                onPress={() => setActiveFilter(filter)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    isActive && styles.activeFilterPillText,
-                  ]}
+      {myLoans.length > 1 && (
+        <View style={{ marginTop: 8, marginBottom: 0 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsRow}>
+            {tabs.map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={[styles.tabItem, isActive && styles.tabItemActive]}
+                  onPress={() => setActiveTab(tab.id)}
                 >
-                  {filter}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+                  <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
+      )}
 
-        {/* Hero Summary Card */}
-        <LinearGradient
-          colors={['#083827', '#0D523B', '#126349']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroCard}
-        >
-          <View style={styles.heroHeader}>
-            <View style={styles.heroIconCircle}>
-              <AppIcon name="pie-chart" size={18} color="#FFFFFF" />
-            </View>
-            <Text style={styles.heroTitle}>Total Payments ({activeFilter})</Text>
-          </View>
-          <Text style={styles.heroAmount}>{formatINR(totalAmount)}</Text>
-          <Text style={styles.heroSubtitle}>
-            {isLoading
-              ? 'Loading...'
-              : `${historyData.length} transaction${historyData.length !== 1 ? 's' : ''}`}
-          </Text>
-        </LinearGradient>
+      {activeTab === 'all' ? renderAllLoansView() : renderSingleLoanView(myLoans.find(l => String(l.finance_id) === activeTab)!)}
 
-        {/* History List */}
-        {isLoading ? (
-          <View style={{ paddingTop: 8 }}>
-            {[1, 2, 3, 4].map(i => (
-              <Skeleton
-                key={i}
-                height={70}
-                borderRadius={12}
-                style={{ marginBottom: 10 }}
-              />
-            ))}
-          </View>
-        ) : (
-          <FlatList
-            data={historyData}
-            keyExtractor={item => String(item.payment_id)}
-            renderItem={renderHistoryCard}
-            ItemSeparatorComponent={() => <View style={styles.historySeparator} />}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.historyListContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={onRefresh}
-                tintColor="#10B981"
-              />
-            }
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <AppIcon name="file-text" size={36} color="#94A3B8" />
-                <Text style={styles.emptyText}>
-                  No payments found for {activeFilter.toLowerCase()}.
-                </Text>
-              </View>
-            }
-          />
-        )}
-      </View>
     </View>
   );
 };
@@ -225,137 +356,260 @@ export const PaymentScheduleScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F9F6',
+    backgroundColor: '#F8FAFC',
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
-  filterRow: {
+  dropdownButton: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-  },
-  filterPill: {
-    flex: 1,
-    paddingVertical: 8,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    minWidth: 85,
+  },
+  dropdownButtonText: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '700',
+    marginRight: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 90 : 60,
+    right: 16,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+    width: 140,
+    overflow: 'hidden',
   },
-  activeFilterPill: {
-    backgroundColor: '#0D523B',
-    borderColor: '#0D523B',
+  dropdownMenuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  filterPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+  dropdownMenuItemActive: {
+    backgroundColor: '#ECFDF5',
   },
-  activeFilterPillText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  heroCard: {
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 16,
-  },
-  heroHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  heroIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  heroTitle: {
-    color: '#A7F3D0',
+  dropdownMenuItemText: {
+    color: '#475569',
     fontSize: 13,
     fontWeight: '600',
   },
-  heroAmount: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-    marginBottom: 4,
+  dropdownMenuItemTextActive: {
+    color: '#10B981',
+    fontWeight: '800',
   },
-  heroSubtitle: {
-    color: '#D1FAE5',
-    fontSize: 11,
-    fontWeight: '500',
-    opacity: 0.9,
+  tabsRow: {
+    paddingHorizontal: 16,
+    gap: 12,
   },
-  historyListContent: {
-    paddingBottom: 24,
-  },
-  historySeparator: {
-    height: 8,
-  },
-  historyCard: {
+  tabItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
   },
-  cardContent: {
+  tabItemActive: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  tabText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  
+  // Single Loan View Styles
+  miniCard: {
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  watermarkContainer: {
+    position: 'absolute',
+    right: -20,
+    bottom: -20,
+    zIndex: 0,
+  },
+  miniCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+    zIndex: 1,
+  },
+  miniCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  miniCardTitlePremium: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600' },
+  miniCardAmountPremium: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', marginTop: 2 },
+  activeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  activeBadgeText: { fontSize: 11, fontWeight: '800' },
+  progressLabelPremium: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '600', marginBottom: 8, zIndex: 1 },
+  progressBarTrack: { height: 6, borderRadius: 3, overflow: 'hidden', zIndex: 1 },
+  progressBarFill: { height: '100%', borderRadius: 3 },
+  progressValueTextPremium: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600', zIndex: 1 },
+  
+  sectionTitle: {
+    color: '#0F172A',
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  listCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    paddingBottom: 0,
+    flex: 1,
+  },
+  historyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 10,
   },
-  leftInfo: {
+  rowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  historyLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#EAF5EE',
-    justifyContent: 'center',
+  historyDate: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
+  historySubtitle: { color: '#64748B', fontSize: 11, fontWeight: '500', marginTop: 2 },
+  historyAmount: { color: '#0F172A', fontSize: 13, fontWeight: '800' },
+  historyStatus: { fontSize: 11, fontWeight: '700', marginTop: 2 },
+  
+  viewAllBtn: {
+    paddingVertical: 16,
     alignItems: 'center',
-    marginRight: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    marginTop: 8,
   },
-  dateText: {
-    color: '#0F172A',
+  viewAllBtnText: {
+    color: '#10B981',
     fontSize: 13,
     fontWeight: '700',
   },
-  receiptText: {
-    color: '#94A3B8',
-    fontSize: 10.5,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  rightInfo: {
-    alignItems: 'flex-end',
-  },
-  amountText: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '800',
-    marginBottom: 3,
-  },
-  badgePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+
+  // All Loans View Styles
+  globalSummaryCard: {
+    borderRadius: 20,
+    marginBottom: 16,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 8,
+    overflow: 'hidden',
     borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '800',
+  globalSummaryMain: {
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
   },
+  globalSummaryBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  globalSummaryLabelPremium: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '700', marginBottom: 4, zIndex: 1 },
+  globalSummaryAmountPremium: { color: '#FFFFFF', fontSize: 28, fontWeight: '900', zIndex: 1 },
+  globalSummarySubLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600', marginBottom: 2 },
+  globalSummarySubValue: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  
+  loanGroupCard: {
+    marginBottom: 16,
+  },
+  loanGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
+  loanGroupTitle: { fontSize: 13, fontWeight: '800' },
+  loanGroupList: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+  },
+  historyRowCompact: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  historyAmountCompact: { color: '#0F172A', fontSize: 12, fontWeight: '700' },
+  historyStatusCompact: { fontSize: 11, fontWeight: '700' },
+  
+  viewMoreBtn: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 12,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  viewMoreBtnText: { color: '#10B981', fontSize: 12, fontWeight: '600' },
+
   emptyContainer: {
     padding: 36,
     alignItems: 'center',

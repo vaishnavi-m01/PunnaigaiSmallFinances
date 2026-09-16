@@ -121,7 +121,7 @@ export const InvestorWithdrawScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
       <Header title="Withdraw Funds" showBack={true} />
 
       <ScrollView

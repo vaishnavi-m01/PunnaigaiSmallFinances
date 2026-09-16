@@ -8,23 +8,17 @@ import {
   StatusBar,
   TextInput,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
+import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
+import { Header } from '../../component/Header';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { AppIcon } from '../../component/AppIcon';
 import { recordCollectionThunk } from '../../features/agent/collectionThunks';
 import { showToast } from '../../store/toastSlice';
 import { AssignedCustomer } from '../../types/models';
 
-const HeaderGraphic = () => (
-  <View style={[StyleSheet.absoluteFillObject, styles.graphicContainer]} pointerEvents="none">
-    <View style={styles.graphicCircle1} />
-    <View style={styles.graphicCircle2} />
-  </View>
-);
 
 export const AddCollectionScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -95,9 +89,6 @@ export const AddCollectionScreen: React.FC = () => {
   };
 
   const dynamicStyles = StyleSheet.create({
-    header: {
-      paddingTop: Math.max(insets.top, 16) + 8,
-    },
     headerTitleText: {
       color: colors.white,
     },
@@ -107,28 +98,10 @@ export const AddCollectionScreen: React.FC = () => {
   });
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-      <LinearGradient
-        colors={['#0B533E', '#168B5E']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.header, dynamicStyles.header]}
-      >
-        <HeaderGraphic />
-        <View style={styles.headerTitleRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <AppIcon name="arrow-left" size={24} color={colors.white} />
-          </TouchableOpacity>
-          <Text style={[typography.h3, dynamicStyles.headerTitleText]}>
-            Add Collection
-          </Text>
-          <View style={styles.backBtn} />
-        </View>
-      </LinearGradient>
-
-      <View style={styles.pageContainer}>
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
+      <StatusBar barStyle="dark-content" />
+      <Header title="Add Collection" showBack={true} />
+      <View style={styles.content}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.inputGroup}>
             <Text style={[typography.bodyMedium, styles.label]}>
@@ -250,51 +223,9 @@ export const AddCollectionScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#168B5E',
   },
-  graphicContainer: {
-    overflow: 'hidden',
-  },
-  graphicCircle1: {
-    position: 'absolute',
-    top: -30,
-    right: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  graphicCircle2: {
-    position: 'absolute',
-    top: 40,
-    right: -80,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  header: {
-    position: 'relative',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backBtn: {
-    padding: 8,
-    width: 40,
-  },
-  pageContainer: {
+  content: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20,
-    overflow: 'hidden',
   },
   scrollContent: {
     padding: 24,

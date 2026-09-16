@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Header } from '../../component/Header';
+import { useAppDispatch } from '../../hooks/useAppHooks';
+import { fetchDashboardThunk } from '../../store/customerSlice';
 import { Card } from '../../component/Common/Card';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
@@ -18,10 +20,12 @@ export const OverdueDetailsScreen: React.FC = () => {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
+  const dispatch = useAppDispatch();
+  const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
-  }, []);
+    await dispatch(fetchDashboardThunk());
+    setIsRefreshing(false);
+  }, [dispatch]);
 
   return (
     <View style={styles.container}>

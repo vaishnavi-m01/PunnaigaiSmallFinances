@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,19 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  RefreshControl,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
+import { Header } from '../../component/Header';
 import { AppIcon } from '../../component/AppIcon';
 import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
-import { logout } from '../../store/authSlice';
+import { logoutThunk } from '../../store/authSlice';
+import { fetchPartnerProfileThunk } from '../../store/partnerSlice';
+import { Skeleton } from '../../component/Common/Skeleton';
 
 export const PartnerProfileScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -26,7 +29,19 @@ export const PartnerProfileScreen: React.FC = () => {
   const partner = useAppSelector(state => state.partner);
   const dispatch = useAppDispatch();
 
-  const name = user?.name?.split(' ')[0] || 'Kavin';
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  useEffect(() => {
+    dispatch(fetchPartnerProfileThunk());
+  }, [dispatch]);
+
+  const onRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    await dispatch(fetchPartnerProfileThunk());
+    setIsRefreshing(false);
+  }, [dispatch]);
+
+  const name = partner.profile?.name || user?.name?.split(' ')[0] || 'Partner';
 
   const handleLogout = () => {
     Alert.alert(
@@ -34,36 +49,40 @@ export const PartnerProfileScreen: React.FC = () => {
       'Are you sure you want to log out of your account?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Log Out', style: 'destructive', onPress: () => dispatch(logout()) },
+        { text: 'Log Out', style: 'destructive', onPress: () => dispatch(logoutThunk()) },
       ],
       { cancelable: true }
     );
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
+      <StatusBar barStyle="dark-content" />
+      <Header title="Profile" showBack={false} />
 
-      {/* Header Area */}
-      <LinearGradient
-        colors={['#0B533E', '#168B5E']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
-      >
-        <View style={styles.headerTitleRow}>
-          <Text style={[typography.h3, { color: colors.white }]}>
-            Profile
-          </Text>
-        </View>
-      </LinearGradient>
-
-      {/* Full Page White Container */}
-      <View style={styles.pageContainer}>
+      <View style={styles.content}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
         >
+          {isRefreshing ? (
+            <View>
+              <View style={[styles.profileRow, { marginBottom: 32 }]}>
+                <Skeleton height={52} width={52} borderRadius={26} />
+                <View style={{ marginLeft: 16 }}>
+                  <Skeleton height={24} width={150} borderRadius={8} style={{ marginBottom: 8 }} />
+                  <Skeleton height={16} width={80} borderRadius={8} />
+                </View>
+              </View>
+              <Skeleton height={180} borderRadius={16} style={{ marginBottom: 16 }} />
+              <Skeleton height={180} borderRadius={16} style={{ marginBottom: 16 }} />
+              <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+            </View>
+          ) : (
+            <>
           {/* Profile Header */}
           <View style={styles.profileRow}>
             <View style={[styles.avatarCircle, { backgroundColor: '#10B981' }]}>
@@ -96,7 +115,7 @@ export const PartnerProfileScreen: React.FC = () => {
             <View style={styles.dataRow}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Total Investment</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.details.totalContribution)}
+                {formatINR(partner.summary?.contributions || 0)}
               </Text>
             </View>
             <View style={styles.dataRow}>
@@ -108,7 +127,7 @@ export const PartnerProfileScreen: React.FC = () => {
             <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Remaining Investment</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.details.totalContribution)}
+                {formatINR(partner.summary?.contributions || 0)}
               </Text>
             </View>
           </View>
@@ -128,19 +147,19 @@ export const PartnerProfileScreen: React.FC = () => {
             <View style={[styles.dataRow, { borderBottomColor: '#FEE2E2' }]}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Total Profit Earned</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.details.totalEarnings)}
+                {formatINR(partner.summary?.earnings || 0)}
               </Text>
             </View>
             <View style={[styles.dataRow, { borderBottomColor: '#FEE2E2' }]}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Profit Withdrawn</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(0)}
+                {formatINR(partner.summary?.withdrawals || 0)}
               </Text>
             </View>
             <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Available Profit (Wallet)</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.details.walletBalance)}
+                {formatINR(partner.summary?.available_balance || 0)}
               </Text>
             </View>
           </View>
@@ -160,7 +179,7 @@ export const PartnerProfileScreen: React.FC = () => {
             <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Total Wallet Balance</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.details.walletBalance)}
+                {formatINR(partner.summary?.available_balance || 0)}
               </Text>
             </View>
           </View>
@@ -178,6 +197,8 @@ export const PartnerProfileScreen: React.FC = () => {
               <AppIcon name="log-out" size={20} color="#EF4444" />
             </View>
           </TouchableOpacity>
+          </>
+          )}
 
         </ScrollView>
       </View>
@@ -190,23 +211,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    position: 'relative',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 40,
-  },
-  pageContainer: {
+  content: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20,
-    overflow: 'hidden',
   },
   scrollContent: {
     padding: 24,

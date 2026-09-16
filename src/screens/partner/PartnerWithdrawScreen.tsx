@@ -8,7 +8,11 @@ import {
   TextInput,
   Modal,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
@@ -19,38 +23,38 @@ import { CustomButton } from '../../component/Common/CustomButton';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
-import { requestPartnerWithdrawal } from '../../store/partnerSlice';
+import { requestPartnerWithdrawalThunk, fetchPartnerWithdrawalsThunk, fetchPartnerDashboardThunk } from '../../store/partnerSlice';
 import { showToast } from '../../store/toastSlice';
 
 const QUICK_AMOUNTS = [5000, 10000, 20000, 35000];
 
 export const PartnerWithdrawScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const { colors, typography, radius } = useAppTheme();
   const partner = useAppSelector(state => state.partner);
 
-  const availableBalance = partner.details.walletBalance;
+  const availableBalance = partner.summary?.available_balance || 0;
 
-  const [amount, setAmount] = useState('10000');
-  const [payoutMethod, setPayoutMethod] = useState<'BANK' | 'UPI'>('BANK');
-  const [bankAccount, setBankAccount] = useState('ICICI Bank •••• 8812');
-  const [accountHolder, setAccountHolder] = useState('Suresh Kumar');
-  const [ifsc, setIfsc] = useState('ICIC0002345');
-  const [upiId, setUpiId] = useState('suresh.partner@okicici');
-  const [remarks, setRemarks] = useState('Partner Monthly Share Withdrawal');
+  const [amount, setAmount] = useState('');
+  const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
+  const [amountError, setAmountError] = useState(false);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
-  }, []);
+    await Promise.all([
+      dispatch(fetchPartnerWithdrawalsThunk()),
+      dispatch(fetchPartnerDashboardThunk())
+    ]);
+    setIsRefreshing(false);
+  }, [dispatch]);
 
   const parsedAmount = parseFloat(amount) || 0;
-  const remainingBalance = Math.max(0, availableBalance - parsedAmount);
 
   const handleQuickSelect = (val: number) => {
     const finalVal = Math.min(val, availableBalance);
@@ -63,6 +67,7 @@ export const PartnerWithdrawScreen: React.FC = () => {
 
   const handleSubmit = () => {
     if (!parsedAmount || parsedAmount <= 0) {
+      setAmountError(true);
       dispatch(
         showToast({
           type: 'error',
@@ -95,36 +100,32 @@ export const PartnerWithdrawScreen: React.FC = () => {
       return;
     }
 
-    if (payoutMethod === 'UPI' && !upiId.includes('@')) {
-      dispatch(
-        showToast({
-          type: 'error',
-          title: 'Invalid UPI ID',
-          message: 'Please provide a valid UPI Virtual Payment Address (e.g., name@bank).',
-        })
-      );
-      return;
-    }
-
     setIsSubmitting(true);
-    setTimeout(() => {
-      dispatch(
-        requestPartnerWithdrawal({
-          amount: parsedAmount,
-          bankAccount: payoutMethod === 'BANK' ? `${bankAccount} (${ifsc})` : `UPI: ${upiId}`,
-          ifsc: payoutMethod === 'BANK' ? ifsc : 'UPI',
-        })
-      );
+    dispatch(
+      requestPartnerWithdrawalThunk({
+        amount: parsedAmount,
+        withdrawal_type: 'profit',
+        notes: remarks
+      })
+    ).unwrap().then(() => {
       setIsSubmitting(false);
       setSuccessModal(true);
-    }, 1000);
+    }).catch((err) => {
+      setIsSubmitting(false);
+      dispatch(showToast({ type: 'error', title: 'Withdrawal Failed', message: err as string }));
+    });
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
       <Header title="Withdraw Partner Earnings" showBack={true} />
 
-      <ScrollView
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -139,35 +140,34 @@ export const PartnerWithdrawScreen: React.FC = () => {
         ) : (
           <>
             {/* Balance Card */}
-            <Card style={[styles.balanceCard, { backgroundColor: colors.primaryBackground, borderColor: colors.borderGreen }]} variant="flat">
-          <View style={styles.balanceTop}>
-            <View>
-              <Text style={[typography.caption, { color: colors.primary, fontWeight: '700' }]}>
-                AVAILABLE PARTNER WALLET (EARNINGS)
-              </Text>
-              <Text style={[typography.statValue, { color: colors.primary, marginTop: 4, fontWeight: '800' }]}>
-                {formatINR(availableBalance)}
-              </Text>
-            </View>
-            <View style={[styles.walletIconCircle, { backgroundColor: colors.primarySoft }]}>
-              <AppIcon name="wallet" size={24} color={colors.primary} />
-            </View>
-          </View>
+            <LinearGradient
+              colors={['#047857', '#064E3B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.balanceCard, { borderRadius: 20, borderWidth: 0 }]}
+            >
+              <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 20 }]} pointerEvents="none">
+                <View style={{ position: 'absolute', bottom: -40, right: -20, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.05)' }} />
+                <View style={{ position: 'absolute', top: -20, right: 60, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.05)' }} />
+              </View>
 
-          <View style={[styles.balanceDivider, { backgroundColor: colors.borderGreen }]} />
-
-          <View style={styles.balanceFooter}>
-            <Text style={[typography.caption, { color: colors.textSecondary }]}>
-              Est. Remaining Wallet Balance:
-            </Text>
-            <Text style={[typography.bodyBold, { color: colors.primary }]}>
-              {formatINR(remainingBalance)}
-            </Text>
-          </View>
-        </Card>
+              <View style={styles.balanceTop}>
+                <View>
+                  <Text style={[typography.caption, { color: '#FFFFFF', fontWeight: '700', opacity: 0.9 }]}>
+                    AVAILABLE PARTNER WALLET (EARNINGS)
+                  </Text>
+                  <Text style={[typography.statValue, { color: '#FFFFFF', marginTop: 4, fontWeight: '800' }]}>
+                    {formatINR(availableBalance)}
+                  </Text>
+                </View>
+                <View style={[styles.walletIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                  <AppIcon name="wallet" size={24} color="#FFFFFF" />
+                </View>
+              </View>
+            </LinearGradient>
 
         {/* Amount Section */}
-        <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="elevated">
+        <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="flat">
           <View style={styles.sectionHeaderRow}>
             <Text style={[typography.h4, { color: colors.textPrimary }]}>Enter Withdrawal Amount</Text>
             <TouchableOpacity onPress={handleMaxSelect}>
@@ -175,12 +175,15 @@ export const PartnerWithdrawScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          <View style={[styles.inputBox, { borderColor: parsedAmount > availableBalance ? colors.error : colors.border }]}>
+          <View style={[styles.inputBox, { borderColor: (amountError || parsedAmount > availableBalance) ? colors.error : colors.border }]}>
             <Text style={[styles.currencyPrefix, { color: colors.textPrimary }]}>₹</Text>
             <TextInput
               style={[styles.numericInput, { color: colors.textPrimary }]}
               value={amount}
-              onChangeText={setAmount}
+              onChangeText={(val) => {
+                setAmount(val);
+                if (amountError) setAmountError(false);
+              }}
               keyboardType="numeric"
               placeholder="0"
               placeholderTextColor={colors.textMuted}
@@ -212,95 +215,15 @@ export const PartnerWithdrawScreen: React.FC = () => {
           </View>
         </Card>
 
-        {/* Payout Method */}
-        <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="elevated">
-          <Text style={[typography.h4, { color: colors.textPrimary, marginBottom: 12 }]}>
-            Select Payout Destination
-          </Text>
-
-          <View style={styles.methodSelector}>
-            <TouchableOpacity
-              style={[
-                styles.methodTab,
-                { borderColor: payoutMethod === 'BANK' ? colors.primary : colors.border, backgroundColor: payoutMethod === 'BANK' ? colors.primarySoft : colors.surfaceSubtle },
-              ]}
-              onPress={() => setPayoutMethod('BANK')}>
-              <AppIcon
-                name="credit-card"
-                size={20}
-                color={payoutMethod === 'BANK' ? colors.primary : colors.textMuted}
-              />
-              <Text
-                style={[
-                  typography.captionBold,
-                  { color: payoutMethod === 'BANK' ? colors.primary : colors.textSecondary, marginTop: 4 },
-                ]}>
-                Bank Account
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.methodTab,
-                { borderColor: payoutMethod === 'UPI' ? colors.primary : colors.border, backgroundColor: payoutMethod === 'UPI' ? colors.primarySoft : colors.surfaceSubtle },
-              ]}
-              onPress={() => setPayoutMethod('UPI')}>
-              <AppIcon
-                name="send"
-                size={20}
-                color={payoutMethod === 'UPI' ? colors.primary : colors.textMuted}
-              />
-              <Text
-                style={[
-                  typography.captionBold,
-                  { color: payoutMethod === 'UPI' ? colors.primary : colors.textSecondary, marginTop: 4 },
-                ]}>
-                UPI / VPA
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {payoutMethod === 'BANK' ? (
-            <View style={{ marginTop: 12 }}>
-              <CustomInput
-                label="Account Holder Name"
-                value={accountHolder}
-                onChangeText={setAccountHolder}
-              />
-              <CustomInput
-                label="Bank & Account Number"
-                value={bankAccount}
-                onChangeText={setBankAccount}
-                leftIcon="credit-card"
-              />
-              <CustomInput
-                label="IFSC Code"
-                value={ifsc}
-                onChangeText={setIfsc}
-                autoCapitalize="characters"
-              />
-            </View>
-          ) : (
-            <View style={{ marginTop: 12 }}>
-              <CustomInput
-                label="UPI Virtual Payment Address (VPA)"
-                value={upiId}
-                onChangeText={setUpiId}
-                placeholder="suresh@okicici"
-                leftIcon="send"
-                autoCapitalize="none"
-              />
-              <Text style={[typography.caption, { color: colors.textSecondary, marginTop: -8, marginBottom: 8 }]}>
-                Instant partner payout disbursement to Google Pay, PhonePe, Paytm or BHIM UPI.
-              </Text>
-            </View>
-          )}
-
+        {/* Remarks Section */}
+        <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="flat">
           <CustomInput
             label="Remarks / Note (Optional)"
             value={remarks}
             onChangeText={setRemarks}
             placeholder="e.g. Monthly profit share withdrawal"
+            multiline={true}
+            numberOfLines={4}
           />
         </Card>
 
@@ -317,18 +240,21 @@ export const PartnerWithdrawScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Action Button */}
+        </>
+        )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Sticky Bottom Action Button */}
+      <View style={[styles.stickyBottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <CustomButton
           title={isSubmitting ? 'Submitting Request...' : `Withdraw ${formatINR(parsedAmount)}`}
           onPress={handleSubmit}
           variant="primary"
           isLoading={isSubmitting}
-          style={{ marginTop: 20 }}
           gradientColors={colors.buttonGradient}
         />
-        </>
-        )}
-      </ScrollView>
+      </View>
 
       {/* Success Modal */}
       <Modal visible={successModal} transparent animationType="fade">
@@ -348,9 +274,9 @@ export const PartnerWithdrawScreen: React.FC = () => {
 
             <View style={[styles.summaryBox, { backgroundColor: colors.surfaceSubtle }]}>
               <View style={styles.summaryRow}>
-                <Text style={[typography.caption, { color: colors.textMuted }]}>Payout Destination</Text>
-                <Text style={[typography.captionBold, { color: colors.textPrimary }]}>
-                  {payoutMethod === 'BANK' ? bankAccount : upiId}
+                <Text style={[typography.caption, { color: colors.textMuted }]}>Notes</Text>
+                <Text style={[typography.captionBold, { color: colors.textPrimary }]} numberOfLines={1}>
+                  {remarks || '-'}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
@@ -382,7 +308,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 24, // Reduced because button is now sticky
+  },
+  stickyBottomBar: {
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   balanceCard: {
     borderWidth: 1,

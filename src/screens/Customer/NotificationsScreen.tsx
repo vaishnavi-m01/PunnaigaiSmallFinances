@@ -5,7 +5,7 @@ import { Header } from '../../component/Header';
 import { Card } from '../../component/Common/Card';
 import { AppIcon, IconName } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
-import { markNotificationAsRead, markAllNotificationsAsRead } from '../../store/customerSlice';
+import { markNotificationAsRead, markAllNotificationsAsRead, fetchDashboardThunk } from '../../store/customerSlice';
 import { AppNotification } from '../../types/models';
 
 /**
@@ -19,10 +19,11 @@ export const NotificationsScreen: React.FC = () => {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
-  }, []);
+    await dispatch(fetchDashboardThunk());
+    setIsRefreshing(false);
+  }, [dispatch]);
 
   const getNotificationIconInfo = (type: string): { icon: IconName; bg: string; color: string } => {
     switch (type) {

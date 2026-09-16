@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Dimensions, StatusBar } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
-import { BrandLogo } from '../../component/Common/BrandLogo';
+import { Image } from 'react-native';
 import { useAppTheme } from '../../theme/useAppTheme';
 
 const { width } = Dimensions.get('window');
@@ -23,7 +23,11 @@ export const SplashScreen: React.FC = () => {
       <View style={styles.content}>
         {/* Leaf Emblem & Logo */}
         <View style={styles.logoContainer}>
-          <BrandLogo size={104} />
+          <Image
+            source={require('../../assets/images/logo.png')}
+            style={{ width: 190, height: 190 }}
+            resizeMode="contain"
+          />
         </View>
 
         {/* Center Tagline */}

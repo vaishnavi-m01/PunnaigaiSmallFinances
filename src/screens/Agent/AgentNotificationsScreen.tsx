@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { AppIcon, IconName } from '../../component/AppIcon';
 import { useAppTheme } from '../../theme/useAppTheme';
+import { Header } from '../../component/Header';
 
 type Notification = {
   id: string;
@@ -93,17 +94,9 @@ export const AgentNotificationsScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
-      <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <AppIcon name="arrow-left" size={24} color={colors.white} />
-        </TouchableOpacity>
-        <Text style={[typography.h3, { color: colors.white }]}>
-          Notifications
-        </Text>
-        <View style={styles.backBtn} />
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
+      <StatusBar barStyle="dark-content" />
+      <Header title="Notifications" showBack={true} />
 
       <FlatList
         data={MOCK_NOTIFICATIONS}
@@ -119,18 +112,6 @@ export const AgentNotificationsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  backBtn: {
-    padding: 8,
-    width: 40,
   },
   listContent: {
     padding: 16,

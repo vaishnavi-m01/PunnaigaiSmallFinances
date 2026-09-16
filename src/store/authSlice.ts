@@ -34,11 +34,13 @@ const initialState: AuthState = {
  */
 export const loginThunk = createAsyncThunk(
   'auth/login',
-  async (payload: { mobile: string; otp: string }, { rejectWithValue }) => {
+  async (payload: { mobile?: string; otp?: string; email?: string; password?: string }, { rejectWithValue }) => {
     try {
       const result = await authApi.login({
-        mobile: payload.mobile.replace(/\s+/g, ''),
+        ...(payload.mobile ? { mobile: payload.mobile.replace(/\s+/g, '') } : {}),
         otp: payload.otp,
+        email: payload.email,
+        password: payload.password,
       });
 
       // Persist token securely

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, StatusBar } from 'react-native';
 import { useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
 import { Header } from '../../component/Header';
@@ -26,7 +26,8 @@ export const AgentReportsScreen: React.FC = () => {
   const percentToday = targetToday > 0 ? Math.round((totalCollectedToday / targetToday) * 100) : 100;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
+      <StatusBar barStyle="dark-content" />
       <Header title="Collection Reports" showBack={true} />
 
       <ScrollView 

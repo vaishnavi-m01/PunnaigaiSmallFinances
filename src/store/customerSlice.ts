@@ -12,16 +12,6 @@ import {
   LoanRequest,
   DashboardData,
 } from '../types/models';
-import {
-  mockCustomerLoan,
-  mockPaymentSchedule,
-  mockPaymentHistory,
-  mockPendingBreakdown,
-  mockOverdueDetails,
-  mockPenaltyDetails,
-  mockCustomerDocuments,
-  mockNotifications,
-} from '../services/mockDataService';
 import * as customerApi from '../services/api/customerApi';
 
 export interface CustomerState {
@@ -44,14 +34,22 @@ export interface CustomerState {
 }
 
 const initialState: CustomerState = {
-  loan: { ...mockCustomerLoan },
-  paymentSchedule: [...mockPaymentSchedule],
-  paymentHistory: [...mockPaymentHistory],
-  pendingBreakdown: { ...mockPendingBreakdown },
-  overdueDetails: { ...mockOverdueDetails },
-  penaltyDetails: { ...mockPenaltyDetails },
-  documents: [...mockCustomerDocuments],
-  notifications: [...mockNotifications],
+  loan: {
+    id: '', loanId: '', packageName: '', loanAmount: 0, amountDisbursed: 0, amountReceived: 0, tenureMonths: 0, status: 'Pending', totalRepaymentAmount: 0, interestRate: 0, processingFee: 0, pendingAmount: 0, nextPaymentDate: '', monthlyEmi: 0
+  },
+  paymentSchedule: [],
+  paymentHistory: [],
+  pendingBreakdown: {
+    totalPendingAmount: 0, emiAmount: 0, emiDueDate: '', emiStatus: 'Pending', lateFee: 0, lateFeeDueDate: '', lateFeeStatus: 'Pending', otherCharges: 0, otherChargesDueDate: '', otherChargesStatus: 'Pending'
+  },
+  overdueDetails: {
+    totalOverdueAmount: 0, emiPending: 0, lateFee: 0, otherCharges: 0, warningNote: ''
+  },
+  penaltyDetails: {
+    totalPenalty: 0, penaltyEnabled: false, penaltyType: '', penaltyAmount: 0, penaltyFrequency: '', gracePeriod: '', isApplied: false
+  },
+  documents: [],
+  notifications: [],
   isLoading: false,
   loanPackages: [],
   loanRequests: [],

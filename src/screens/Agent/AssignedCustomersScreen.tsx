@@ -12,13 +12,13 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { fetchAssignedCustomersThunk, recordCollectionThunk } from '../../features/agent/collectionThunks';
 import { showToast } from '../../store/toastSlice';
 import { useAppTheme } from '../../theme/useAppTheme';
+import { Header } from '../../component/Header';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { CustomButton } from '../../component/Common/CustomButton';
@@ -27,28 +27,6 @@ import { formatDate } from '../../utils/date';
 import { ROUTES } from '../../constants/routes';
 import { AssignedCustomer } from '../../types/models';
 
-const HeaderGraphic = () => (
-  <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]} pointerEvents="none">
-    <View style={{
-      position: 'absolute',
-      top: -30,
-      right: -40,
-      width: 180,
-      height: 180,
-      borderRadius: 90,
-      backgroundColor: 'rgba(255,255,255,0.06)'
-    }} />
-    <View style={{
-      position: 'absolute',
-      top: 40,
-      right: -80,
-      width: 200,
-      height: 200,
-      borderRadius: 100,
-      backgroundColor: 'rgba(255,255,255,0.04)'
-    }} />
-  </View>
-);
 
 export const AssignedCustomersScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -191,51 +169,41 @@ export const AssignedCustomersScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
+      <StatusBar barStyle="dark-content" />
 
-      {/* Header Area */}
-      <LinearGradient
-        colors={['#0B533E', '#168B5E']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
-      >
-        <HeaderGraphic />
-        <View style={styles.headerTopRow}>
-          {!isSearchActive ? (
-            <>
-              <Text style={[typography.h3, { color: colors.white, flex: 1, paddingLeft: 8 }]}>
-                Assigned Customers
-              </Text>
-              <TouchableOpacity onPress={() => setIsSearchActive(true)} style={styles.iconBtn}>
-                <AppIcon name="search" size={24} color={colors.white} />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={[styles.searchContainer, { backgroundColor: colors.white }]}>
-              <TouchableOpacity onPress={() => { setIsSearchActive(false); setSearch(''); }}>
-                <AppIcon name="arrow-left" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-              <TextInput
-                placeholder="Search by name or phone..."
-                value={search}
-                onChangeText={setSearch}
-                style={[styles.searchInput, typography.bodyMedium, { color: '#0F172A' }]}
-                placeholderTextColor="#94A3B8"
-                autoFocus
-              />
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <AppIcon name="x" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-          )}
+      {isSearchActive ? (
+        <View style={[styles.searchHeader, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
+          <TouchableOpacity onPress={() => { setIsSearchActive(false); setSearch(''); }}>
+            <AppIcon name="arrow-left" size={24} color="#0D523B" />
+          </TouchableOpacity>
+          
+          <TextInput
+            placeholder="Search by name or phone..."
+            value={search}
+            onChangeText={setSearch}
+            style={[styles.searchInput, typography.bodyMedium, { color: '#0F172A' }]}
+            placeholderTextColor="#94A3B8"
+            autoFocus
+          />
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <AppIcon name="x" size={24} color="#94A3B8" />
+          </TouchableOpacity>
         </View>
-      </LinearGradient>
+      ) : (
+        <Header 
+          title="Assigned Customers" 
+          showBack={false} 
+          showNotification={true}
+          rightComponent={
+            <TouchableOpacity onPress={() => setIsSearchActive(true)} style={styles.iconBtn}>
+              <AppIcon name="search" size={24} color="#0D523B" />
+            </TouchableOpacity>
+          }
+        />
+      )}
 
-      {/* Full Page White Container */}
-      <View style={styles.pageContainer}>
-        <View style={styles.content}>
+      <View style={styles.content}>
 
 
           {isLoading && !isRefreshing ? (
@@ -264,7 +232,6 @@ export const AssignedCustomersScreen: React.FC = () => {
             />
           )}
         </View>
-      </View>
 
       {/* Quick Collect Bottom Sheet Modal */}
       <Modal visible={!!selectedCustomer} transparent animationType="slide">
@@ -365,40 +332,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    position: 'relative',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 52,
-  },
-  iconBtn: {
-    padding: 8,
-  },
-  searchContainer: {
-    flex: 1,
+  searchHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    height: 48,
-    borderRadius: 24,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   searchInput: {
     flex: 1,
     marginHorizontal: 10,
-    height: '100%',
-  },
-  pageContainer: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20,
-    overflow: 'hidden',
+    height: 40,
   },
   content: {
     flex: 1,

@@ -65,7 +65,7 @@ export const InvestorProfileScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
       <Header title="Investor Profile" showBack={false} showNotification={true} />
 
       <ScrollView

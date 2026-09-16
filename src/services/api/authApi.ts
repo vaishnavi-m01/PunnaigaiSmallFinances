@@ -1,8 +1,10 @@
 import apiClient from '../apiClient';
 
 export interface LoginPayload {
-  mobile: string;
-  otp: string;
+  mobile?: string;
+  otp?: string;
+  email?: string;
+  password?: string;
 }
 
 export interface SendOtpPayload {

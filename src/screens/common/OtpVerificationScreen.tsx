@@ -15,7 +15,7 @@ import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { loginSuccess, loginThunk } from '../../store/authSlice';
 import { APP_ROLES, AppRoleType } from '../../constants/roles';
 import { ROUTES } from '../../constants/routes';
-import { staticCredentials } from '../../services/mockDataService';
+
 import { AppIcon } from '../../component/AppIcon';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { BrandLogo } from '../../component/Common/BrandLogo';
@@ -170,19 +170,14 @@ export const OtpVerificationScreen: React.FC = () => {
     }
 
     setActiveRole(role);
-    const roleCred = staticCredentials[role];
-    const user = roleCred?.user;
     
-    if (!user) {
-      dispatch(
-        showToast({
-          type: 'error',
-          title: 'Error',
-          message: 'Invalid role credentials',
-        })
-      );
-      return;
-    }
+    // Create a basic fallback user since mock data was removed
+    const user = {
+      id: `USR_${Date.now()}`,
+      name: `Demo ${role}`,
+      phone: phone,
+      role: role,
+    };
 
     // Save mock login to persistent storage
     StorageService.setItem(STORAGE_KEYS.AUTH_TOKEN, 'authenticated_mock_token').catch(console.error);

@@ -1,6 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { AssignedCustomer, CollectionRecord } from '../types/models';
-import { mockAssignedCustomers, mockCollections } from '../services/mockDataService';
 import {
   fetchAssignedCustomersThunk,
   recordCollectionThunk,
@@ -18,10 +17,10 @@ export interface AgentState {
 }
 
 const initialState: AgentState = {
-  todayCollection: 45000,
-  totalCollection: 850000,
-  assignedCustomers: [...mockAssignedCustomers],
-  collections: [...mockCollections],
+  todayCollection: 0,
+  totalCollection: 0,
+  assignedCustomers: [],
+  collections: [],
   isLoading: false,
   assignedCustomersError: null,
   isSubmittingCollection: false,

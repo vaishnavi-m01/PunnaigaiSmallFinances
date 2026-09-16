@@ -8,12 +8,12 @@ import {
   FlatList,
   TextInput,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppIcon } from '../../component/AppIcon';
 import { useAppTheme } from '../../theme/useAppTheme';
 import { formatINR } from '../../utils/currency';
+import { Header } from '../../component/Header';
 
 type Transaction = {
   id: string;
@@ -30,28 +30,6 @@ const MOCK_TRANSACTIONS: Transaction[] = [
   { id: '4', type: 'credit', title: 'Incentive', date: '01 Sep 2026', amount: 2000 },
 ];
 
-const HeaderGraphic = () => (
-  <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]} pointerEvents="none">
-    <View style={{
-      position: 'absolute',
-      top: -30,
-      right: -40,
-      width: 180,
-      height: 180,
-      borderRadius: 90,
-      backgroundColor: 'rgba(255,255,255,0.06)'
-    }} />
-    <View style={{
-      position: 'absolute',
-      top: 40,
-      right: -80,
-      width: 200,
-      height: 200,
-      borderRadius: 100,
-      backgroundColor: 'rgba(255,255,255,0.04)'
-    }} />
-  </View>
-);
 
 export const AgentWalletScreen: React.FC = () => {
   const { colors, typography } = useAppTheme();
@@ -99,28 +77,9 @@ export const AgentWalletScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-      <LinearGradient
-        colors={['#0B533E', '#168B5E']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
-      >
-        <HeaderGraphic />
-        <View style={styles.headerTitleRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <AppIcon name="arrow-left" size={24} color={colors.white} />
-          </TouchableOpacity>
-          <Text style={[typography.h3, { color: colors.white }]}>
-            Wallet
-          </Text>
-          <View style={styles.backBtn} />
-        </View>
-      </LinearGradient>
-
-      <View style={styles.pageContainer}>
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
+      <StatusBar barStyle="dark-content" />
+      <Header title="Wallet" showBack={true} />
         <View style={styles.content}>
           <View style={[styles.balanceCard, { backgroundColor: '#F0FDF4', borderColor: '#10B981' }]}>
             <Text style={[typography.bodyLarge, { color: '#0B533E' }]}>Available Balance</Text>
@@ -154,7 +113,6 @@ export const AgentWalletScreen: React.FC = () => {
             showsVerticalScrollIndicator={false}
           />
         </View>
-      </View>
     </View>
   );
 };
@@ -163,33 +121,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    position: 'relative',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backBtn: {
-    padding: 8,
-    width: 40,
-  },
-  pageContainer: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20,
-    overflow: 'hidden',
-  },
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 16,
   },
   balanceCard: {
     borderRadius: 16,

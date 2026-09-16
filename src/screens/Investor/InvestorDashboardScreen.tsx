@@ -8,7 +8,6 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppSelector } from '../../hooks/useAppHooks';
@@ -19,30 +18,9 @@ import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
 import { WalletTransaction } from '../../types/models';
 
-const HeaderGraphic = () => (
-  <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]} pointerEvents="none">
-    <View style={{
-      position: 'absolute',
-      top: -30,
-      right: -40,
-      width: 180,
-      height: 180,
-      borderRadius: 90,
-      backgroundColor: 'rgba(255,255,255,0.06)'
-    }} />
-    <View style={{
-      position: 'absolute',
-      top: 40,
-      right: -80,
-      width: 200,
-      height: 200,
-      borderRadius: 100,
-      backgroundColor: 'rgba(255,255,255,0.04)'
-    }} />
-  </View>
-);
 
-export const InvestorDashboardScreen: React.FC = () => {
+
+const InvestorDashboardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { colors, typography, radius } = useAppTheme();
@@ -69,57 +47,71 @@ export const InvestorDashboardScreen: React.FC = () => {
   const walletBalance = investor.details.walletBalance;
 
   return (
-    <View style={[styles.container, { backgroundColor: '#0284C7' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
 
-      {/* Header Area */}
-      <LinearGradient
-        colors={['#0369A1', '#0284C7']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
+      {/* Top Header Bar */}
+      <View
+        style={[styles.topHeader, { paddingTop: Math.max(insets.top + 6, 16) }]}
       >
-        <HeaderGraphic />
-        <View style={styles.headerTitleRow}>
-          <Text style={[typography.h3, { color: colors.white }]}>
-            Hello, {user?.name || 'Ravi Chandran'} 👋
-          </Text>
-          <TouchableOpacity onPress={() => navigation.navigate(ROUTES.INVESTOR_NOTIFICATIONS)}>
-            <View style={styles.notifBadge}>
-              <AppIcon name="bell" size={20} color={colors.white} />
-              <View style={styles.badgeDot} />
+        <View style={styles.headerLeft}>
+          {/* User Avatar Circle */}
+          <TouchableOpacity
+            style={styles.avatarCircleHeader}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate(ROUTES.INVESTOR_PROFILE)}
+          >
+            <View style={styles.avatarInner}>
+              <AppIcon name="user" size={18} color="#FFFFFF" />
             </View>
           </TouchableOpacity>
-        </View>
-      </LinearGradient>
 
-      {/* Full Page White Container */}
-      <View style={styles.pageContainer}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
+          {/* Greeting Text */}
+          <View style={styles.nameBlock}>
+            <Text style={styles.greetingTitle}>
+              Hello, {user?.name || 'Ravi Chandran'}
+            </Text>
+            <Text style={styles.greetingSubtitle}>
+              Welcome back to your dashboard!
+            </Text>
+          </View>
+        </View>
+
+        {/* Notification Bell */}
+        <TouchableOpacity
+          style={styles.bellButton}
+          onPress={() => navigation.navigate(ROUTES.INVESTOR_NOTIFICATIONS)}
+          activeOpacity={0.7}
         >
-          {isRefreshing ? (
-            <View style={{ paddingTop: 16 }}>
-              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
-                <Skeleton width="48%" height={100} borderRadius={16} />
-                <Skeleton width="48%" height={100} borderRadius={16} />
-              </View>
-              <Skeleton height={140} borderRadius={16} style={{ marginBottom: 24 }} />
-              <Skeleton width={200} height={24} style={{ marginBottom: 16 }} />
-              <Skeleton height={80} borderRadius={16} style={{ marginBottom: 12 }} />
-              <Skeleton height={80} borderRadius={16} />
+          <AppIcon name="bell" size={20} color="#0F172A" />
+          <View style={styles.badgeDot} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {isRefreshing ? (
+          <View style={{ paddingTop: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 24 }}>
+              <Skeleton width="48%" height={100} borderRadius={16} />
+              <Skeleton width="48%" height={100} borderRadius={16} />
             </View>
-          ) : (
-            <View style={styles.contentPad}>
-              
+            <Skeleton height={140} borderRadius={16} style={{ marginBottom: 24 }} />
+            <Skeleton width={200} height={24} style={{ marginBottom: 16 }} />
+            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 12 }} />
+            <Skeleton height={80} borderRadius={16} />
+          </View>
+        ) : (
+          <>
               {/* Summary Stats Row */}
               <View style={styles.statsRow}>
                 <View style={[styles.statCard, { backgroundColor: '#F0F9FF' }]}>
@@ -149,7 +141,7 @@ export const InvestorDashboardScreen: React.FC = () => {
 
               {/* Wallet Card */}
               <LinearGradient
-                colors={['#0F172A', '#1E293B']}
+                colors={['#047857', '#064E3B']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.walletCard}
@@ -247,56 +239,92 @@ export const InvestorDashboardScreen: React.FC = () => {
                 ))}
               </View>
 
-            </View>
-          )}
-        </ScrollView>
-      </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 };
+export { InvestorDashboardScreen };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F4F9F6',
   },
-  header: {
-    position: 'relative',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  headerTitleRow: {
+  topHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    height: 40,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  notifBadge: {
-    padding: 8,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatarCircleHeader: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0D523B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  avatarInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0D523B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nameBlock: {
+    justifyContent: 'center',
+  },
+  greetingTitle: {
+    color: '#0F172A',
+    fontSize: 14.5,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  greetingSubtitle: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  bellButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
   },
   badgeDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 0,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#EF4444',
-  },
-  pageContainer: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20,
-    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 40,
-  },
-  contentPad: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
   },
   statsRow: {
     flexDirection: 'row',

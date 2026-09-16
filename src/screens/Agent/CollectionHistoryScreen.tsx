@@ -1,36 +1,15 @@
 import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, View, TextInput, TouchableOpacity, StatusBar } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FlatList, StyleSheet, Text, View, TextInput, TouchableOpacity, StatusBar, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { AppIcon } from '../../component/AppIcon';
 import { useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
+import { Header } from '../../component/Header';
 import { CollectionRecord } from '../../types/models';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatINR } from '../../utils/currency';
 
-const HeaderGraphic = () => (
-  <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]} pointerEvents="none">
-    <View style={{
-      position: 'absolute',
-      top: -30,
-      right: -40,
-      width: 180,
-      height: 180,
-      borderRadius: 90,
-      backgroundColor: 'rgba(255,255,255,0.06)'
-    }} />
-    <View style={{
-      position: 'absolute',
-      top: 40,
-      right: -80,
-      width: 200,
-      height: 200,
-      borderRadius: 100,
-      backgroundColor: 'rgba(255,255,255,0.04)'
-    }} />
-  </View>
-);
 
 export const CollectionHistoryScreen: React.FC = () => {
   const { colors, typography } = useAppTheme();
@@ -41,6 +20,7 @@ export const CollectionHistoryScreen: React.FC = () => {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<string>('Today');
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
   const timeFilters = ['Today', 'Week', 'Month', 'Year'];
 
@@ -55,35 +35,7 @@ export const CollectionHistoryScreen: React.FC = () => {
 
   const totalFilteredAmount = filtered.reduce((sum, item) => sum + item.amount, 0);
 
-  const renderTab = (tab: string) => {
-    const isActive = activeTab === tab;
-    return (
-      <TouchableOpacity
-        key={tab}
-        style={[
-          styles.tabButton,
-          {
-            backgroundColor: isActive ? '#10B981' : colors.white,
-            borderColor: isActive ? '#10B981' : '#E2E8F0',
-            borderWidth: 1,
-          },
-        ]}
-        onPress={() => setActiveTab(tab)}
-      >
-        <Text
-          style={[
-            typography.caption,
-            {
-              color: isActive ? colors.white : '#64748B',
-              fontWeight: isActive ? '700' : '500',
-            },
-          ]}
-        >
-          {tab}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
+
 
   const renderCollection = ({ item }: { item: CollectionRecord }) => {
     const isSuccessful = !item.receiptNumber?.startsWith('REJ');
@@ -131,58 +83,44 @@ export const CollectionHistoryScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
+      <StatusBar barStyle="dark-content" />
       
-      <LinearGradient
-        colors={['#0B533E', '#168B5E']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
-      >
-        <HeaderGraphic />
-        <View style={styles.headerTopRow}>
-          {!isSearchActive ? (
-            <>
-              <Text style={[typography.h3, { color: colors.white, flex: 1, paddingLeft: 8 }]}>
-                Collection History
+      <Header 
+        title="Collection History" 
+        showBack={false}
+        showNotification={true}
+        rightComponent={
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity 
+              onPress={() => setIsFilterDropdownOpen(true)}
+              style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                backgroundColor: '#FFFFFF',
+                borderWidth: 1,
+                borderColor: '#CBD5E1',
+                paddingHorizontal: 12, 
+                paddingVertical: 6, 
+                borderRadius: 8 
+              }}
+            >
+              <Text style={[typography.caption, { color: '#0F172A', fontWeight: '600', marginRight: 6 }]}>
+                {activeTab}
               </Text>
-              <TouchableOpacity onPress={() => setIsSearchActive(true)} style={styles.iconBtn}>
-                <AppIcon name="search" size={24} color={colors.white} />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={[styles.searchContainer, { backgroundColor: colors.white }]}>
-              <TouchableOpacity onPress={() => { setIsSearchActive(false); setSearch(''); }}>
-                <AppIcon name="arrow-left" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-              <TextInput
-                placeholder="Search transactions..."
-                value={search}
-                onChangeText={setSearch}
-                style={[styles.searchInput, typography.bodyMedium, { color: '#0F172A' }]}
-                placeholderTextColor="#94A3B8"
-                autoFocus
-              />
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <AppIcon name="x" size={20} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      </LinearGradient>
-
-      <View style={styles.pageContainer}>
-        <View style={styles.content}>
-
-          {/* Tabs */}
-          <View style={styles.tabsContainer}>
-            {timeFilters.map(renderTab)}
+              <AppIcon name="chevron-down" size={14} color="#64748B" />
+            </TouchableOpacity>
           </View>
+        }
+      />
+
+      <View style={styles.content}>
+
+
 
           {/* Hero Card */}
           <LinearGradient
-            colors={['#10B981', '#059669']}
+            colors={['#047857', '#064E3B']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroCard}
@@ -216,7 +154,39 @@ export const CollectionHistoryScreen: React.FC = () => {
             }
           />
         </View>
-      </View>
+    
+      {/* Filter Dropdown Modal */}
+      <Modal visible={isFilterDropdownOpen} transparent animationType="fade">
+        <TouchableOpacity 
+          style={styles.modalBackdrop} 
+          activeOpacity={1} 
+          onPress={() => setIsFilterDropdownOpen(false)}
+        >
+          <View style={styles.dropdownCard}>
+            <Text style={[typography.subtitle, { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, color: '#64748B' }]}>
+              Filter by Time
+            </Text>
+            {timeFilters.map((filter, index) => {
+              const isSelected = activeTab === filter;
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  style={[styles.dropdownItem, index !== timeFilters.length - 1 && styles.dropdownItemBorder]}
+                  onPress={() => {
+                    setActiveTab(filter);
+                    setIsFilterDropdownOpen(false);
+                  }}
+                >
+                  <Text style={[typography.bodyMedium, { color: isSelected ? '#10B981' : '#0F172A', fontWeight: isSelected ? '700' : '500' }]}>
+                    {filter}
+                  </Text>
+                  {isSelected && <AppIcon name="check" size={16} color="#10B981" />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -225,40 +195,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    position: 'relative',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 52,
-  },
-  iconBtn: {
-    padding: 8,
-  },
-  searchContainer: {
-    flex: 1,
+  searchHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    height: 48,
-    borderRadius: 24,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   searchInput: {
     flex: 1,
     marginHorizontal: 10,
-    height: '100%',
-  },
-  pageContainer: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20,
-    overflow: 'hidden',
+    height: 40,
   },
   content: {
     flex: 1,
@@ -337,5 +286,35 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     paddingTop: 60,
+  },
+  iconBtn: {
+    padding: 4,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.2)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 90, // Position just under the header
+    paddingRight: 16,
+  },
+  dropdownCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    width: 180,
+    paddingBottom: 4,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  dropdownItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
 });

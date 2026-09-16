@@ -1,8 +1,7 @@
 import { AppNotification } from '../types/models';
-import { mockNotifications } from './mockDataService';
 
 class NotificationService {
-  private notifications: AppNotification[] = [...mockNotifications];
+  private notifications: AppNotification[] = [];
 
   async getNotifications(): Promise<AppNotification[]> {
     return [...this.notifications];

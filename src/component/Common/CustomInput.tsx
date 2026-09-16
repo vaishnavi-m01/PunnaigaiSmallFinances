@@ -53,6 +53,10 @@ export const CustomInput: React.FC<CustomInputProps> = ({
               ? colors.primary
               : colors.border,
             backgroundColor: colors.surface,
+            height: rest.multiline ? undefined : 50,
+            minHeight: rest.multiline ? 100 : 50,
+            alignItems: rest.multiline ? 'flex-start' : 'center',
+            paddingVertical: rest.multiline ? 12 : 0,
           },
         ]}
       >
@@ -70,6 +74,7 @@ export const CustomInput: React.FC<CustomInputProps> = ({
             styles.textInput,
             typography.bodyMedium,
             { color: colors.textPrimary },
+            rest.multiline && { textAlignVertical: 'top' },
             style,
           ]}
           placeholderTextColor={colors.textMuted}

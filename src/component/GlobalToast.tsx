@@ -59,35 +59,39 @@ export const GlobalToast: React.FC = () => {
       case 'success':
         return {
           icon: 'check-circle' as IconName,
-          bg: '#10B981',
-          iconColor: '#FFFFFF',
-          badgeBg: 'rgba(255,255,255,0.2)',
-          textColor: '#FFFFFF',
+          bg: '#F0FDF4',
+          borderColor: '#DCFCE7',
+          iconColor: '#16A34A',
+          badgeBg: '#DCFCE7',
+          textColor: '#14532D',
         };
       case 'error':
         return {
           icon: 'alert-circle' as IconName,
-          bg: '#EF4444',
-          iconColor: '#FFFFFF',
-          badgeBg: 'rgba(255,255,255,0.2)',
-          textColor: '#FFFFFF',
+          bg: '#FEF2F2',
+          borderColor: '#FEE2E2',
+          iconColor: '#DC2626',
+          badgeBg: '#FEE2E2',
+          textColor: '#7F1D1D',
         };
       case 'warning':
         return {
           icon: 'alert-triangle' as IconName,
-          bg: '#F59E0B',
-          iconColor: '#FFFFFF',
-          badgeBg: 'rgba(255,255,255,0.2)',
-          textColor: '#FFFFFF',
+          bg: '#FFFBEB',
+          borderColor: '#FEF3C7',
+          iconColor: '#D97706',
+          badgeBg: '#FEF3C7',
+          textColor: '#78350F',
         };
       case 'info':
       default:
         return {
           icon: 'info' as IconName,
-          bg: '#0F172A',
-          iconColor: '#FFFFFF',
-          badgeBg: 'rgba(255,255,255,0.2)',
-          textColor: '#FFFFFF',
+          bg: '#F8FAFC',
+          borderColor: '#E2E8F0',
+          iconColor: '#3B82F6',
+          badgeBg: '#E2E8F0',
+          textColor: '#0F172A',
         };
     }
   };
@@ -101,6 +105,8 @@ export const GlobalToast: React.FC = () => {
         {
           top: Math.max(insets.top + 16, 32),
           backgroundColor: config.bg,
+          borderColor: config.borderColor,
+          borderWidth: 1,
           opacity,
           transform: [{ translateY }],
         },

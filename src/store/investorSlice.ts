@@ -1,6 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { InvestorDetails, WalletTransaction, WithdrawalRequest } from '../types/models';
-import { mockInvestorDetails, mockInvestorTransactions } from '../services/mockDataService';
 
 export interface InvestorState {
   details: InvestorDetails;
@@ -10,19 +9,11 @@ export interface InvestorState {
 }
 
 const initialState: InvestorState = {
-  details: { ...mockInvestorDetails },
-  transactions: [...mockInvestorTransactions],
-  withdrawals: [
-    {
-      id: 'WD_01',
-      amount: 10000,
-      requestedDate: '15 Jan 2025',
-      status: 'Completed',
-      bankAccount: '•••• •••• 4390',
-      ifsc: 'HDFC0001234',
-      payoutDate: '16 Jan 2025',
-    },
-  ],
+  details: {
+    id: '', name: '', totalInvestment: 0, walletBalance: 0, totalPaymentsReceived: 0, monthlyReturnRate: 0, agreementDate: '', tenureMonths: 0
+  },
+  transactions: [],
+  withdrawals: [],
   isLoading: false,
 };
 

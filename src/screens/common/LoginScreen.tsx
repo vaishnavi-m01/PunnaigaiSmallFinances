@@ -3,21 +3,19 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   StatusBar,
   TextInput,
   ActivityIndicator,
+  Image,
+  TouchableOpacity,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { APP_ROLES } from '../../constants/roles';
 import { ROUTES } from '../../constants/routes';
 import { AppIcon } from '../../component/AppIcon';
-import { CustomButton } from '../../component/Common/CustomButton';
-import { BrandLogo } from '../../component/Common/BrandLogo';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
-import { clearLoginError } from '../../store/authSlice';
+import { clearLoginError, loginThunk } from '../../store/authSlice';
 import * as authApi from '../../services/api/authApi';
 import { showToast } from '../../store/toastSlice';
 
@@ -28,163 +26,140 @@ export const LoginScreen: React.FC = () => {
 
   const apiError = useAppSelector(state => state.auth.loginError);
 
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isFocusedEmail, setIsFocusedEmail] = useState(false);
+  const [isFocusedPassword, setIsFocusedPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleMobileChange = (text: string) => {
-    setMobileNumber(text);
-    dispatch(clearLoginError());
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (apiError) dispatch(clearLoginError());
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (apiError) dispatch(clearLoginError());
   };
 
   const handleLogin = async () => {
-    if (!mobileNumber.trim()) {
-      dispatch(
-        showToast({
-          type: 'error',
-          title: 'Mobile number required',
-          message: 'Please enter your registered mobile number.',
-        }),
-      );
+    if (!email.trim() || !password.trim()) {
+      dispatch(showToast({ type: 'error', title: 'Required', message: 'Please enter your email and password.' }));
       return;
     }
-
-    const mobile = mobileNumber.replace(/\s+/g, '');
-
-    setIsSendingOtp(true);
+    
+    setIsLoggingIn(true);
     try {
+      /* 
+      // Commented out OTP flow as requested
       await authApi.sendOtp({ mobile });
-      navigation.navigate(ROUTES.OTP_VERIFY, {
-        phone: mobile,
-        role: APP_ROLES.CUSTOMER,
-        isLogin: true,
-      });
+      navigation.navigate(ROUTES.OTP_VERIFY, { phone: mobile, isLogin: true });
+      */
+      
+      const resultAction = await dispatch(loginThunk({ email, password }));
+      if (loginThunk.fulfilled.match(resultAction)) {
+        // Navigation is handled automatically by the auth state change in App.tsx (or similar Root Navigator)
+      } else {
+        dispatch(showToast({ type: 'error', title: 'Login Failed', message: resultAction.payload as string }));
+      }
     } catch (error: any) {
-      dispatch(
-        showToast({
-          type: 'error',
-          title: 'Unable to send OTP',
-          message:
-            error?.response?.data?.message ??
-            'Please check your mobile number and try again.',
-        }),
-      );
+      dispatch(showToast({ type: 'error', title: 'Error', message: 'An unexpected error occurred.' }));
     } finally {
-      setIsSendingOtp(false);
+      setIsLoggingIn(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      
       <KeyboardAwareScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: Math.max(insets.top + 16, 32),
-            paddingBottom: Math.max(insets.bottom + 16, 24),
-          },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         enableOnAndroid={true}
-        extraScrollHeight={20}
       >
-        {/* Brand Logo */}
-        <View style={styles.logoSection}>
-          <BrandLogo size={68} variant="dark" showTagline={true} />
+        <View style={styles.headerSection}>
+          <Image
+            source={require('../../assets/images/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.brandTitle}>Punnaigai</Text>
+          <Text style={styles.brandSubtitle}>Small Finance</Text>
         </View>
 
-        {/* Welcome Section */}
         <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>Welcome Back</Text>
-          <Text style={styles.welcomeSubtitle}>Login to your account</Text>
+          <Text style={styles.welcomeTitle}>Sign In</Text>
+          <Text style={styles.welcomeSubtitle}>Enter your email and password to securely access your account.</Text>
         </View>
 
-        {/* Form Inputs Container */}
-        <View style={styles.formContainer}>
-          {/* Mobile Number Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Mobile Number</Text>
-            <View style={styles.inputWrapper}>
-              <AppIcon
-                name="phone"
-                size={17}
-                color="#64748B"
-                style={styles.leftIcon}
-              />
-              <TextInput
-                style={styles.inputField}
-                placeholder="Enter mobile number"
-                placeholderTextColor="#94A3B8"
-                value={mobileNumber}
-                maxLength={10}
-                onChangeText={handleMobileChange}
-                keyboardType="phone-pad"
-              />
-            </View>
+        <View style={styles.formSection}>
+          <Text style={styles.inputLabel}>Email</Text>
+          <View style={[styles.inputWrapper, isFocusedEmail && styles.inputWrapperFocused]}>
+            <TextInput
+              style={styles.inputField}
+              placeholder="Enter your email"
+              placeholderTextColor="#CBD5E1"
+              value={email}
+              onChangeText={handleEmailChange}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              onFocus={() => setIsFocusedEmail(true)}
+              onBlur={() => setIsFocusedEmail(false)}
+              selectionColor="#10B981"
+            />
+            {email.length > 0 && (
+              <TouchableOpacity onPress={() => handleEmailChange('')} style={styles.clearButton}>
+                <AppIcon name="x-circle" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Error Message */}
+          <Text style={[styles.inputLabel, { marginTop: 16 }]}>Password</Text>
+          <View style={[styles.inputWrapper, isFocusedPassword && styles.inputWrapperFocused]}>
+            <TextInput
+              style={styles.inputField}
+              placeholder="Enter your password"
+              placeholderTextColor="#CBD5E1"
+              value={password}
+              onChangeText={handlePasswordChange}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              onFocus={() => setIsFocusedPassword(true)}
+              onBlur={() => setIsFocusedPassword(false)}
+              selectionColor="#10B981"
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={[styles.clearButton, { marginRight: password.length > 0 ? 8 : 0 }]}>
+              <AppIcon name={showPassword ? "eye-off" : "eye"} size={20} color="#94A3B8" />
+            </TouchableOpacity>
+            {password.length > 0 && (
+              <TouchableOpacity onPress={() => handlePasswordChange('')} style={styles.clearButton}>
+                <AppIcon name="x-circle" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
+
           {apiError ? (
-            <View style={styles.errorBox}>
+            <View style={styles.errorContainer}>
               <AppIcon name="alert-circle" size={14} color="#EF4444" />
               <Text style={styles.errorText}>{apiError}</Text>
             </View>
           ) : null}
 
-          {/* Forgot Password */}
-          <View style={styles.rememberRow}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                navigation.navigate(ROUTES.OTP_VERIFY, {
-                  phone: mobileNumber.startsWith('+91')
-                    ? mobileNumber
-                    : `+91 ${mobileNumber}`,
-                  role: APP_ROLES.CUSTOMER,
-                  isForgot: true,
-                });
-              }}
-            >
-              <Text style={styles.forgotText}>Forgot password?</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Login Button with Emerald Gradient */}
-          <CustomButton
-            title={isSendingOtp ? 'Sending OTP...' : 'Login'}
+          <TouchableOpacity
+            style={[styles.primaryButton, isLoggingIn && styles.primaryButtonDisabled]}
             onPress={handleLogin}
-            variant="primary"
-            size="large"
-            style={styles.loginButton}
-            gradientColors={['#168A53', '#0D523B']}
-            disabled={isSendingOtp}
-          />
-          {isSendingOtp && (
-            <ActivityIndicator
-              color="#0D523B"
-              style={{ marginTop: -8, marginBottom: 8 }}
-            />
-          )}
-
-          {/* Don't have an account? Register */}
-          <View style={styles.registerRow}>
-            <Text style={styles.registerPrompt}>Don't have an account? </Text>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                navigation.navigate(ROUTES.OTP_VERIFY, {
-                  phone: mobileNumber.startsWith('+91')
-                    ? mobileNumber
-                    : `+91 ${mobileNumber}`,
-                  role: APP_ROLES.CUSTOMER,
-                  isRegister: true,
-                });
-              }}
-            >
-              <Text style={styles.registerLink}>Register</Text>
-            </TouchableOpacity>
-          </View>
+            disabled={isLoggingIn}
+            activeOpacity={0.8}
+          >
+            {isLoggingIn ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Login</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
     </View>
@@ -195,120 +170,132 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    position: 'relative',
-  },
-  bottomLeaves: {
-    bottom: -15,
-    right: -25,
-    transform: [{ rotate: '-25deg' }],
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
+    paddingHorizontal: 28,
   },
-  logoSection: {
+  headerSection: {
     alignItems: 'center',
-    marginBottom: 26,
+    marginBottom: 50,
+  },
+  logoImage: {
+    width: 64,
+    height: 64,
+    marginBottom: 16,
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  brandSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10B981',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginTop: 4,
   },
   welcomeSection: {
-    marginBottom: 20,
+    marginBottom: 40,
   },
   welcomeTitle: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 28,
+    fontWeight: '800',
     color: '#0F172A',
-    letterSpacing: -0.3,
+    letterSpacing: -1,
+    marginBottom: 8,
   },
   welcomeSubtitle: {
-    fontSize: 13,
-    marginTop: 4,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '400',
     color: '#64748B',
+    lineHeight: 22,
   },
-  formContainer: {
-    marginBottom: 12,
-  },
-  inputGroup: {
-    marginBottom: 14,
+  formSection: {
+    flex: 1,
   },
   inputLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-    marginBottom: 6,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 48,
+    height: 60,
     borderRadius: 12,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
+    borderColor: '#F1F5F9',
+    paddingHorizontal: 16,
+    marginBottom: 8,
   },
-  leftIcon: {
-    marginRight: 10,
+  inputWrapperFocused: {
+    borderColor: '#10B981',
+    backgroundColor: '#FFFFFF',
+  },
+  countryCodeBadge: {
+    justifyContent: 'center',
+    paddingRight: 12,
+  },
+  countryCodeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  divider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
+    marginRight: 12,
   },
   inputField: {
     flex: 1,
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#0F172A',
     height: '100%',
     padding: 0,
+    letterSpacing: 1,
   },
-  rightIconBtn: {
+  clearButton: {
     padding: 4,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   errorText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#EF4444',
     marginLeft: 6,
     flex: 1,
   },
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 10,
-  },
-  rememberRow: {
-    alignItems: 'flex-end',
-    marginTop: 2,
-    marginBottom: 22,
-  },
-  forgotText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0D523B',
-  },
-  loginButton: {
-    borderRadius: 24,
-    height: 50,
-    marginBottom: 16,
-  },
-  registerRow: {
-    flexDirection: 'row',
+  primaryButton: {
+    height: 56,
+    backgroundColor: '#0D523B',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 24,
   },
-  registerPrompt: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#64748B',
+  primaryButtonDisabled: {
+    backgroundColor: '#94A3B8',
   },
-  registerLink: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0D523B',
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

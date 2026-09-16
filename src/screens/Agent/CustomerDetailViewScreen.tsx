@@ -7,50 +7,25 @@ import {
   RefreshControl,
   TouchableOpacity,
   StatusBar,
+  Modal,
+  Platform,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { useAppSelector } from '../../hooks/useAppHooks';
+import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
+import { fetchAssignedCustomersThunk } from '../../features/agent/collectionThunks';
 import { useAppTheme } from '../../theme/useAppTheme';
-import { CustomButton } from '../../component/Common/CustomButton';
+import { Header } from '../../component/Header';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
 import { AssignedCustomer } from '../../types/models';
+import LinearGradient from 'react-native-linear-gradient';
 
 type TabType = 'Overview' | 'Loan Details' | 'Payment History';
 
-const HeaderGraphic = () => (
-  <View
-    style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]}
-    pointerEvents="none"
-  >
-    <View
-      style={{
-        position: 'absolute',
-        top: -30,
-        right: -40,
-        width: 180,
-        height: 180,
-        borderRadius: 90,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-      }}
-    />
-    <View
-      style={{
-        position: 'absolute',
-        top: 40,
-        right: -80,
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        backgroundColor: 'rgba(255,255,255,0.04)',
-      }}
-    />
-  </View>
-);
+
 
 export const CustomerDetailViewScreen: React.FC = () => {
   const route = useRoute<any>();
@@ -71,37 +46,63 @@ export const CustomerDetailViewScreen: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('Overview');
 
-  const onRefresh = React.useCallback(() => {
+  const [timeFilter, setTimeFilter] = useState('Month');
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const timeOptions = ['Today', 'Week', 'Month', 'Year'];
+
+  const dispatch = useAppDispatch();
+  const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
-  }, []);
+    await dispatch(fetchAssignedCustomersThunk());
+    setIsRefreshing(false);
+  }, [dispatch]);
 
   const handleCollectPayment = () => {
     navigation.navigate(ROUTES.ADD_COLLECTION, { customerId: customer.id });
   };
 
+  const renderHeaderRight = () => {
+    if (activeTab !== 'Payment History') return null;
+    return (
+      <View style={{ zIndex: 10 }}>
+        <TouchableOpacity 
+          style={styles.dropdownButton}
+          onPress={() => setDropdownVisible(true)}
+        >
+          <Text style={styles.dropdownButtonText}>{timeFilter}</Text>
+          <AppIcon name="chevron-down" size={12} color="#64748B" />
+        </TouchableOpacity>
+        
+        {dropdownVisible && (
+          <Modal transparent animationType="fade" visible={dropdownVisible} onRequestClose={() => setDropdownVisible(false)}>
+            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDropdownVisible(false)}>
+              <View style={styles.dropdownMenu}>
+                {timeOptions.map((opt, index) => {
+                  const isLast = index === timeOptions.length - 1;
+                  return (
+                    <TouchableOpacity 
+                      key={opt}
+                      style={[styles.dropdownMenuItem, !isLast && { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }, timeFilter === opt && styles.dropdownMenuItemActive]}
+                      onPress={() => { setTimeFilter(opt); setDropdownVisible(false); }}
+                    >
+                      <Text style={[styles.dropdownMenuItemText, timeFilter === opt && styles.dropdownMenuItemTextActive]}>{opt}</Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        )}
+      </View>
+    );
+  };
+
   if (!customer) {
     return (
-      <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
-        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-        <LinearGradient
-          colors={['#0B533E', '#168B5E']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
-        >
-          <HeaderGraphic />
-          <View style={styles.headerTitleRow}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <AppIcon name="arrow-left" size={24} color={colors.white} />
-            </TouchableOpacity>
-            <Text style={[typography.h3, { color: colors.white }]}>
-              Customer Details
-            </Text>
-            <View style={styles.backBtn} />
-          </View>
-        </LinearGradient>
-        <View style={styles.pageContainer}>
+      <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
+        <StatusBar barStyle="dark-content" />
+        <Header title="Customer Details" showBack={true} />
+        <View style={styles.content}>
           <View style={styles.emptyCenter}>
             <Text style={[typography.bodyLarge, { color: '#94A3B8' }]}>
               Customer not found.
@@ -118,28 +119,11 @@ export const CustomerDetailViewScreen: React.FC = () => {
   const remainingAmount = customer.pendingAmount || 30000;
 
   return (
-    <View style={[styles.container, { backgroundColor: '#168B5E' }]}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
+      <StatusBar barStyle="dark-content" />
+      <Header title="Customer Details" showBack={true} rightComponent={renderHeaderRight()} />
       
-      <LinearGradient
-        colors={['#0B533E', '#168B5E']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 8 }]}
-      >
-        <HeaderGraphic />
-        <View style={styles.headerTitleRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <AppIcon name="arrow-left" size={24} color={colors.white} />
-          </TouchableOpacity>
-          <Text style={[typography.h3, { color: colors.white }]}>
-            Customer Details
-          </Text>
-          <View style={styles.backBtn} />
-        </View>
-      </LinearGradient>
-
-      <View style={styles.pageContainer}>
+      <View style={styles.content}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -155,69 +139,69 @@ export const CustomerDetailViewScreen: React.FC = () => {
           ) : (
             <>
               {/* Top Customer Info Card */}
-              <View style={[styles.profileCard, { backgroundColor: colors.white }]}>
-                <View style={styles.profileHeaderRow}>
-                  <View style={styles.profileLeft}>
-                    <View style={[styles.avatarCircle, { backgroundColor: '#E0F2FE' }]}>
-                      <Text style={[typography.h2, { color: '#0284C7' }]}>
-                        {customer.name.charAt(0)}
-                      </Text>
-                    </View>
-                    <View style={{ marginLeft: 16 }}>
-                      <Text style={[typography.h3, { color: '#0F172A' }]}>
-                        {customer.name}
-                      </Text>
-                      <Text style={[typography.bodyMedium, { color: '#64748B', marginTop: 4 }]}>
-                        {customer.phone}
-                      </Text>
-                      <View style={styles.locationRow}>
-                        <AppIcon name="map-pin" size={12} color="#94A3B8" />
-                        <Text style={[typography.caption, { color: '#64748B', marginLeft: 4 }]}>
-                          {customer.address || 'Tenkasi'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                    <View style={{ alignItems: 'flex-end', gap: 12 }}>
-                      <View style={[styles.statusBadge, { backgroundColor: !customer.isOverdue ? '#DCFCE7' : '#FEE2E2' }]}>
-                        <Text style={[typography.caption, { color: !customer.isOverdue ? '#16A34A' : '#EF4444' }]}>
-                          {!customer.isOverdue ? 'Active' : 'Inactive'}
-                        </Text>
-                      </View>
-                      
-                      <TouchableOpacity
-                        style={[styles.collectBtn, { backgroundColor: '#10B981' }]}
-                        onPress={handleCollectPayment}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[typography.caption, { color: colors.white, fontWeight: '700' }]}>Collect</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-
-              {/* Amounts Card */}
               <LinearGradient
-                colors={['#0F766E', '#064E3B']}
+                colors={['#047857', '#064E3B']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.amountsCard}
+                style={styles.userHeaderCard}
               >
-                <View style={styles.amountRow}>
-                  <Text style={[typography.bodyLarge, { color: 'rgba(255,255,255,0.8)' }]}>Total Loan Amount</Text>
-                  <Text style={[typography.h3, { color: '#FFFFFF' }]}>{formatINR(totalLoanAmount)}</Text>
-                </View>
-                <View style={[styles.divider, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-                <View style={styles.amountRow}>
-                  <Text style={[typography.bodyLarge, { color: 'rgba(255,255,255,0.8)' }]}>Paid Amount</Text>
-                  <Text style={[typography.h3, { color: '#6EE7B7' }]}>{formatINR(paidAmount)}</Text>
-                </View>
-                <View style={[styles.divider, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-                <View style={styles.amountRow}>
-                  <Text style={[typography.bodyLarge, { color: '#FFFFFF', fontWeight: '700' }]}>Remaining Amount</Text>
-                  <Text style={[typography.h3, { color: '#FCD34D' }]}>{formatINR(remainingAmount)}</Text>
+                <View style={styles.userHeaderLeft}>
+                  <View style={[styles.avatarCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFFFFF' }}>
+                      {customer.name.charAt(0)}
+                    </Text>
+                  </View>
+                  <View style={styles.userInfoCol}>
+                    <Text style={[styles.profileName, { color: '#FFFFFF' }]}>
+                      {customer.name}
+                    </Text>
+                    <Text style={[styles.profilePhone, { color: 'rgba(255,255,255,0.8)' }]}>
+                      {customer.phone}
+                    </Text>
+                    <View style={styles.userMetaRow}>
+                      <View style={[styles.verifiedBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                        <AppIcon name="check-circle" size={12} color={!customer.isOverdue ? '#4ADE80' : '#FCA5A5'} />
+                        <Text style={[styles.verifiedBadgeText, { color: '#FFFFFF' }]}>
+                          {!customer.isOverdue ? 'Active Loan' : 'Overdue'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
                 </View>
               </LinearGradient>
+
+              {/* Tabs */}
+              <View style={styles.tabsWrapper}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {(['Overview', 'Loan Details', 'Payment History'] as TabType[]).map(tab => (
+                    <TouchableOpacity 
+                      key={tab} 
+                      style={[styles.tabButton, activeTab === tab && styles.tabButtonActive]}
+                      onPress={() => setActiveTab(tab)}
+                    >
+                      <Text style={[styles.tabButtonText, activeTab === tab && styles.tabButtonTextActive]}>{tab}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {activeTab === 'Overview' && (
+                <>
+                  {/* Amounts Stats Row */}
+                  <View style={styles.statsContainer}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{formatINR(totalLoanAmount)}</Text>
+                      <Text style={styles.statLabel}>Total Loan</Text>
+                    </View>
+                    <View style={[styles.statBox, { backgroundColor: '#F0FDF4', borderColor: '#DCFCE7' }]}>
+                      <Text style={[styles.statValue, { color: '#16A34A' }]}>{formatINR(paidAmount)}</Text>
+                      <Text style={[styles.statLabel, { color: '#15803D' }]}>Paid Amount</Text>
+                    </View>
+                    <View style={[styles.statBox, { backgroundColor: '#FFFBEB', borderColor: '#FEF3C7' }]}>
+                      <Text style={[styles.statValue, { color: '#D97706' }]}>{formatINR(remainingAmount)}</Text>
+                      <Text style={[styles.statLabel, { color: '#B45309' }]}>Remaining</Text>
+                    </View>
+                  </View>
 
               {/* Details List */}
               <View style={[styles.detailsList, { backgroundColor: colors.white }]}>
@@ -270,7 +254,48 @@ export const CustomerDetailViewScreen: React.FC = () => {
                     <Text style={[typography.bodyLarge, { color: '#0F172A', fontWeight: '600' }]}>Selvi</Text>
                   </View>
                 </View>
-              </View>
+                </View>
+              </>
+              )}
+
+              {activeTab === 'Payment History' && (
+                <View style={styles.listCard}>
+                  {[
+                    { id: 1, due_date: '2026-09-10T00:00:00Z', amount: '12000', status: 'paid' },
+                    { id: 2, due_date: '2026-08-10T00:00:00Z', amount: '12000', status: 'paid' },
+                    { id: 3, due_date: '2026-10-10T00:00:00Z', amount: '12000', status: 'pending' },
+                  ].map((item, index, arr) => {
+                    const isPaid = item.status === 'paid';
+                    const isLast = index === arr.length - 1;
+                    return (
+                      <View key={item.id} style={[styles.historyRow, !isLast && styles.rowBorder]}>
+                        <View style={styles.historyLeft}>
+                          <AppIcon name={isPaid ? 'check-circle' : 'clock'} size={20} color={isPaid ? '#10B981' : '#F59E0B'} />
+                          <View style={{ marginLeft: 12 }}>
+                            <Text style={styles.historyDate}>{new Date(item.due_date).toLocaleDateString()}</Text>
+                            <Text style={styles.historySubtitle}>EMI Payment</Text>
+                          </View>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={styles.historyAmount}>{formatINR(Number(item.amount))}</Text>
+                          <Text style={[styles.historyStatus, { color: isPaid ? '#10B981' : '#F59E0B' }]}>
+                            {isPaid ? 'Paid' : 'Pending'}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                  <TouchableOpacity style={styles.viewAllBtn}>
+                    <Text style={styles.viewAllBtnText}>View All Transactions</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {activeTab === 'Loan Details' && (
+                <View style={[styles.detailsList, { backgroundColor: colors.white }]}>
+                  <Text style={[typography.bodyLarge, { color: '#64748B', textAlign: 'center' }]}>Loan details will appear here.</Text>
+                </View>
+              )}
             </>
           )}
         </ScrollView>
@@ -283,31 +308,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    position: 'relative',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backBtn: {
-    padding: 8,
-    width: 40,
-  },
-  pageContainer: {
+  content: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20,
-    overflow: 'hidden',
   },
   scrollContent: {
-    padding: 24,
+    padding: 16,
     paddingBottom: 100, // Extra padding for the bottom bar
   },
   emptyCenter: {
@@ -321,69 +326,109 @@ const styles = StyleSheet.create({
   skeletonSpacing: {
     marginBottom: 16,
   },
-  profileCard: {
-    borderRadius: 16,
-    paddingTop: 20,
-    paddingHorizontal: 20,
+  tabsWrapper: {
     marginBottom: 20,
+  },
+  tabButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  profileHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 24,
+  tabButtonActive: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
   },
-  profileLeft: {
+  tabButtonText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabButtonTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  userHeaderCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+  },
+  userHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatarCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#0D523B',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 14,
   },
-  locationRow: {
+  userInfoCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  profileName: {
+    color: '#0F172A',
+    fontSize: 16.5,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  profilePhone: {
+    color: '#64748B',
+    fontSize: 12.5,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  userMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     marginTop: 6,
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  tabsContainer: {
+  verifiedBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  tabButton: {
-    paddingVertical: 16,
-    flex: 1,
     alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EAF5EE',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  tabContent: {
+  verifiedBadgeText: {
+    color: '#0D523B',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 24,
+  },
+  statBox: {
     flex: 1,
-  },
-  amountsCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 24,
-    marginBottom: 20,
-  },
-  amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  divider: {
-    height: 1,
-    marginVertical: 16,
+  statValue: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  statLabel: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '600',
   },
   detailsList: {
     borderRadius: 16,
@@ -417,5 +462,98 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 15,
+  },
+  listCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    paddingBottom: 0,
+    flex: 1,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  rowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  historyLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyDate: { color: '#0F172A', fontSize: 13, fontWeight: '700' },
+  historySubtitle: { color: '#64748B', fontSize: 11, fontWeight: '500', marginTop: 2 },
+  historyAmount: { color: '#0F172A', fontSize: 13, fontWeight: '800' },
+  historyStatus: { fontSize: 11, fontWeight: '700', marginTop: 2 },
+  viewAllBtn: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    marginTop: 8,
+  },
+  viewAllBtnText: {
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    minWidth: 85,
+  },
+  dropdownButtonText: {
+    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '700',
+    marginRight: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 90 : 60,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+    width: 140,
+    overflow: 'hidden',
+  },
+  dropdownMenuItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  dropdownMenuItemActive: {
+    backgroundColor: '#ECFDF5',
+  },
+  dropdownMenuItemText: {
+    color: '#475569',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  dropdownMenuItemTextActive: {
+    color: '#10B981',
+    fontWeight: '800',
   },
 });

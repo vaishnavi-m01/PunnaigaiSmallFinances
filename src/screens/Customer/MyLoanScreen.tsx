@@ -8,23 +8,20 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { Header } from '../../component/Header';
-import { Card } from '../../component/Common/Card';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
-import { formatDate } from '../../utils/date';
 import { ROUTES } from '../../constants/routes';
 import * as customerApi from '../../services/api/customerApi';
+
+import LinearGradient from 'react-native-linear-gradient';
 
 export const MyLoanScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const [myLoans, setMyLoans] = useState<customerApi.MyLoanResponse[]>([]);
   const [isLoansLoading, setIsLoansLoading] = useState(true);
-  const [selectedLoanIndex, setSelectedLoanIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<'details' | 'summary'>('summary');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadMyLoans = React.useCallback(async () => {
@@ -32,7 +29,6 @@ export const MyLoanScreen: React.FC = () => {
     try {
       const loans = await customerApi.getMyLoans();
       setMyLoans(loans);
-      setSelectedLoanIndex(idx => Math.min(idx, Math.max((loans?.length ?? 1) - 1, 0)));
     } catch {
       setMyLoans([]);
     } finally {
@@ -50,29 +46,22 @@ export const MyLoanScreen: React.FC = () => {
     setIsRefreshing(false);
   }, [loadMyLoans]);
 
-  const selectedLoan = myLoans[selectedLoanIndex];
+  const getLoanIconColor = (name: string) => {
+    return name.toLowerCase().includes('gold') ? '#8B5CF6' : '#10B981';
+  };
 
-  // Derive display values from the new API shape
-  const schedule = selectedLoan?.repayment_schedule ?? [];
-  const totalLoanAmount = schedule.reduce((sum, s) => sum + s.amount, 0);
-  const totalPaid = schedule.reduce((sum, s) => sum + (s.paid_amount ?? 0), 0);
-  const totalBalance = schedule.reduce((sum, s) => sum + (s.balance ?? 0), 0);
-  const completedInstallments = schedule.filter(s =>
-    ['paid', 'completed'].includes(s.status?.toLowerCase()),
-  ).length;
-  const installmentCount = selectedLoan?.installment_count ?? 0;
-  const percentPaid =
-    totalLoanAmount > 0
-      ? Math.min(100, Math.round((totalPaid / totalLoanAmount) * 100))
-      : 0;
-  const nextSchedule = schedule.find(
-    s => !['paid', 'completed'].includes(s.status?.toLowerCase()),
-  );
+  const getLoanGradient = (name: string) => {
+    return name.toLowerCase().includes('gold') ? ['#8B5CF6', '#6D28D9'] : ['#10B981', '#047857'];
+  };
+
+  const getLoanIconName = (name: string) => {
+    return name.toLowerCase().includes('gold') ? 'lock' : 'shield'; 
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <Header title="My Loan" showBack={false} showNotification={true} />
+      <Header title="My Loans" showBack={false} showNotification={true} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -87,10 +76,8 @@ export const MyLoanScreen: React.FC = () => {
       >
         {isRefreshing || isLoansLoading ? (
           <View style={{ paddingTop: 8 }}>
-            <Skeleton height={50} borderRadius={18} style={{ marginBottom: 12 }} />
-            <Skeleton height={220} borderRadius={18} style={{ marginBottom: 16 }} />
-            <Skeleton height={50} borderRadius={25} style={{ marginBottom: 20 }} />
-            <Skeleton height={200} borderRadius={16} style={{ marginBottom: 20 }} />
+            <Skeleton height={240} borderRadius={24} style={{ marginBottom: 16 }} />
+            <Skeleton height={240} borderRadius={24} style={{ marginBottom: 16 }} />
           </View>
         ) : (
           <>
@@ -103,283 +90,98 @@ export const MyLoanScreen: React.FC = () => {
                 </Text>
               </View>
             ) : (
-              <>
-                {/* Loan Filter — only shown if 2+ loans, equal width pills */}
-                {myLoans.length > 1 && (
-                  <View style={styles.loanSelector}>
-                    {myLoans.map((item, index) => (
-                      <TouchableOpacity
-                        key={item.finance_id}
-                        style={[
-                          styles.loanSelectorItem,
-                          index === selectedLoanIndex && styles.loanSelectorItemActive,
-                        ]}
-                        onPress={() => setSelectedLoanIndex(index)}
+              <View style={styles.loansList}>
+                {myLoans.map(loan => {
+                  const schedule = loan.repayment_schedule ?? [];
+                  const totalLoanAmount = schedule.reduce((sum, s) => sum + s.amount, 0);
+                  const totalPaid = schedule.reduce((sum, s) => sum + (s.paid_amount ?? 0), 0);
+                  const completedInstallments = schedule.filter(s =>
+                    ['paid', 'completed'].includes(s.status?.toLowerCase()),
+                  ).length;
+                  const installmentCount = loan.installment_count ?? 0;
+                  const percentPaid =
+                    totalLoanAmount > 0
+                      ? Math.min(100, Math.round((totalPaid / totalLoanAmount) * 100))
+                      : 0;
+
+                  const accentColor = getLoanIconColor(loan.loan_package_name);
+                  const gradientColors = getLoanGradient(loan.loan_package_name);
+                  const iconName = getLoanIconName(loan.loan_package_name);
+
+                  return (
+                    <TouchableOpacity 
+                      key={loan.finance_id} 
+                      activeOpacity={0.9}
+                      onPress={() => navigation.navigate(ROUTES.LOAN_DETAILS, { loanId: loan.finance_id })}
+                    >
+                      <LinearGradient
+                        colors={['#047857', '#064E3B']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.loanCardPremium}
                       >
-                        <Text
-                          style={[
-                            styles.loanSelectorText,
-                            index === selectedLoanIndex && styles.loanSelectorTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.loan_package_name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-
-                {/* Hero Loan Card */}
-                <LinearGradient
-                  colors={['#083827', '#0D523B', '#126349']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.loanCard}
-                >
-                  <View style={styles.loanHeaderRow}>
-                    <View>
-                      <Text style={styles.cardHeaderTitle}>
-                        {selectedLoan?.loan_package_name}
-                      </Text>
-                      <Text style={styles.cardHeaderSub}>
-                        Loan ID: #{selectedLoan?.finance_id}
-                      </Text>
-                    </View>
-                    <View style={styles.statusBadgePill}>
-                      <Text style={styles.statusBadgeText}>Active</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.cardDivider} />
-
-                  <View style={styles.detailsList}>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Total Loan Amount :</Text>
-                      <Text style={styles.detailValue}>
-                        {formatINR(totalLoanAmount)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Installments :</Text>
-                      <Text style={styles.detailValue}>
-                        {installmentCount} × {selectedLoan?.frequency}
-                      </Text>
-                    </View>
-
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Interest Rate :</Text>
-                      <Text style={styles.detailValue}>
-                        {selectedLoan?.interest_percentage}%
-                      </Text>
-                    </View>
-
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Next Due Date :</Text>
-                      <Text style={styles.detailValue}>
-                        {nextSchedule ? formatDate(nextSchedule.due_date) : 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.detailCta}>
-                    <Text style={styles.detailCtaText}>
-                      {completedInstallments} of {installmentCount} installments completed
-                    </Text>
-                  </View>
-                </LinearGradient>
-
-                {/* Segmented Pill Tabs: Summary first, then Schedule */}
-                <View style={styles.tabContainer}>
-                  <TouchableOpacity
-                    style={[styles.tabBtn, activeTab === 'summary' && styles.activeTabBtn]}
-                    onPress={() => setActiveTab('summary')}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.tabBtnText,
-                        { color: activeTab === 'summary' ? '#FFFFFF' : '#64748B' },
-                      ]}
-                    >
-                      Summary
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.tabBtn, activeTab === 'details' && styles.activeTabBtn]}
-                    onPress={() => setActiveTab('details')}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.tabBtnText,
-                        { color: activeTab === 'details' ? '#FFFFFF' : '#64748B' },
-                      ]}
-                    >
-                      Schedule
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {activeTab === 'details' ? (
-                  /* Repayment Schedule List */
-                  <Card style={styles.scheduleCard} variant="flat" padding={0}>
-                    {schedule.map((item, idx) => {
-                      const isPaid = ['paid', 'completed'].includes(
-                        item.status?.toLowerCase(),
-                      );
-                      const isLast = idx === schedule.length - 1;
-                      return (
-                        <View key={item.schedule_id}>
-                          <View style={styles.scheduleRow}>
-                            <View style={styles.scheduleLeft}>
-                              <View
-                                style={[
-                                  styles.installmentCircle,
-                                  isPaid && styles.installmentCirclePaid,
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.installmentNo,
-                                    isPaid && { color: '#FFFFFF' },
-                                  ]}
-                                >
-                                  {item.installment}
-                                </Text>
-                              </View>
-                              <View>
-                                <Text style={styles.scheduleDate}>
-                                  {formatDate(item.due_date)}
-                                </Text>
-                                {item.paid_amount > 0 && (
-                                  <Text style={styles.schedulePaidNote}>
-                                    Paid: {formatINR(item.paid_amount)}
-                                  </Text>
-                                )}
-                              </View>
+                        <View style={styles.watermarkContainer}>
+                          <AppIcon name={iconName} size={150} color="rgba(255,255,255,0.08)" />
+                        </View>
+                        
+                        {/* Top Header */}
+                        <View style={styles.cardHeaderRow}>
+                          <View style={styles.cardHeaderLeft}>
+                            <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                              <AppIcon name={iconName} size={20} color="#FFFFFF" />
                             </View>
-                            <View style={styles.scheduleRight}>
-                              <Text style={styles.scheduleAmount}>
-                                {formatINR(item.amount)}
-                              </Text>
-                              <View
-                                style={[
-                                  styles.scheduleBadge,
-                                  {
-                                    backgroundColor: isPaid ? '#DCFCE7' : '#FEF3C7',
-                                    borderColor: isPaid ? '#86EFAC' : '#FDE68A',
-                                  },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.scheduleBadgeText,
-                                    { color: isPaid ? '#15803D' : '#D97706' },
-                                  ]}
-                                >
-                                  {isPaid ? 'Paid' : 'Pending'}
-                                </Text>
-                              </View>
+                            <View>
+                              <Text style={styles.loanNamePremium}>{loan.loan_package_name}</Text>
+                              <Text style={styles.loanIdPremium}>Loan No : {loan.finance_id}</Text>
                             </View>
                           </View>
-                          {!isLast && <View style={styles.rowDivider} />}
+                          <View style={styles.cardHeaderRight}>
+                            <View style={[styles.activeBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                              <Text style={[styles.activeBadgeText, { color: '#FFFFFF' }]}>Active</Text>
+                            </View>
+                          </View>
                         </View>
-                      );
-                    })}
-                  </Card>
-                ) : (
-                  /* Summary Tab */
-                  <View style={styles.summaryContainer}>
-                    {/* Progress Card */}
-                    <Card style={styles.progressCard} variant="flat" padding={16}>
-                      <View style={styles.progressHeaderRow}>
-                        <Text style={styles.progressHeaderTitle}>
-                          Repayment Progress
-                        </Text>
-                        <Text style={styles.progressPercentText}>
-                          {percentPaid}% Paid
-                        </Text>
-                      </View>
-                      <View style={styles.progressBarTrack}>
-                        <View
-                          style={[
-                            styles.progressBarFill,
-                            { width: `${percentPaid}%` },
-                          ]}
-                        />
-                      </View>
-                      <View style={styles.progressSubRow}>
-                        <Text style={styles.progressSubText}>
-                          Paid:{' '}
-                          <Text style={styles.paidValue}>{formatINR(totalPaid)}</Text>
-                        </Text>
-                        <Text style={styles.progressSubText}>
-                          Balance:{' '}
-                          <Text style={styles.remainingValue}>
-                            {formatINR(totalBalance)}
+
+                        {/* Amounts & Tenure */}
+                        <View style={styles.amountsRow}>
+                          <View>
+                            <Text style={styles.amountTextPremium}>{formatINR(totalLoanAmount)}</Text>
+                            <Text style={styles.amountLabelPremium}>Total Loan Amount</Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={styles.tenureTextPremium}>
+                              {installmentCount} {loan.frequency}
+                            </Text>
+                            <Text style={styles.amountLabelPremium}>Tenure</Text>
+                          </View>
+                        </View>
+
+                        {/* Progress Bar Area */}
+                        <View style={styles.progressArea}>
+                          <Text style={styles.progressLabelPremium}>
+                            <Text style={{ color: 'rgba(255,255,255,0.8)' }}>Paid </Text> 
+                            <Text style={{ color: '#FFFFFF' }}>{completedInstallments}</Text> 
+                            <Text style={{ color: 'rgba(255,255,255,0.8)' }}> of {installmentCount} EMI</Text>
                           </Text>
-                        </Text>
-                      </View>
-                    </Card>
-
-                    {/* Breakdown Card */}
-                    <Card style={styles.breakdownCard} variant="flat" padding={16}>
-                      <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Total Loan</Text>
-                        <Text style={styles.breakdownValue}>
-                          {formatINR(totalLoanAmount)}
-                        </Text>
-                      </View>
-                      <View style={styles.rowDivider} />
-                      <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Total Paid</Text>
-                        <Text style={[styles.breakdownValue, styles.greenText]}>
-                          {formatINR(totalPaid)}
-                        </Text>
-                      </View>
-                      <View style={styles.rowDivider} />
-                      <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Remaining Balance</Text>
-                        <Text style={[styles.breakdownValue, styles.amberText]}>
-                          {formatINR(totalBalance)}
-                        </Text>
-                      </View>
-                      <View style={styles.rowDivider} />
-                      <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>EMIs Completed</Text>
-                        <Text style={styles.breakdownValue}>
-                          {completedInstallments} of {installmentCount}
-                        </Text>
-                      </View>
-                      <View style={styles.rowDivider} />
-                      <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Next Payment</Text>
-                        <Text style={styles.breakdownValue}>
-                          {nextSchedule ? formatDate(nextSchedule.due_date) : 'N/A'}
-                        </Text>
-                      </View>
-                    </Card>
-
-                    {/* Quick Action Links */}
-                    <View style={styles.summaryActionsRow}>
-                      <TouchableOpacity
-                        style={styles.summaryActionBtn}
-                        onPress={() => navigation.navigate(ROUTES.PAYMENT_SCHEDULE)}
-                        activeOpacity={0.7}
-                      >
-                        <AppIcon name="calendar" size={15} color="#0D523B" />
-                        <Text style={styles.summaryActionBtnText}>
-                          View Payment History
-                        </Text>
-                        <AppIcon name="chevron-right" size={14} color="#0D523B" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-              </>
+                          <View style={[styles.progressBarTrack, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
+                            <View
+                              style={[
+                                styles.progressBarFill,
+                                { width: `${percentPaid}%`, backgroundColor: '#FFFFFF' },
+                              ]}
+                            />
+                          </View>
+                          <View style={styles.progressValuesRow}>
+                            <Text style={styles.progressValueTextPremium}>
+                              <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{formatINR(totalPaid)}</Text> / {formatINR(totalLoanAmount)}
+                            </Text>
+                          </View>
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             )}
           </>
         )}
@@ -391,7 +193,7 @@ export const MyLoanScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F9F6',
+    backgroundColor: '#F8FAFC',
   },
   scrollContent: {
     padding: 16,
@@ -415,295 +217,126 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
-  loanSelector: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+  loansList: {
+    paddingBottom: 20,
   },
-  loanSelectorItem: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-  },
-  loanSelectorItemActive: {
-    borderColor: '#0D523B',
-    backgroundColor: '#EAF5EE',
-  },
-  loanSelectorText: {
-    color: '#64748B',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  loanSelectorTextActive: {
-    color: '#0D523B',
-  },
-  loanCard: {
-    padding: 18,
-    borderRadius: 18,
+  loanCardPremium: {
     marginBottom: 16,
-  },
-  loanHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  cardHeaderTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  cardHeaderSub: {
-    color: '#A7F3D0',
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  statusBadgePill: {
-    backgroundColor: 'rgba(52, 211, 153, 0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#34D399',
-  },
-  statusBadgeText: {
-    color: '#D1FAE5',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginVertical: 12,
-  },
-  detailsList: {
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  detailLabel: {
-    color: '#E0EDED',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  detailValue: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  detailCta: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.15)',
-    marginTop: 14,
-    paddingTop: 11,
-    alignItems: 'center',
-  },
-  detailCtaText: {
-    color: '#D1FAE5',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
-    padding: 3,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  tabBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 18,
-  },
-  activeTabBtn: {
-    backgroundColor: '#0D523B',
-  },
-  tabBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  scheduleCard: {
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
   },
-  scheduleRow: {
+  watermarkContainer: {
+    position: 'absolute',
+    right: -20,
+    bottom: -20,
+    zIndex: 0,
+  },
+  cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    marginBottom: 24,
+    zIndex: 1,
   },
-  scheduleLeft: {
+  cardHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
-  installmentCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  installmentCirclePaid: {
-    backgroundColor: '#10B981',
-  },
-  installmentNo: {
-    color: '#64748B',
-    fontSize: 12,
+  loanNamePremium: {
+    color: '#FFFFFF',
+    fontSize: 17,
     fontWeight: '800',
   },
-  scheduleDate: {
-    color: '#0F172A',
+  loanIdPremium: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  activeBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  amountsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    zIndex: 1,
+  },
+  amountTextPremium: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  amountLabelPremium: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  tenureTextPremium: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  progressArea: {
+    marginBottom: 4,
+    zIndex: 1,
+  },
+  progressLabelPremium: {
     fontSize: 13,
     fontWeight: '700',
-  },
-  schedulePaidNote: {
-    color: '#10B981',
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  scheduleRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  scheduleAmount: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  scheduleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  scheduleBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  breakdownCard: {
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 5,
-  },
-  breakdownLabel: {
-    color: '#475569',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  breakdownValue: {
-    color: '#0F172A',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  rowDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 6,
-  },
-  summaryContainer: {
-    gap: 14,
-  },
-  progressCard: {
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  progressHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  progressHeaderTitle: {
-    color: '#0F172A',
-    fontSize: 13.5,
-    fontWeight: '800',
-  },
-  progressPercentText: {
-    color: '#0D523B',
-    fontSize: 12,
-    fontWeight: '800',
+    marginBottom: 8,
   },
   progressBarTrack: {
-    height: 8,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
     overflow: 'hidden',
     marginBottom: 10,
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#10B981',
-    borderRadius: 4,
+    borderRadius: 3,
   },
-  progressSubRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  progressSubText: {
-    color: '#64748B',
-    fontSize: 11.5,
-    fontWeight: '500',
-  },
-  paidValue: {
-    color: '#0D523B',
-    fontWeight: '800',
-  },
-  remainingValue: {
-    color: '#D97706',
-    fontWeight: '800',
-  },
-  greenText: {
-    color: '#0D523B',
-  },
-  amberText: {
-    color: '#D97706',
-  },
-  summaryActionsRow: {
-    gap: 10,
-    marginTop: 4,
-  },
-  summaryActionBtn: {
+  progressValuesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
   },
-  summaryActionBtnText: {
-    flex: 1,
-    marginLeft: 10,
-    color: '#0F172A',
-    fontSize: 12.5,
-    fontWeight: '700',
+  progressValueTextPremium: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
