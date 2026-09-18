@@ -79,6 +79,8 @@ export type PartnerTabParamList = {
   [ROUTES.PARTNER_DASHBOARD]: undefined;
   [ROUTES.MY_EARNINGS]: undefined;
   [ROUTES.PARTNER_WALLET]: undefined;
+  [ROUTES.PARTNER_CUSTOMERS]: undefined;
+  [ROUTES.PARTNER_EXPENSES]: undefined;
   [ROUTES.PARTNER_PROFILE]: undefined;
 };
 
@@ -93,4 +95,5 @@ export type PartnerStackParamList = {
   [ROUTES.PARTNER_WITHDRAWAL_HISTORY]: undefined;
   [ROUTES.PARTNER_DOCUMENTS]: undefined;
   [ROUTES.PARTNER_NOTIFICATIONS]: undefined;
+  [ROUTES.PARTNER_ADD_EXPENSE]: undefined;
 };

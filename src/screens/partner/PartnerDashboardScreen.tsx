@@ -1,23 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
   RefreshControl,
+  StatusBar,
+  Animated,
   Image,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
-import { fetchPartnerDashboardThunk } from '../../store/partnerSlice';
+import { 
+  fetchPartnerDashboardThunk, 
+  fetchPartnerContributionsThunk, 
+  fetchPartnerTransactionsThunk, 
+  fetchPartnerWithdrawalsThunk,
+  fetchPartnerPartnershipsThunk,
+  setSelectedPartnershipCode
+} from '../../store/partnerSlice';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
+import { formatDate } from '../../utils';
 import { ROUTES } from '../../constants/routes';
 
 const PartnerDashboardScreen: React.FC = () => {
@@ -29,39 +38,97 @@ const PartnerDashboardScreen: React.FC = () => {
   const user = useAppSelector(state => state.auth.user);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [filterWidth, setFilterWidth] = useState(0);
+  const slideAnim = React.useRef(new Animated.Value(0)).current;
+
+  const selectedIndex = React.useMemo(() => {
+    if (!partner.partnerships) return 0;
+    const index = partner.partnerships.findIndex(p => p.partnership_code === partner.selectedPartnershipCode);
+    return index === -1 ? 0 : index;
+  }, [partner.partnerships, partner.selectedPartnershipCode]);
 
   useEffect(() => {
-    dispatch(fetchPartnerDashboardThunk());
+    if (filterWidth > 0 && partner.partnerships?.length > 0) {
+      const tabWidth = filterWidth / partner.partnerships.length;
+      Animated.spring(slideAnim, {
+        toValue: selectedIndex * tabWidth,
+        useNativeDriver: true,
+        bounciness: 4,
+        speed: 12,
+      }).start();
+    }
+  }, [selectedIndex, filterWidth, partner.partnerships?.length]);
+
+  const idToFetch = React.useMemo(() => {
+    const selectedP = partner.partnerships?.find(p => p.partnership_code === partner.selectedPartnershipCode);
+    return selectedP ? selectedP.partnership_id : undefined;
+  }, [partner.partnerships, partner.selectedPartnershipCode]);
+
+  // On mount, get the list of partnerships unconditionally to ensure filter is always up to date
+  useEffect(() => {
+    dispatch(fetchPartnerPartnershipsThunk());
   }, [dispatch]);
 
-  const onRefresh = React.useCallback(async () => {
+  // On focus, get the list of partnerships unconditionally to ensure filter is always up to date
+  useFocusEffect(
+    React.useCallback(() => {
+      dispatch(fetchPartnerPartnershipsThunk());
+    }, [dispatch])
+  );
+
+  // Fetch Dashboard data and Partnerships list once we know the selected ID
+  useEffect(() => {
+    const fetchOnFilter = async () => {
+      if (idToFetch !== undefined) {
+        // Run sequentially, but fetch partnerships list FIRST, so it doesn't overwrite 
+        // the rich dashboard data (which includes recent_transactions)
+        await dispatch(fetchPartnerPartnershipsThunk());
+        await dispatch(fetchPartnerDashboardThunk(idToFetch));
+      }
+    };
+    fetchOnFilter();
+  }, [dispatch, idToFetch]);
+
+  const fetchDashboardData = useCallback(async () => {
     setIsRefreshing(true);
-    await dispatch(fetchPartnerDashboardThunk());
+    const selectedP = partner.partnerships?.find(p => p.partnership_code === partner.selectedPartnershipCode);
+    const currentId = selectedP ? selectedP.partnership_id : undefined;
+    
+    // Always refresh the partnership list too!
+    // MUST run sequentially: fetch list first, then fetch rich dashboard data 
+    // to avoid the list API wiping out the recent_transactions data.
+    await dispatch(fetchPartnerPartnershipsThunk());
+    if (currentId !== undefined) {
+      await dispatch(fetchPartnerDashboardThunk(currentId));
+    }
+    
     setIsRefreshing(false);
-  }, [dispatch]);
+  }, [dispatch, partner.selectedPartnershipCode, partner.partnerships]);
 
-  const recentTransactions = [
-    ...(partner.contributions || []).map(c => ({
-      id: `c_${c.id}`,
-      title: 'Investment Added',
-      amount: Number(c.amount),
-      date: new Date(c.contribution_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      type: 'credit',
-      icon: 'triangle',
-      iconColor: '#10B981',
-      iconBg: '#D1FAE5',
-    })),
-    ...(partner.earnings || []).map(e => ({
-      id: `e_${e.id}`,
-      title: 'Profit Share',
-      amount: Number(e.share_amount),
-      date: new Date(e.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      type: 'credit',
-      icon: 'briefcase',
-      iconColor: '#8B5CF6',
-      iconBg: '#EDE9FE',
-    })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+  const onRefresh = fetchDashboardData;
+
+  const getPartnerName = (code?: string) => {
+    if (!code) return 'Partner';
+    const p = partner?.partnerships?.find(pt => pt.partnership_code === code);
+    const name = partner?.partners?.find(pt => pt.id === p?.partnership_id)?.name || p?.partnership_name;
+    return name ? `${name}'s` : 'Partner';
+  };
+
+  const selectedPartnership = partner.partnerships?.find(p => p.partnership_code === partner.selectedPartnershipCode) || partner.partnerships?.[0];
+  const apiRecentTx = (selectedPartnership as any)?.recent_transactions || [];
+
+  const recentTransactions = apiRecentTx.map((tx: any) => ({
+    id: `tx_${tx.id}`,
+    title: tx.description || (tx.transaction_type === 'partner_contribution' ? 'Investment Added' : 'Profit Share'),
+    amount: Number(tx.amount),
+    date: formatDate(tx.transaction_date),
+    type: tx.direction === 'in' ? 'credit' : 'debit',
+    icon: tx.transaction_type === 'partner_contribution' ? 'triangle' : 'briefcase',
+    iconColor: tx.direction === 'in' ? '#10B981' : '#EF4444',
+    iconBg: tx.direction === 'in' ? '#D1FAE5' : '#FEE2E2',
+  })).slice(0, 5);
+
+  // User requested to hide partner name from titles
 
   return (
     <View style={styles.container}>
@@ -123,8 +190,42 @@ const PartnerDashboardScreen: React.FC = () => {
           </View>
         ) : (
           <>
+              {/* Partnership Filter */}
+              {partner.partnerships && partner.partnerships.length > 0 && (
+                <View 
+                  style={styles.filterContainer}
+                  onLayout={(e) => setFilterWidth(e.nativeEvent.layout.width - 6)}
+                >
+                  <Animated.View 
+                    style={[
+                      styles.slidingPill,
+                      { 
+                        width: `${100 / partner.partnerships.length}%`,
+                        transform: [{ translateX: slideAnim }]
+                      }
+                    ]} 
+                  />
+                  {partner.partnerships.map((p, index) => {
+                    const partnerName = partner.partners?.find(pt => pt.id === p.partnership_id)?.name || p.partnership_name;
+                    const isSelected = selectedIndex === index;
+                    return (
+                      <TouchableOpacity
+                        key={p.partnership_id}
+                        style={styles.pillTab}
+                        onPress={() => dispatch(setSelectedPartnershipCode(p.partnership_code))}
+                        activeOpacity={1}
+                      >
+                        <Text style={[
+                          styles.pillTabText,
+                          isSelected && styles.pillTabTextActive
+                        ]}>{partnerName}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
 
-              {/* My Investment Card */}
+              {/* Wallet Card (Hero) */}
               <LinearGradient
                 colors={['#047857', '#064E3B']}
                 start={{ x: 0, y: 0 }}
@@ -137,56 +238,83 @@ const PartnerDashboardScreen: React.FC = () => {
                 </View>
                 <View style={styles.investmentTop}>
                   <View style={[styles.investIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                    <AppIcon name="briefcase" size={18} color="#FFFFFF" />
+                    <AppIcon name="credit-card" size={18} color="#FFFFFF" />
                   </View>
                   <Text style={[typography.subtitle, { color: colors.white, marginLeft: 12, opacity: 0.9 }]}>
-                    My Investment
+                    Wallet Balance
                   </Text>
                 </View>
-                <Text style={[typography.h1, { color: colors.white, marginTop: 16, fontSize: 36, fontWeight: 'bold' }]}>
-                  {formatINR(partner.summary.contributions || 0)}
-                </Text>
+                {partner.isLoading && !isRefreshing ? (
+                  <View style={{ marginTop: 16, height: 40, justifyContent: 'center' }}>
+                    <Skeleton width={180} height={32} borderRadius={8} style={{ opacity: 0.5 }} />
+                  </View>
+                ) : (
+                  <Text style={[typography.h1, { color: colors.white, marginTop: 16, fontSize: 36, fontWeight: 'bold' }]}>
+                    {formatINR(partner?.summary?.available_balance || 0)}
+                  </Text>
+                )}
               </LinearGradient>
 
               {/* Profit & Wallet Row */}
               <View style={styles.splitRow}>
-                {/* My Profit */}
+                {/* Profit */}
                 <View style={[styles.splitCard, { backgroundColor: '#FFF5F5' }]}>
                   <View style={styles.splitIconRow}>
                     <View style={[styles.smallIconCircle, { backgroundColor: '#FEE2E2' }]}>
                       <AppIcon name="pie-chart" size={14} color="#EF4444" />
                     </View>
                     <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>
-                      My Profit
+                      Profit
                     </Text>
                   </View>
-                  <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
-                    {formatINR(partner.summary.earnings || 0)}
-                  </Text>
+                  {partner.isLoading && !isRefreshing ? (
+                    <Skeleton width={100} height={24} borderRadius={6} style={{ marginTop: 12 }} />
+                  ) : (
+                    <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
+                      {formatINR(partner?.summary?.total_profit ?? partner?.summary?.earnings ?? 0)}
+                    </Text>
+                  )}
                 </View>
 
-                {/* My Wallet */}
+                {/* Investment */}
                 <View style={[styles.splitCard, { backgroundColor: '#F5F3FF' }]}>
                   <View style={styles.splitIconRow}>
                     <View style={[styles.smallIconCircle, { backgroundColor: '#EDE9FE' }]}>
-                      <AppIcon name="credit-card" size={14} color="#8B5CF6" />
+                      <AppIcon name="briefcase" size={14} color="#8B5CF6" />
                     </View>
                     <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>
-                      My Wallet
+                      Investment
                     </Text>
                   </View>
-                  <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
-                    {formatINR(partner.summary.available_balance || 0)}
-                  </Text>
+                  {partner.isLoading && !isRefreshing ? (
+                    <Skeleton width={100} height={24} borderRadius={6} style={{ marginTop: 12 }} />
+                  ) : (
+                    <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
+                      {formatINR(partner?.summary?.total_investment ?? partner?.summary?.contributions ?? 0)}
+                    </Text>
+                  )}
                 </View>
               </View>
 
+
+
               {/* Quick Access */}
-              <Text style={[typography.h3, styles.sectionTitle, { color: '#0F172A' }]}>
+              <Text style={[typography.h3, styles.sectionTitle, { color: '#0F172A', marginTop: 8 }]}>
                 Quick Access
               </Text>
               
               <View style={styles.quickAccessGrid}>
+                <TouchableOpacity 
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate(ROUTES.PARTNER_CUSTOMERS)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: '#EFF6FF' }]}>
+                    <AppIcon name="users" size={24} color="#3B82F6" />
+                  </View>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>Customers</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity 
                   style={styles.quickAccessItem}
                   onPress={() => navigation.navigate(ROUTES.MY_EARNINGS)}
@@ -195,22 +323,7 @@ const PartnerDashboardScreen: React.FC = () => {
                   <View style={[styles.quickIconBox, { backgroundColor: '#ECFDF5' }]}>
                     <AppIcon name="trending-up" size={24} color="#10B981" />
                   </View>
-                  <Text style={[typography.caption, { color: '#64748B' }]}>
-                    Investment
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.quickAccessItem}
-                  onPress={() => navigation.navigate(ROUTES.MY_EARNINGS)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.quickIconBox, { backgroundColor: '#FEF2F2' }]}>
-                    <AppIcon name="pie-chart" size={24} color="#F43F5E" />
-                  </View>
-                  <Text style={[typography.caption, { color: '#64748B' }]}>
-                    Profit
-                  </Text>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>Investment</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
@@ -218,25 +331,21 @@ const PartnerDashboardScreen: React.FC = () => {
                   onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.quickIconBox, { backgroundColor: '#EEF2FF' }]}>
-                    <AppIcon name="credit-card" size={24} color="#6366F1" />
+                  <View style={[styles.quickIconBox, { backgroundColor: '#F5F3FF' }]}>
+                    <AppIcon name="credit-card" size={24} color="#8B5CF6" />
                   </View>
-                  <Text style={[typography.caption, { color: '#64748B' }]}>
-                    Wallet
-                  </Text>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>Wallet</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
                   style={styles.quickAccessItem}
-                  onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)}
+                  onPress={() => navigation.navigate(ROUTES.PARTNER_PROFILE)}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.quickIconBox, { backgroundColor: '#F0FDF4' }]}>
-                    <AppIcon name="file-text" size={24} color="#22C55E" />
+                  <View style={[styles.quickIconBox, { backgroundColor: '#FFF7ED' }]}>
+                    <AppIcon name="user" size={24} color="#F97316" />
                   </View>
-                  <Text style={[typography.caption, { color: '#64748B' }]}>
-                    Transactions
-                  </Text>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>Profile</Text>
                 </TouchableOpacity>
               </View>
 
@@ -250,33 +359,49 @@ const PartnerDashboardScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.txList}>
-                {recentTransactions.map(tx => (
-                  <View key={tx.id} style={styles.txCard}>
-                    <View style={styles.txLeft}>
-                      <View style={[styles.txIconBox, { backgroundColor: tx.iconBg }]}>
-                        <AppIcon name={tx.icon} size={16} color={tx.iconColor} />
-                      </View>
-                      <View style={{ flex: 1, paddingRight: 8 }}>
-                        <Text style={[typography.subtitle, { color: '#0F172A' }]} numberOfLines={1}>
-                          {tx.title}
-                        </Text>
-                        <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]} numberOfLines={1}>
-                          {tx.date}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.txRight}>
-                      <Text style={[
-                        typography.subtitle, 
-                        { color: tx.type === 'credit' ? '#10B981' : '#EF4444' }
-                      ]}>
-                        {tx.type === 'credit' ? '+ ' : '- '}{formatINR(tx.amount)}
+              {partner.isLoading && !isRefreshing ? (
+                <View style={{ marginTop: 8 }}>
+                  <Skeleton height={70} borderRadius={12} style={{ marginBottom: 12 }} />
+                  <Skeleton height={70} borderRadius={12} style={{ marginBottom: 12 }} />
+                  <Skeleton height={70} borderRadius={12} style={{ marginBottom: 12 }} />
+                </View>
+              ) : (
+                <View style={styles.txList}>
+                  {recentTransactions.length === 0 ? (
+                    <View style={[styles.txCard, { justifyContent: 'center', padding: 24 }]}>
+                      <Text style={[typography.caption, { color: '#64748B', textAlign: 'center' }]}>
+                        No recent transactions found
                       </Text>
                     </View>
-                  </View>
-                ))}
-              </View>
+                  ) : (
+                    recentTransactions.map((tx: any) => (
+                      <View key={tx.id} style={styles.txCard}>
+                        <View style={styles.txLeft}>
+                          <View style={[styles.txIconBox, { backgroundColor: tx.iconBg }]}>
+                            <AppIcon name={tx.icon} size={16} color={tx.iconColor} />
+                          </View>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={[typography.subtitle, { color: '#0F172A' }]} numberOfLines={1}>
+                              {tx.title}
+                            </Text>
+                            <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]} numberOfLines={1}>
+                              {tx.date}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.txRight}>
+                          <Text style={[
+                            typography.subtitle, 
+                            { color: tx.type === 'credit' ? '#10B981' : '#EF4444' }
+                          ]}>
+                            {tx.type === 'credit' ? '+ ' : '- '}{formatINR(tx.amount)}
+                          </Text>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
+              )}
 
           </>
         )}
@@ -464,5 +589,63 @@ const styles = StyleSheet.create({
   },
   txRight: {
     alignItems: 'flex-end',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 24,
+    position: 'relative',
+  },
+  slidingPill: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: 3,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  pillTab: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  pillTabText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  pillTabTextActive: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  partnershipCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  partnershipHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  partnershipDataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
 });

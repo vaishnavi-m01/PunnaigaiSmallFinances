@@ -18,12 +18,18 @@ export const ENDPOINTS = {
     COLLECTION_STATUS: (id: string | number) => `/agent/collections/${id}/status`,
   },
   PARTNER: {
-    DASHBOARD: '/partner/dashboard',
     PROFILE: '/partner/profile',
+    DASHBOARD: '/partner/dashboard',
+    PARTNERSHIP: '/partner/partnership',
     WALLET: '/partner/wallet',
     EARNINGS: '/partner/earnings',
     CONTRIBUTIONS: '/partner/contributions',
     TRANSACTIONS: '/partner/transactions',
     WITHDRAWALS: '/partner/withdrawals',
+  },
+  EXPENSES: {
+    BASE: '/expenses',
+    CATEGORIES: '/expenses/categories',
+    BY_ID: (id: string | number) => `/expenses/${id}`,
   },
 } as const;

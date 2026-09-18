@@ -67,6 +67,9 @@ export const ROUTES = {
   PARTNER_DOCUMENTS: 'PartnerDocumentsScreen',
   PARTNER_PROFILE: 'PartnerProfileScreen',
   PARTNER_NOTIFICATIONS: 'PartnerNotificationsScreen',
+  PARTNER_CUSTOMERS: 'PartnerCustomersScreen',
+  PARTNER_EXPENSES: 'PartnerExpensesScreen',
+  PARTNER_ADD_EXPENSE: 'PartnerAddExpenseScreen',
 } as const;
 
 export type RouteKey = keyof typeof ROUTES;

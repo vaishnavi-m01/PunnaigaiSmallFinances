@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
 import { Header } from '../../component/Header';
@@ -23,7 +23,7 @@ import { CustomButton } from '../../component/Common/CustomButton';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
-import { requestPartnerWithdrawalThunk, fetchPartnerWithdrawalsThunk, fetchPartnerDashboardThunk } from '../../store/partnerSlice';
+import { requestPartnerWithdrawalThunk, fetchPartnerWithdrawalsThunk, fetchPartnerDashboardThunk, fetchPartnerPartnershipsThunk } from '../../store/partnerSlice';
 import { showToast } from '../../store/toastSlice';
 
 const QUICK_AMOUNTS = [5000, 10000, 20000, 35000];
@@ -37,6 +37,37 @@ export const PartnerWithdrawScreen: React.FC = () => {
 
   const availableBalance = partner.summary?.available_balance || 0;
 
+  const idToFetch = React.useMemo(() => {
+    const selectedP = partner.partnerships?.find(p => p.partnership_code === partner.selectedPartnershipCode);
+    return selectedP ? selectedP.partnership_id : undefined;
+  }, [partner.partnerships, partner.selectedPartnershipCode]);
+
+  // Unconditionally fetch partnerships on mount to ensure the filter is always perfectly synced
+  useEffect(() => {
+    dispatch(fetchPartnerPartnershipsThunk());
+  }, [dispatch]);
+
+  // On focus, get the list of partnerships unconditionally to ensure filter is always up to date
+  useFocusEffect(
+    React.useCallback(() => {
+      dispatch(fetchPartnerPartnershipsThunk());
+    }, [dispatch])
+  );
+
+  // Automatically fetch screen data when the filter (idToFetch) changes
+  useEffect(() => {
+    if (idToFetch !== undefined) {
+      dispatch(fetchPartnerWithdrawalsThunk({ partnership_id: idToFetch }));
+    }
+  }, [idToFetch, dispatch]);
+
+  // Fetch Dashboard only when idToFetch changes
+  useEffect(() => {
+    if (idToFetch !== undefined) {
+      dispatch(fetchPartnerDashboardThunk(idToFetch));
+    }
+  }, [idToFetch, dispatch]);
+
   const [amount, setAmount] = useState('');
   const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,15 +75,20 @@ export const PartnerWithdrawScreen: React.FC = () => {
   const [amountError, setAmountError] = useState(false);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
 
   const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([
-      dispatch(fetchPartnerWithdrawalsThunk()),
-      dispatch(fetchPartnerDashboardThunk())
-    ]);
+    setIsFiltering(true);
+    if (idToFetch !== undefined) {
+      await Promise.all([
+        dispatch(fetchPartnerWithdrawalsThunk({ partnership_id: idToFetch })),
+        dispatch(fetchPartnerDashboardThunk(idToFetch))
+      ]);
+    }
+    setIsFiltering(false);
     setIsRefreshing(false);
-  }, [dispatch]);
+  }, [dispatch, idToFetch]);
 
   const parsedAmount = parseFloat(amount) || 0;
 
@@ -78,34 +114,14 @@ export const PartnerWithdrawScreen: React.FC = () => {
       return;
     }
 
-    if (parsedAmount < 500) {
-      dispatch(
-        showToast({
-          type: 'warning',
-          title: 'Minimum Withdrawal',
-          message: 'Minimum withdrawal amount is ₹500.',
-        })
-      );
-      return;
-    }
-
-    if (parsedAmount > availableBalance) {
-      dispatch(
-        showToast({
-          type: 'error',
-          title: 'Insufficient Balance',
-          message: `Amount exceeds your available partner earnings wallet balance of ${formatINR(availableBalance)}.`,
-        })
-      );
-      return;
-    }
 
     setIsSubmitting(true);
     dispatch(
       requestPartnerWithdrawalThunk({
         amount: parsedAmount,
         withdrawal_type: 'profit',
-        notes: remarks
+        notes: remarks,
+        partnership_id: idToFetch,
       })
     ).unwrap().then(() => {
       setIsSubmitting(false);
@@ -132,39 +148,16 @@ export const PartnerWithdrawScreen: React.FC = () => {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {isRefreshing ? (
-          <View style={{ paddingTop: 8 }}>
-            <Skeleton height={200} borderRadius={16} style={{ marginBottom: 16 }} />
-            <Skeleton height={400} borderRadius={16} style={{ marginBottom: 16 }} />
-          </View>
-        ) : (
+              {(partner.isLoading || isFiltering) && !isRefreshing && (!partner.summary) ? (
+                <View style={{ marginTop: 8 }}>
+                  <Skeleton height={150} borderRadius={20} style={{ marginBottom: 24 }} />
+                  <Skeleton height={24} width={150} borderRadius={8} style={{ marginBottom: 16 }} />
+                  <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+                  <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+                </View>
+              ) : (
           <>
-            {/* Balance Card */}
-            <LinearGradient
-              colors={['#047857', '#064E3B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.balanceCard, { borderRadius: 20, borderWidth: 0 }]}
-            >
-              <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 20 }]} pointerEvents="none">
-                <View style={{ position: 'absolute', bottom: -40, right: -20, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.05)' }} />
-                <View style={{ position: 'absolute', top: -20, right: 60, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.05)' }} />
-              </View>
 
-              <View style={styles.balanceTop}>
-                <View>
-                  <Text style={[typography.caption, { color: '#FFFFFF', fontWeight: '700', opacity: 0.9 }]}>
-                    AVAILABLE PARTNER WALLET (EARNINGS)
-                  </Text>
-                  <Text style={[typography.statValue, { color: '#FFFFFF', marginTop: 4, fontWeight: '800' }]}>
-                    {formatINR(availableBalance)}
-                  </Text>
-                </View>
-                <View style={[styles.walletIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                  <AppIcon name="wallet" size={24} color="#FFFFFF" />
-                </View>
-              </View>
-            </LinearGradient>
 
         {/* Amount Section */}
         <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="flat">
@@ -227,18 +220,7 @@ export const PartnerWithdrawScreen: React.FC = () => {
           />
         </Card>
 
-        {/* Business Rule Reminder */}
-        <View style={[styles.infoBox, { backgroundColor: colors.primaryBackground, borderColor: colors.borderGreen }]}>
-          <AppIcon name="info" size={18} color={colors.primary} />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={[typography.captionBold, { color: colors.primary }]}>
-              Financial Governance (Rule 3 & 4)
-            </Text>
-            <Text style={[typography.caption, { color: colors.primaryLight, marginTop: 2 }]}>
-              Partner contribution capital remains securely invested in the business. Withdrawals are processed exclusively from your distributed net earnings wallet.
-            </Text>
-          </View>
-        </View>
+
 
         </>
         )}

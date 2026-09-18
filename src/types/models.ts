@@ -192,6 +192,17 @@ export interface PartnerProfile {
   profit_share_percentage: string;
   principal_withdrawal_permission: number;
   profit_withdrawal_permission: number;
+  investment_summary?: {
+    total_investment: number;
+    investment_withdrawn: number;
+    remaining_investment: number;
+  };
+  profit_summary?: {
+    total_profit_earned: number;
+    profit_withdrawn: number;
+    available_profit: number;
+  };
+  wallet_balance?: number;
 }
 
 export interface PartnerContribution {
@@ -222,13 +233,18 @@ export interface PartnerProfitShare {
 }
 
 export interface PartnerSummary {
-  contributions: number;
-  earnings: number;
-  withdrawals: number;
-  available_balance: number;
-  available_principal: number;
-  available_profit: number;
-  pending_withdrawals: number;
+  total_investment?: number;
+  total_profit?: number;
+  total_withdrawal?: number;
+  available_principal?: number;
+  available_profit?: number;
+  available_balance?: number;
+  pending_withdrawals?: number;
+  total_contribution?: number;
+  // Fallbacks for compatibility
+  contributions?: number;
+  earnings?: number;
+  withdrawals?: number;
 }
 
 export interface PartnerTransaction {
@@ -247,13 +263,80 @@ export interface PartnerTransaction {
   updated_at: string;
 }
 
-export interface PartnerDashboardResponse {
-  partner: PartnerProfile & {
-    contributions: PartnerContribution[];
-    profit_shares: PartnerProfitShare[];
-    withdrawals: any[]; // Assuming any for now
-  };
+export interface PartnershipDetail {
+  partnership_id: number;
+  partnership_code: string;
+  partnership_name: string;
+  partner_type: string;
+  profit_share_percentage: number;
+  status: string;
   summary: PartnerSummary;
+  contributions?: PartnerContribution[];
+}
+
+export interface PartnershipContributionDetail {
+  partnership_id: number;
+  partnership_code: string;
+  partnership_name: string;
+  partner_type: string;
+  profit_share_percentage: number;
+  status: string;
+  summary: {
+    total_contribution: number;
+  };
+  contributions: PartnerContribution[];
+}
+
+export interface PartnershipEarningDetail {
+  partnership_id: number;
+  partnership_code: string;
+  partnership_name: string;
+  partner_type: string;
+  profit_share_percentage: number;
+  status: string;
+  share_percentage: number;
+  summary: {
+    total_profit: number;
+  };
+  earnings: PartnerProfitShare[];
+}
+
+export interface PartnershipWithdrawalDetail {
+  partnership_id: number;
+  partnership_code: string;
+  partnership_name: string;
+  partner_type: string;
+  profit_share_percentage: number;
+  status: string;
+  summary: {
+    total_profit: number;
+    total_withdrawal: number;
+    available_profit: number;
+    available_balance: number;
+    pending_withdrawals: number;
+  };
+  withdrawals: any[];
+}
+
+export interface PartnershipTransactionDetail {
+  partnership_id: number;
+  partnership_code: string;
+  partnership_name: string;
+  partner_type: string;
+  profit_share_percentage: number;
+  status: string;
+  summary: {
+    total_credit: number;
+    total_debit: number;
+    net_movement: number;
+  };
+  transactions: any[];
+}
+
+export interface PartnerDashboardResponse {
+  partners?: PartnerProfile[];
+  partnerships: PartnershipDetail[];
+  overall_summary: PartnerSummary;
 }
 export interface LoanPackage {
   id: number;

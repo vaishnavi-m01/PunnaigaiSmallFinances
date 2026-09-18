@@ -8,19 +8,29 @@ import {
   StatusBar,
   RefreshControl,
   Modal,
+  Animated,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
-import { fetchPartnerWithdrawalsThunk, fetchPartnerDashboardThunk } from '../../store/partnerSlice';
+import { fetchPartnerWithdrawalsThunk, fetchPartnerTransactionsThunk, fetchPartnerDashboardThunk, setSelectedPartnershipCode, fetchPartnerPartnershipsThunk, requestPartnerWithdrawalThunk } from '../../store/partnerSlice';
+import { showToast } from '../../store/toastSlice';
 import { useAppTheme } from '../../theme/useAppTheme';
 import { Header } from '../../component/Header';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
+import { CustomInput } from '../../component/Common/CustomInput';
+import { CustomButton } from '../../component/Common/CustomButton';
 import { formatINR } from '../../utils/currency';
+import { formatDate } from '../../utils';
 import { ROUTES } from '../../constants/routes';
 import { PartnerTransaction } from '../../types/models';
+
+const QUICK_AMOUNTS = [5000, 10000, 20000, 35000];
 
 type DateFilter = 'All' | 'Today' | 'Week' | 'Month' | 'Year';
 type DirectionFilter = 'All' | 'credit' | 'debit';
@@ -32,14 +42,117 @@ export const PartnerWalletScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const partner = useAppSelector(state => state.partner);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [filterWidth, setFilterWidth] = useState(0);
+  const slideAnim = React.useRef(new Animated.Value(0)).current;
+
+  const selectedIndex = React.useMemo(() => {
+    if (!partner.partnerships) return 0;
+    const index = partner.partnerships.findIndex(p => p.partnership_code === partner.selectedPartnershipCode);
+    return index === -1 ? 0 : index;
+  }, [partner.partnerships, partner.selectedPartnershipCode]);
+
+  useEffect(() => {
+    if (filterWidth > 0 && partner.partnerships?.length > 0) {
+      const tabWidth = filterWidth / partner.partnerships.length;
+      Animated.spring(slideAnim, {
+        toValue: selectedIndex * tabWidth,
+        useNativeDriver: true,
+        bounciness: 4,
+        speed: 12,
+      }).start();
+    }
+  }, [selectedIndex, filterWidth, partner.partnerships?.length]);
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('All');
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('All');
   
   const [showDateModal, setShowDateModal] = useState(false);
-  const [showDirModal, setShowDirModal] = useState(false);
+  
+  // Withdraw Modal State
+  const [withdrawModalVisible, setWithdrawModalVisible] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawNotes, setWithdrawNotes] = useState('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [withdrawSuccessModal, setWithdrawSuccessModal] = useState(false);
+  const [withdrawAmountError, setWithdrawAmountError] = useState(false);
 
-  const fetchTransactions = useCallback(() => {
+  const parsedWithdrawAmount = parseFloat(withdrawAmount) || 0;
+  const availableBalance = partner.summary?.available_balance || 0;
+
+  const handleQuickSelect = (val: number) => {
+    const finalVal = Math.min(val, availableBalance);
+    setWithdrawAmount(finalVal.toString());
+  };
+
+  const handleMaxSelect = () => {
+    setWithdrawAmount(availableBalance.toString());
+  };
+
+  const handleWithdrawSubmit = () => {
+    if (!parsedWithdrawAmount || parsedWithdrawAmount <= 0) {
+      setWithdrawAmountError(true);
+      dispatch(
+        showToast({
+          type: 'error',
+          title: 'Invalid Amount',
+          message: 'Please enter a valid withdrawal amount.',
+        })
+      );
+      return;
+    }
+
+    setIsWithdrawing(true);
+    dispatch(
+      requestPartnerWithdrawalThunk({
+        amount: parsedWithdrawAmount,
+        withdrawal_type: 'profit',
+        notes: withdrawNotes,
+        partnership_id: idToFetch,
+      })
+    ).unwrap().then(() => {
+      setIsWithdrawing(false);
+      setWithdrawModalVisible(false);
+      setWithdrawSuccessModal(true);
+      setWithdrawAmount('');
+      setWithdrawNotes('');
+      fetchTransactions();
+      if (idToFetch !== undefined) {
+        dispatch(fetchPartnerDashboardThunk(idToFetch));
+      }
+    }).catch((err) => {
+      setIsWithdrawing(false);
+      dispatch(showToast({ type: 'error', title: 'Withdrawal Failed', message: err as string }));
+    });
+  };
+
+  let displayTitlePrefix = 'Total';
+  if (partner.selectedPartnershipCode) {
+    const p = partner.partnerships.find(pt => pt.partnership_code === partner.selectedPartnershipCode);
+    const partnerName = partner.partners?.find(pt => pt.id === p?.partnership_id)?.name || p?.partnership_name;
+    if (partnerName) {
+      displayTitlePrefix = `${partnerName}'s`;
+    }
+  }
+
+  const idToFetch = React.useMemo(() => {
+    const selectedP = partner.partnerships?.find(p => p.partnership_code === partner.selectedPartnershipCode);
+    return selectedP ? selectedP.partnership_id : undefined;
+  }, [partner.partnerships, partner.selectedPartnershipCode]);
+
+  // Unconditionally fetch partnerships on mount to ensure the filter is always perfectly synced
+  useEffect(() => {
+    dispatch(fetchPartnerPartnershipsThunk());
+  }, [dispatch]);
+
+  // On focus, get the list of partnerships unconditionally to ensure filter is always up to date
+  useFocusEffect(
+    React.useCallback(() => {
+      dispatch(fetchPartnerPartnershipsThunk());
+    }, [dispatch])
+  );
+
+  const fetchTransactions = useCallback(async () => {
     let from_date: string | undefined = undefined;
     let to_date: string | undefined = undefined;
     
@@ -62,12 +175,30 @@ export const PartnerWalletScreen: React.FC = () => {
       to_date = now.toISOString().split('T')[0];
     }
 
-    const direction = directionFilter === 'All' ? undefined : directionFilter;
+    let apiDirection: string | undefined = undefined;
+    if (directionFilter === 'credit') apiDirection = 'in';
+    if (directionFilter === 'debit') apiDirection = 'out';
 
-    console.log("Filtering transactions with params:", { from_date, to_date, direction });
+    console.log("Filtering transactions with params:", { from_date, to_date, direction: apiDirection, partnership_id: idToFetch });
 
-    return dispatch(fetchPartnerWithdrawalsThunk({ from_date, to_date, direction }));
-  }, [dateFilter, directionFilter, dispatch]);
+    if (idToFetch === undefined) return;
+
+    setIsFiltering(true);
+    let promises: Promise<any>[] = [
+      dispatch(fetchPartnerWithdrawalsThunk({ from_date, to_date, direction: apiDirection, partnership_id: idToFetch })),
+      dispatch(fetchPartnerTransactionsThunk({ from_date, to_date, direction: apiDirection, partnership_id: idToFetch }))
+    ];
+
+    await Promise.all(promises);
+    setIsFiltering(false);
+  }, [dateFilter, directionFilter, idToFetch, dispatch]);
+
+  // Fetch Dashboard only when idToFetch changes
+  useEffect(() => {
+    if (idToFetch !== undefined) {
+      dispatch(fetchPartnerDashboardThunk(idToFetch));
+    }
+  }, [idToFetch, dispatch]);
 
   useEffect(() => {
     fetchTransactions();
@@ -75,30 +206,16 @@ export const PartnerWalletScreen: React.FC = () => {
 
   const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([
-      fetchTransactions(),
-      dispatch(fetchPartnerDashboardThunk())
-    ]);
+    if (idToFetch !== undefined) {
+      dispatch(fetchPartnerDashboardThunk(idToFetch));
+    }
+    await fetchTransactions();
     setIsRefreshing(false);
-  }, [fetchTransactions, dispatch]);
+  }, [fetchTransactions]);
 
-  // Merge credits and debits into a single list and sort by date descending
-  const combinedTransactions = [
-    ...(partner.credits || []).map(t => ({ ...t, direction: 'in' })),
-    ...(partner.debits || []).map(t => ({ ...t, direction: 'out' }))
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // We no longer manually combine credits/debits. 
+  // The API returns transactions under each partnership in partner.transactionsPartnerships.
 
-  const transactions = combinedTransactions.map((t: any) => ({
-    id: `tx_${t.id}_${t.type}_${t.direction}`,
-    title: t.reference || t.notes || t.type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-    subtitle: t.type === 'contribution' ? 'Capital Contribution' : t.type === 'profit' ? 'Profit Share' : 'Withdrawal',
-    amount: Number(t.amount),
-    date: new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-    type: t.direction === 'in' ? 'credit' : 'debit',
-    icon: t.direction === 'in' ? 'arrow-down-circle' : 'arrow-up-circle',
-    iconColor: t.direction === 'in' ? '#10B981' : '#EF4444',
-    iconBg: t.direction === 'in' ? '#D1FAE5' : '#FEE2E2',
-  }));
 
   return (
     <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
@@ -138,110 +255,336 @@ export const PartnerWalletScreen: React.FC = () => {
             </View>
           ) : (
             <>
-          {/* Balance Card */}
-          <LinearGradient
-            colors={['#047857', '#064E3B']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.balanceCard, { borderWidth: 0 }]}
-          >
-            <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 20 }]} pointerEvents="none">
-              <View style={{ position: 'absolute', bottom: -40, right: -20, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.05)' }} />
-              <View style={{ position: 'absolute', top: -20, right: 60, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.05)' }} />
-            </View>
-
-            <View style={styles.balanceTopRow}>
-              <View style={[styles.iconBox, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                <AppIcon name="pocket" size={20} color="#FFFFFF" />
-              </View>
-              <View style={{ marginLeft: 16 }}>
-                <Text style={[typography.bodyMedium, { color: '#FFFFFF', opacity: 0.9 }]}>
-                  Available Profit Balance
-                </Text>
-                <Text style={[typography.h2, { color: '#FFFFFF', marginTop: 4 }]}>
-                  {formatINR(partner.summary.available_balance || 0)}
-                </Text>
-              </View>
-            </View>
-            
-            <TouchableOpacity 
-              style={[styles.withdrawBtn, { backgroundColor: '#FFFFFF', marginTop: 12, flexDirection: 'row', justifyContent: 'center' }]}
-              onPress={() => navigation.navigate(ROUTES.PARTNER_WITHDRAW)}
-              activeOpacity={0.8}
-            >
-              <Text style={[typography.subtitle, { color: '#047857', fontWeight: 'bold' }]}>Withdraw Profit</Text>
-            </TouchableOpacity>
-          </LinearGradient>
-
-          {/* Transaction History Header */}
-          <View style={styles.historyHeader}>
-            <Text style={[typography.h3, { color: '#0F172A' }]}>
-              Transaction History
-            </Text>
-          </View>
-
-          {/* Type Filter Chips */}
-          <View style={[styles.filterRow, { backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 16 }]}>
-            {(['All', 'credit', 'debit'] as DirectionFilter[]).map((type) => (
-              <TouchableOpacity 
-                key={type} 
-                onPress={() => setDirectionFilter(type)}
-                style={[
-                  { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8 },
-                  directionFilter === type && { backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 }
-                ]}
-              >
-                <Text style={[
-                  styles.filterChipText, 
-                  directionFilter === type && { color: '#047857' }
-                ]}>
-                  {type === 'All' ? 'All' : type === 'credit' ? 'Credit (+)' : 'Debit (-)'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Transaction List */}
-          <View style={styles.txList}>
-            {transactions.length === 0 ? (
-              <View style={{ padding: 24, alignItems: 'center' }}>
-                <Text style={[typography.body, { color: colors.textSecondary }]}>No transactions found.</Text>
-              </View>
-            ) : (
-            transactions.map((tx: any) => (
-              <View key={tx.id} style={[styles.txCard, { backgroundColor: colors.white }]}>
-                <View style={styles.txLeft}>
-                  <View style={[styles.txIconBox, { backgroundColor: tx.iconBg }]}>
-                    <AppIcon name={tx.icon} size={18} color={tx.iconColor} />
-                  </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={[typography.subtitle, { color: '#0F172A' }]} numberOfLines={1}>
-                      {tx.title}
-                    </Text>
-                    <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]} numberOfLines={1}>
-                      {tx.subtitle}
-                    </Text>
-                  </View>
+              {/* Partnership Filter */}
+              {partner.partnerships && partner.partnerships.length > 0 && (
+                <View 
+                  style={styles.filterContainer}
+                  onLayout={(e) => setFilterWidth(e.nativeEvent.layout.width - 6)}
+                >
+                  <Animated.View 
+                    style={[
+                      styles.slidingPill,
+                      { 
+                        width: `${100 / partner.partnerships.length}%`,
+                        transform: [{ translateX: slideAnim }]
+                      }
+                    ]} 
+                  />
+                  {partner.partnerships.map((p, index) => {
+                    const partnerName = partner.partners?.find(pt => pt.id === p.partnership_id)?.name || p.partnership_name;
+                    const isSelected = selectedIndex === index;
+                    return (
+                      <TouchableOpacity
+                        key={p.partnership_id}
+                        style={styles.pillTab}
+                        onPress={() => dispatch(setSelectedPartnershipCode(p.partnership_code))}
+                        activeOpacity={1}
+                      >
+                        <Text style={[
+                          styles.pillTabText,
+                          isSelected && styles.pillTabTextActive
+                        ]}>{partnerName}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                <View style={styles.txRight}>
-                  <Text style={[
-                    typography.subtitle, 
-                    { color: tx.type === 'credit' ? '#10B981' : '#EF4444' }
-                  ]}>
-                    {tx.type === 'credit' ? '+ ' : '- '}{formatINR(tx.amount)}
-                  </Text>
-                  <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]}>
-                    {tx.date}
-                  </Text>
+              )}
+
+              {partner.isLoading && !isRefreshing && (!partner.summary) ? (
+                <View style={{ marginTop: 8 }}>
+                  <Skeleton height={150} borderRadius={20} style={{ marginBottom: 24 }} />
+                  <Skeleton height={24} width={150} borderRadius={8} style={{ marginBottom: 16 }} />
+                  <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+                  <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
                 </View>
-              </View>
-            ))
-            )}
-          </View>
-          </>
+              ) : (
+                <>
+                  {/* Comprehensive Financial Overview Grid */}
+                  <View style={{ gap: 12, marginBottom: 24 }}>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      {/* Available Balance */}
+                      <View style={{ flex: 1, backgroundColor: '#F5F3FF', padding: 16, borderRadius: 16 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#EDE9FE', justifyContent: 'center', alignItems: 'center' }}>
+                            <AppIcon name="pocket" size={14} color="#7C3AED" />
+                          </View>
+                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>Avail Balance</Text>
+                        </View>
+                        <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
+                          {formatINR(partner?.summary?.available_balance ?? 0)}
+                        </Text>
+                      </View>
+                      
+                      {/* Total Profit */}
+                      <View style={{ flex: 1, backgroundColor: '#F0F9FF', padding: 16, borderRadius: 16 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center' }}>
+                            <AppIcon name="trending-up" size={14} color="#0284C7" />
+                          </View>
+                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>Total Profit</Text>
+                        </View>
+                        <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
+                          {formatINR(partner?.summary?.total_profit ?? 0)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      {/* Total Withdrawal */}
+                      <View style={{ flex: 1, backgroundColor: '#FFF7ED', padding: 16, borderRadius: 16 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFEDD5', justifyContent: 'center', alignItems: 'center' }}>
+                            <AppIcon name="arrow-up-right" size={14} color="#EA580C" />
+                          </View>
+                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>Total Withdraw</Text>
+                        </View>
+                        <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
+                          {formatINR(partner?.summary?.total_withdrawal ?? 0)}
+                        </Text>
+                      </View>
+                      
+                      {/* Total Investment */}
+                      <View style={{ flex: 1, backgroundColor: '#ECFDF5', padding: 16, borderRadius: 16 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#D1FAE5', justifyContent: 'center', alignItems: 'center' }}>
+                            <AppIcon name="briefcase" size={14} color="#059669" />
+                          </View>
+                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>Total Invest</Text>
+                        </View>
+                        <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
+                          {formatINR(partner?.summary?.total_investment ?? 0)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Transaction History Header */}
+                  <View style={styles.historyHeader}>
+                    <Text style={[typography.h3, { color: '#0F172A' }]}>
+                      Transaction History
+                    </Text>
+                  </View>
+
+                  {/* Type Filter Chips */}
+                  <View style={[styles.filterRow, { backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4, marginBottom: 16 }]}>
+                    {(['All', 'credit', 'debit'] as DirectionFilter[]).map((type) => (
+                      <TouchableOpacity 
+                        key={type} 
+                        onPress={() => setDirectionFilter(type)}
+                        style={[
+                          { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8 },
+                          directionFilter === type && { backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 2 }
+                        ]}
+                      >
+                        <Text style={[
+                          styles.filterChipText, 
+                          directionFilter === type && { color: '#047857' }
+                        ]}>
+                          {type === 'All' ? 'All' : type === 'credit' ? 'Credit (+)' : 'Debit (-)'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Transaction List Grouped by Partner */}
+                  <View style={styles.txList}>
+                    {(partner.isLoading || isFiltering) && partner.summary ? (
+                      <View style={{ marginTop: 8 }}>
+                        <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+                        <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+                        <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+                      </View>
+                    ) : partner.transactionsPartnerships && partner.transactionsPartnerships.some(p => p.transactions && p.transactions.length > 0) ? (
+                      partner.transactionsPartnerships.map(p => {
+                        const partnerName = partner.partners?.find(pt => pt.id === p.partnership_id)?.name || p.partnership_name;
+                        
+                        const txs = (p.transactions || []).map((t: any) => ({
+                          id: `tx_${t.id}`,
+                          title: t.description || t.transaction_type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+                          subtitle: t.transaction_code,
+                          amount: Number(t.amount),
+                          date: formatDate(t.transaction_date),
+                          type: t.direction === 'in' ? 'credit' : 'debit',
+                          icon: t.direction === 'in' ? 'arrow-down-circle' : 'arrow-up-circle',
+                          iconColor: t.direction === 'in' ? '#10B981' : '#EF4444',
+                          iconBg: t.direction === 'in' ? '#D1FAE5' : '#FEE2E2',
+                        }));
+
+                        if (txs.length === 0) return null;
+
+                        return (
+                          <View key={`tx_group_${p.partnership_id}`} style={{ marginBottom: 24 }}>
+                            <Text style={[typography.h3, { color: '#0F172A', marginBottom: 16, marginTop: 8 }]}>
+                              {partnerName}'s Transactions
+                            </Text>
+                            {txs.map((tx) => (
+                              <View key={tx.id} style={[styles.txCard, { backgroundColor: colors.white, marginBottom: 8 }]}>
+                                <View style={styles.txLeft}>
+                                  <View style={[styles.txIconBox, { backgroundColor: tx.iconBg }]}>
+                                    <AppIcon name={tx.icon} size={18} color={tx.iconColor} />
+                                  </View>
+                                  <View style={{ flex: 1, paddingRight: 8 }}>
+                                    <Text style={[typography.subtitle, { color: '#0F172A' }]} numberOfLines={1}>
+                                      {tx.title}
+                                    </Text>
+                                    <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]} numberOfLines={1}>
+                                      {tx.subtitle}
+                                    </Text>
+                                  </View>
+                                </View>
+                                <View style={styles.txRight}>
+                                  <Text style={[
+                                    typography.subtitle, 
+                                    { color: tx.type === 'credit' ? '#10B981' : '#EF4444' }
+                                  ]}>
+                                    {tx.type === 'credit' ? '+ ' : '- '}{formatINR(tx.amount)}
+                                  </Text>
+                                  <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]}>
+                                    {tx.date}
+                                  </Text>
+                                </View>
+                              </View>
+                            ))}
+                          </View>
+                        );
+                      })
+                    ) : (
+                      <View style={{ padding: 24, alignItems: 'center' }}>
+                        <Text style={[typography.body, { color: colors.textSecondary }]}>No transactions found.</Text>
+                      </View>
+                    )}
+                  </View>
+                </>
+              )}
+            </>
           )}
         </ScrollView>
       </View>
+
+      {/* Floating Action Button for Withdraw */}
+      <TouchableOpacity 
+        style={[styles.fab, { backgroundColor: '#0D523B' }]}
+        onPress={() => setWithdrawModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <AppIcon name="plus" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+
+      {/* Bottom Sheet Modal for Withdraw */}
+      <Modal visible={withdrawModalVisible} transparent animationType="slide" onRequestClose={() => setWithdrawModalVisible(false)}>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }} 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity style={styles.modalDismiss} activeOpacity={1} onPress={() => setWithdrawModalVisible(false)} />
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom || 24 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                  <Text style={[typography.h3, { color: colors.textPrimary }]}>Withdraw Earnings</Text>
+                  <TouchableOpacity onPress={() => setWithdrawModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <AppIcon name="x-circle" size={24} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Amount Section */}
+                <View style={{ marginBottom: 20 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Text style={[typography.bodyMedium, styles.label, { marginBottom: 0 }]}>Enter Withdrawal Amount</Text>
+                    <TouchableOpacity onPress={handleMaxSelect}>
+                      <Text style={[typography.captionBold, { color: colors.primary }]}>WITHDRAW ALL</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={[styles.inputBox, { borderColor: (withdrawAmountError || parsedWithdrawAmount > availableBalance) ? colors.error : colors.border }]}>
+                    <Text style={[styles.currencyPrefix, { color: colors.textPrimary }]}>₹</Text>
+                    <TextInput
+                      style={[styles.numericInput, { color: colors.textPrimary }]}
+                      value={withdrawAmount}
+                      onChangeText={(val) => {
+                        setWithdrawAmount(val);
+                        if (withdrawAmountError) setWithdrawAmountError(false);
+                      }}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  </View>
+
+                  {/* Quick Select Chips */}
+                  <View style={styles.chipsContainer}>
+                    {QUICK_AMOUNTS.map(val => (
+                      <TouchableOpacity
+                        key={val}
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: parsedWithdrawAmount === val ? colors.primarySoft : colors.surfaceSubtle,
+                            borderColor: parsedWithdrawAmount === val ? colors.primary : colors.border,
+                          },
+                        ]}
+                        onPress={() => handleQuickSelect(val)}>
+                        <Text
+                          style={[
+                            typography.captionBold,
+                            { color: parsedWithdrawAmount === val ? colors.primary : colors.textSecondary },
+                          ]}>
+                          +{formatINR(val)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Remarks Section */}
+                <CustomInput
+                  label="Remarks / Note (Optional)"
+                  value={withdrawNotes}
+                  onChangeText={setWithdrawNotes}
+                  placeholder="e.g. Monthly profit share withdrawal"
+                  multiline={true}
+                  numberOfLines={4}
+                />
+
+                <CustomButton
+                  title={isWithdrawing ? 'Submitting Request...' : `Withdraw ${formatINR(parsedWithdrawAmount)}`}
+                  onPress={handleWithdrawSubmit}
+                  variant="primary"
+                  isLoading={isWithdrawing}
+                  style={{ marginTop: 24, marginBottom: 8 }}
+                />
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal visible={withdrawSuccessModal} transparent animationType="fade">
+        <View style={styles.successModalOverlay}>
+          <View style={styles.successModalCard}>
+            <View style={[styles.successIconCircle, { backgroundColor: colors.primarySoft }]}>
+              <AppIcon name="check-circle" size={44} color={colors.primary} />
+            </View>
+
+            <Text style={[typography.h3, { color: colors.textPrimary, marginTop: 16, textAlign: 'center' }]}>
+              Partner Withdrawal Requested!
+            </Text>
+
+            <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', marginTop: 8 }]}>
+              Your request has been submitted for finance approval and disbursement.
+            </Text>
+
+            <CustomButton
+              title="Done"
+              onPress={() => setWithdrawSuccessModal(false)}
+              variant="primary"
+              style={{ marginTop: 20, width: '100%' }}
+            />
+          </View>
+        </View>
+      </Modal>
 
       {/* Date Modal (Popover) */}
       <Modal visible={showDateModal} transparent animationType="fade">
@@ -298,7 +641,22 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
-    paddingBottom: 40,
+    paddingBottom: 100, // accommodate FAB
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   balanceCard: {
     padding: 16,
@@ -418,5 +776,100 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 16,
+    position: 'relative',
+  },
+  slidingPill: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: 3,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  pillTab: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  pillTabText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  pillTabTextActive: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  label: {
+    marginBottom: 8,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 56,
+  },
+  currencyPrefix: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginRight: 6,
+  },
+  numericInput: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: '700',
+    paddingVertical: 0,
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  successModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  successModalCard: {
+    width: '100%',
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+  },
+  successIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

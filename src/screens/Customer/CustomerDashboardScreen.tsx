@@ -231,8 +231,8 @@ export const CustomerDashboardScreen: React.FC = () => {
                   </View>
                   <Text style={styles.metricAmountText}>
                     {formatINR(
-                      dashboardData?.amountDue > 0
-                        ? dashboardData.amountDue
+                      (dashboardData?.amountDue ?? 0) > 0
+                        ? dashboardData?.amountDue ?? 0
                         : dashboardData?.finance?.outstandingAmount ?? 0
                     )}
                   </Text>

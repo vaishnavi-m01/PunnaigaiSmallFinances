@@ -2,12 +2,15 @@ import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'ax
 import { StorageService } from './StorageService';
 import { STORAGE_KEYS } from '../constants/storageKeys';
 import { API_BASE_URL } from '@env';
+import * as NavigationService from '../navigation/navigationService';
+import { ROUTES } from '../constants/routes';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
     skipGlobalErrorHandler?: boolean;
     skipToastError?: boolean;
     retryCount?: number;
+    skipAuth?: boolean;
   }
 }
 
@@ -28,7 +31,7 @@ apiClient.interceptors.request.use(
     try {
       const token = await StorageService.getItem<string>(STORAGE_KEYS.AUTH_TOKEN);
 
-      if (token && config.headers) {
+      if (token && config.headers && !config.skipAuth) {
         config.headers.Authorization = `Bearer ${token}`;
       }
 
@@ -66,10 +69,14 @@ apiClient.interceptors.response.use(
       `\n❌ [API ERROR]\n  URL    : ${url}\n  Status : ${status ?? 'Network Error'}\n  Message: ${JSON.stringify(error.response?.data)}\n`
     );
 
-    // Auto-logout on 401 Unauthorized
-    if (status === 401) {
-      console.warn('[API] 401 Unauthorized — clearing auth token');
+    const responseData = error.response?.data as any;
+    const errorMessage = responseData?.message;
+
+    // Auto-logout on 401 Unauthorized or if the partner profile is deleted/inactive
+    if (status === 401 || (status === 404 && errorMessage === 'No active partner profile is available.')) {
+      console.warn('[API] Unauthorized or No Active Profile — clearing auth token');
       await StorageService.clearAuth();
+      NavigationService.reset(ROUTES.LOGIN);
     }
 
     return Promise.reject(error);

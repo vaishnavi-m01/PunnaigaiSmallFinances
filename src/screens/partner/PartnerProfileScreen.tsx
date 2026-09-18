@@ -115,19 +115,13 @@ export const PartnerProfileScreen: React.FC = () => {
             <View style={styles.dataRow}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Total Investment</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.summary?.contributions || 0)}
-              </Text>
-            </View>
-            <View style={styles.dataRow}>
-              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Investment Withdrawn</Text>
-              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(0)}
+                {formatINR(partner.profile?.investment_summary?.total_investment || 0)}
               </Text>
             </View>
             <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Remaining Investment</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.summary?.contributions || 0)}
+                {formatINR(partner.profile?.investment_summary?.remaining_investment || 0)}
               </Text>
             </View>
           </View>
@@ -144,22 +138,10 @@ export const PartnerProfileScreen: React.FC = () => {
             </View>
             <View style={[styles.divider, { backgroundColor: '#FEE2E2' }]} />
             
-            <View style={[styles.dataRow, { borderBottomColor: '#FEE2E2' }]}>
+            <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Total Profit Earned</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.summary?.earnings || 0)}
-              </Text>
-            </View>
-            <View style={[styles.dataRow, { borderBottomColor: '#FEE2E2' }]}>
-              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Profit Withdrawn</Text>
-              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.summary?.withdrawals || 0)}
-              </Text>
-            </View>
-            <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
-              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Available Profit (Wallet)</Text>
-              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.summary?.available_balance || 0)}
+                {formatINR(partner.profile?.profit_summary?.total_profit_earned || 0)}
               </Text>
             </View>
           </View>
@@ -179,7 +161,7 @@ export const PartnerProfileScreen: React.FC = () => {
             <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
               <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Total Wallet Balance</Text>
               <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {formatINR(partner.summary?.available_balance || 0)}
+                {formatINR(partner.profile?.wallet_balance || 0)}
               </Text>
             </View>
           </View>

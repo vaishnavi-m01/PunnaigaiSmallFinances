@@ -16,8 +16,6 @@ import { formatINR } from '../../utils/currency';
 import { ROUTES } from '../../constants/routes';
 import * as customerApi from '../../services/api/customerApi';
 
-import LinearGradient from 'react-native-linear-gradient';
-
 export const MyLoanScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const [myLoans, setMyLoans] = useState<customerApi.MyLoanResponse[]>([]);
@@ -46,16 +44,18 @@ export const MyLoanScreen: React.FC = () => {
     setIsRefreshing(false);
   }, [loadMyLoans]);
 
-  const getLoanIconColor = (name: string) => {
-    return name.toLowerCase().includes('gold') ? '#8B5CF6' : '#10B981';
+  const getLoanTheme = (name: string) => {
+    const isGold = name.toLowerCase().includes('gold');
+    return {
+      primary: isGold ? '#8B5CF6' : '#10B981',
+      bgLight: isGold ? '#F5F3FF' : '#ECFDF5',
+      icon: isGold ? 'lock' : 'user',
+    };
   };
 
-  const getLoanGradient = (name: string) => {
-    return name.toLowerCase().includes('gold') ? ['#8B5CF6', '#6D28D9'] : ['#10B981', '#047857'];
-  };
-
-  const getLoanIconName = (name: string) => {
-    return name.toLowerCase().includes('gold') ? 'lock' : 'shield'; 
+  const getLoanNo = (loan: customerApi.MyLoanResponse) => {
+    const isGold = loan.loan_package_name.toLowerCase().includes('gold');
+    return `${isGold ? 'GL' : 'PL'}202500${loan.finance_id}`;
   };
 
   return (
@@ -67,17 +67,13 @@ export const MyLoanScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor="#10B981"
-          />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />
         }
       >
         {isRefreshing || isLoansLoading ? (
           <View style={{ paddingTop: 8 }}>
-            <Skeleton height={240} borderRadius={24} style={{ marginBottom: 16 }} />
-            <Skeleton height={240} borderRadius={24} style={{ marginBottom: 16 }} />
+            <Skeleton height={260} borderRadius={24} style={{ marginBottom: 16 }} />
+            <Skeleton height={260} borderRadius={24} style={{ marginBottom: 16 }} />
           </View>
         ) : (
           <>
@@ -85,9 +81,7 @@ export const MyLoanScreen: React.FC = () => {
               <View style={styles.emptyState}>
                 <AppIcon name="file-text" size={48} color="#94A3B8" />
                 <Text style={styles.emptyTitle}>No active loans found</Text>
-                <Text style={styles.emptyText}>
-                  Your approved loans will appear here.
-                </Text>
+                <Text style={styles.emptyText}>Your approved loans will appear here.</Text>
               </View>
             ) : (
               <View style={styles.loansList}>
@@ -104,81 +98,67 @@ export const MyLoanScreen: React.FC = () => {
                       ? Math.min(100, Math.round((totalPaid / totalLoanAmount) * 100))
                       : 0;
 
-                  const accentColor = getLoanIconColor(loan.loan_package_name);
-                  const gradientColors = getLoanGradient(loan.loan_package_name);
-                  const iconName = getLoanIconName(loan.loan_package_name);
+                  const theme = getLoanTheme(loan.loan_package_name);
+                  const loanNo = getLoanNo(loan);
 
                   return (
-                    <TouchableOpacity 
-                      key={loan.finance_id} 
-                      activeOpacity={0.9}
-                      onPress={() => navigation.navigate(ROUTES.LOAN_DETAILS, { loanId: loan.finance_id })}
-                    >
-                      <LinearGradient
-                        colors={['#047857', '#064E3B']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.loanCardPremium}
-                      >
-                        <View style={styles.watermarkContainer}>
-                          <AppIcon name={iconName} size={150} color="rgba(255,255,255,0.08)" />
+                    <View key={loan.finance_id} style={styles.loanCard}>
+                      {/* Header */}
+                      <View style={styles.cardHeaderRow}>
+                        <View style={styles.cardHeaderLeft}>
+                          <View style={[styles.iconCircle, { backgroundColor: theme.primary }]}>
+                            <AppIcon name={theme.icon} size={20} color="#FFFFFF" />
+                          </View>
+                          <View>
+                            <Text style={styles.loanName}>{loan.loan_package_name}</Text>
+                            <Text style={styles.loanId}>Loan No : {loanNo}</Text>
+                          </View>
+                        </View>
+                        <View style={styles.activeBadge}>
+                          <Text style={styles.activeBadgeText}>Active</Text>
+                        </View>
+                      </View>
+
+                      {/* Details Row */}
+                      <View style={styles.amountsRow}>
+                        <View>
+                          <Text style={styles.amountText}>{formatINR(totalLoanAmount)}</Text>
+                          <Text style={styles.amountLabel}>Total Loan Amount</Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={styles.tenureText}>
+                            {installmentCount} {loan.frequency}
+                          </Text>
+                          <Text style={styles.amountLabel}>Tenure</Text>
+                        </View>
+                      </View>
+
+                      {/* Progress Area */}
+                      <View style={styles.progressArea}>
+                        <Text style={styles.progressLabel}>
+                          <Text style={{ color: '#64748B' }}>Paid </Text>
+                          <Text style={{ color: '#0F172A' }}>{completedInstallments}</Text>
+                          <Text style={{ color: '#64748B' }}> of {installmentCount} EMI</Text>
+                        </Text>
+                        
+                        <View style={styles.progressBarTrack}>
+                          <View style={[styles.progressBarFill, { width: `${percentPaid}%`, backgroundColor: theme.primary }]} />
                         </View>
                         
-                        {/* Top Header */}
-                        <View style={styles.cardHeaderRow}>
-                          <View style={styles.cardHeaderLeft}>
-                            <View style={[styles.iconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                              <AppIcon name={iconName} size={20} color="#FFFFFF" />
-                            </View>
-                            <View>
-                              <Text style={styles.loanNamePremium}>{loan.loan_package_name}</Text>
-                              <Text style={styles.loanIdPremium}>Loan No : {loan.finance_id}</Text>
-                            </View>
-                          </View>
-                          <View style={styles.cardHeaderRight}>
-                            <View style={[styles.activeBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                              <Text style={[styles.activeBadgeText, { color: '#FFFFFF' }]}>Active</Text>
-                            </View>
-                          </View>
-                        </View>
+                        <Text style={styles.progressValues}>
+                          <Text style={{ color: '#0F172A', fontWeight: '800' }}>{formatINR(totalPaid)}</Text> / {formatINR(totalLoanAmount)}
+                        </Text>
+                      </View>
 
-                        {/* Amounts & Tenure */}
-                        <View style={styles.amountsRow}>
-                          <View>
-                            <Text style={styles.amountTextPremium}>{formatINR(totalLoanAmount)}</Text>
-                            <Text style={styles.amountLabelPremium}>Total Loan Amount</Text>
-                          </View>
-                          <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={styles.tenureTextPremium}>
-                              {installmentCount} {loan.frequency}
-                            </Text>
-                            <Text style={styles.amountLabelPremium}>Tenure</Text>
-                          </View>
-                        </View>
-
-                        {/* Progress Bar Area */}
-                        <View style={styles.progressArea}>
-                          <Text style={styles.progressLabelPremium}>
-                            <Text style={{ color: 'rgba(255,255,255,0.8)' }}>Paid </Text> 
-                            <Text style={{ color: '#FFFFFF' }}>{completedInstallments}</Text> 
-                            <Text style={{ color: 'rgba(255,255,255,0.8)' }}> of {installmentCount} EMI</Text>
-                          </Text>
-                          <View style={[styles.progressBarTrack, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-                            <View
-                              style={[
-                                styles.progressBarFill,
-                                { width: `${percentPaid}%`, backgroundColor: '#FFFFFF' },
-                              ]}
-                            />
-                          </View>
-                          <View style={styles.progressValuesRow}>
-                            <Text style={styles.progressValueTextPremium}>
-                              <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{formatINR(totalPaid)}</Text> / {formatINR(totalLoanAmount)}
-                            </Text>
-                          </View>
-                        </View>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                      {/* Action Button */}
+                      <TouchableOpacity
+                        style={styles.viewDetailsButton}
+                        activeOpacity={0.8}
+                        onPress={() => navigation.navigate(ROUTES.LOAN_DETAILS, { loanId: loan.finance_id })}
+                      >
+                        <Text style={styles.viewDetailsText}>View Details</Text>
+                      </TouchableOpacity>
+                    </View>
                   );
                 })}
               </View>
@@ -220,36 +200,24 @@ const styles = StyleSheet.create({
   loansList: {
     paddingBottom: 20,
   },
-  loanCardPremium: {
-    marginBottom: 16,
+  loanCard: {
+    backgroundColor: '#FFFFFF',
+    marginBottom: 20,
     borderRadius: 24,
-    padding: 24,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 4,
-    overflow: 'hidden',
+    padding: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-  },
-  watermarkContainer: {
-    position: 'absolute',
-    right: -20,
-    bottom: -20,
-    zIndex: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
-    zIndex: 1,
-  },
-  cardHeaderRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   cardHeaderLeft: {
     flexDirection: 'row',
@@ -263,25 +231,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loanNamePremium: {
-    color: '#FFFFFF',
-    fontSize: 17,
+  loanName: {
+    color: '#0F172A',
+    fontSize: 16,
     fontWeight: '800',
   },
-  loanIdPremium: {
-    color: 'rgba(255,255,255,0.8)',
+  loanId: {
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
   },
   activeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
   },
   activeBadgeText: {
+    color: '#059669',
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -291,52 +261,58 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
-    zIndex: 1,
   },
-  amountTextPremium: {
-    color: '#FFFFFF',
-    fontSize: 28,
+  amountText: {
+    color: '#0D523B',
+    fontSize: 26,
     fontWeight: '900',
     letterSpacing: -0.5,
   },
-  amountLabelPremium: {
-    color: 'rgba(255,255,255,0.8)',
+  amountLabel: {
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 4,
   },
-  tenureTextPremium: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  tenureText: {
+    color: '#0F172A',
+    fontSize: 15,
     fontWeight: '800',
   },
   progressArea: {
-    marginBottom: 4,
-    zIndex: 1,
+    marginBottom: 24,
   },
-  progressLabelPremium: {
+  progressLabel: {
     fontSize: 13,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   progressBarTrack: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 10,
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
   },
-  progressValuesRow: {
-    flexDirection: 'row',
+  progressValues: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  viewDetailsButton: {
+    backgroundColor: '#0D523B',
+    height: 54,
+    borderRadius: 16,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  progressValueTextPremium: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 12,
-    fontWeight: '600',
+  viewDetailsText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

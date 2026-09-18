@@ -9,6 +9,9 @@ import { PartnerProfileScreen } from '../../screens/partner/PartnerProfileScreen
 import { AppIcon } from '../../component/AppIcon';
 import { CustomTabBar } from '../../component/Common/CustomTabBar';
 
+import { PartnerCustomersScreen } from '../../screens/partner/PartnerCustomersScreen';
+import { PartnerExpensesScreen } from '../../screens/partner/PartnerExpensesScreen';
+
 const Tab = createBottomTabNavigator<PartnerTabParamList>();
 
 export const PartnerTabNavigator: React.FC = () => {
@@ -46,6 +49,16 @@ export const PartnerTabNavigator: React.FC = () => {
           tabBarLabel: 'Wallet',
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="credit-card" size={size || 20} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name={ROUTES.PARTNER_EXPENSES}
+        component={PartnerExpensesScreen}
+        options={{
+          tabBarLabel: 'Expenses',
+          tabBarIcon: ({ color, size }) => (
+            <AppIcon name="file-text" size={size || 20} color={color} />
           ),
         }}
       />

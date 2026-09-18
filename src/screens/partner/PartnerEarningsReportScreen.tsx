@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,25 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  Animated,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
+import { typography } from '../../theme/typography';
 import { Header } from '../../component/Header';
 import { AppIcon } from '../../component/AppIcon';
 import { formatINR } from '../../utils/currency';
-import { fetchPartnerContributionsThunk, addPartnerContributionThunk, fetchPartnerDashboardThunk } from '../../store/partnerSlice';
+import { 
+  fetchPartnerDashboardThunk, 
+  fetchPartnerContributionsThunk, 
+  addPartnerContributionThunk,
+  setSelectedPartnershipCode,
+  fetchPartnerPartnershipsThunk,
+  fetchPartnerEarningsThunk
+} from '../../store/partnerSlice';
 import { showToast } from '../../store/toastSlice';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { CustomInput } from '../../component/Common/CustomInput';
@@ -41,22 +51,87 @@ export const PartnerEarningsReportScreen: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const [filterWidth, setFilterWidth] = useState(0);
+  const slideAnim = React.useRef(new Animated.Value(0)).current;
+
+  const selectedIndex = React.useMemo(() => {
+    if (!partner.partnerships) return 0;
+    const index = partner.partnerships.findIndex(p => p.partnership_code === partner.selectedPartnershipCode);
+    return index === -1 ? 0 : index;
+  }, [partner.partnerships, partner.selectedPartnershipCode]);
 
   useEffect(() => {
-    dispatch(fetchPartnerContributionsThunk());
-    dispatch(fetchPartnerDashboardThunk());
+    if (filterWidth > 0 && partner.partnerships?.length > 0) {
+      const tabWidth = filterWidth / partner.partnerships.length;
+      Animated.spring(slideAnim, {
+        toValue: selectedIndex * tabWidth,
+        useNativeDriver: true,
+        bounciness: 4,
+        speed: 12,
+      }).start();
+    }
+  }, [selectedIndex, filterWidth, partner.partnerships?.length]);
+
+  let displayTitlePrefix = 'Total';
+  if (partner.selectedPartnershipCode) {
+    const p = partner.partnerships.find(pt => pt.partnership_code === partner.selectedPartnershipCode);
+    const partnerName = partner.partners?.find(pt => pt.id === p?.partnership_id)?.name || p?.partnership_name;
+    if (partnerName) {
+      displayTitlePrefix = `${partnerName}'s`;
+    }
+  }
+
+  const idToFetch = React.useMemo(() => {
+    const selectedP = partner.partnerships?.find(p => p.partnership_code === partner.selectedPartnershipCode);
+    return selectedP ? selectedP.partnership_id : undefined;
+  }, [partner.partnerships, partner.selectedPartnershipCode]);
+
+  // Unconditionally fetch partnerships on mount to ensure the filter is always perfectly synced
+  useEffect(() => {
+    dispatch(fetchPartnerPartnershipsThunk());
   }, [dispatch]);
+
+  // On focus, get the list of partnerships unconditionally to ensure filter is always up to date
+  useFocusEffect(
+    React.useCallback(() => {
+      dispatch(fetchPartnerPartnershipsThunk());
+    }, [dispatch])
+  );
+
+  const fetchEarnings = useCallback(async () => {
+    if (idToFetch === undefined) return;
+
+    setIsFiltering(true);
+    
+    // Run sequentially to avoid potential backend concurrent request lock issues
+    await dispatch(fetchPartnerDashboardThunk(idToFetch));
+    await dispatch(fetchPartnerContributionsThunk({ partnership_id: idToFetch }));
+    await dispatch(fetchPartnerEarningsThunk({ partnership_id: idToFetch }));
+
+    setIsFiltering(false);
+  }, [idToFetch, dispatch]);
+
+  useEffect(() => {
+    fetchEarnings();
+  }, [fetchEarnings]);
 
   const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    await Promise.all([
-      dispatch(fetchPartnerContributionsThunk()),
-      dispatch(fetchPartnerDashboardThunk())
-    ]);
+    if (idToFetch !== undefined) {
+      await Promise.all([
+        dispatch(fetchPartnerDashboardThunk(idToFetch)),
+        dispatch(fetchPartnerContributionsThunk({ partnership_id: idToFetch }))
+      ]);
+    }
     setIsRefreshing(false);
-  }, [dispatch]);
+  }, [dispatch, idToFetch]);
 
-  const investmentHistory = (partner.contributions || []).map(c => ({
+  const filteredContributions = partner.selectedPartnershipCode
+    ? (partner.contributions || []).filter(c => (c as any).partnership_code === partner.selectedPartnershipCode)
+    : (partner.contributions || []);
+
+  const investmentHistory = filteredContributions.map(c => ({
     id: String(c.id),
     title: c.notes || 'Capital Investment',
     date: new Date(c.contribution_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -86,7 +161,8 @@ export const PartnerEarningsReportScreen: React.FC = () => {
       payment_method: paymentMethod,
       contribution_date: backendDate,
       reference_number: "null",
-      notes: notes || "Capital contribution"
+      notes: notes || "Capital contribution",
+      partnership_id: idToFetch
     }))
       .unwrap()
       .then(() => {
@@ -94,8 +170,7 @@ export const PartnerEarningsReportScreen: React.FC = () => {
         setModalVisible(false);
         setAmount('');
         dispatch(showToast({ type: 'success', title: 'Success', message: 'Investment added successfully.' }));
-        dispatch(fetchPartnerContributionsThunk());
-        dispatch(fetchPartnerDashboardThunk());
+        dispatch(fetchPartnerContributionsThunk({ partnership_id: idToFetch }));
       })
       .catch((err) => {
         setIsSubmitting(false);
@@ -115,16 +190,51 @@ export const PartnerEarningsReportScreen: React.FC = () => {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {isRefreshing ? (
-          <View>
-            <Skeleton height={140} borderRadius={20} style={{ marginBottom: 24 }} />
-            <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
-            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 12 }} />
-            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 12 }} />
+        {partner.isLoading && !isRefreshing && (!partner.summary) ? (
+          <View style={{ marginTop: 8 }}>
+            <Skeleton height={150} borderRadius={20} style={{ marginBottom: 24 }} />
+            <Skeleton height={24} width={150} borderRadius={8} style={{ marginBottom: 16 }} />
+            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+            <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
           </View>
         ) : (
           <>
-          {/* Active Investment Card */}
+              {/* Partnership Filter */}
+              {partner.partnerships && partner.partnerships.length > 0 && (
+                <View 
+                  style={styles.filterContainer}
+                  onLayout={(e) => setFilterWidth(e.nativeEvent.layout.width - 6)}
+                >
+                  <Animated.View 
+                    style={[
+                      styles.slidingPill,
+                      { 
+                        width: `${100 / partner.partnerships.length}%`,
+                        transform: [{ translateX: slideAnim }]
+                      }
+                    ]} 
+                  />
+                  {partner.partnerships.map((p, index) => {
+                    const partnerName = partner.partners?.find(pt => pt.id === p.partnership_id)?.name || p.partnership_name;
+                    const isSelected = selectedIndex === index;
+                    return (
+                      <TouchableOpacity
+                        key={p.partnership_id}
+                        style={styles.pillTab}
+                        onPress={() => dispatch(setSelectedPartnershipCode(p.partnership_code))}
+                        activeOpacity={1}
+                      >
+                        <Text style={[
+                          styles.pillTabText,
+                          isSelected && styles.pillTabTextActive
+                        ]}>{partnerName}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Active Investment Card */}
           <LinearGradient
             colors={['#047857', '#064E3B']}
             start={{ x: 0, y: 0 }}
@@ -140,15 +250,19 @@ export const PartnerEarningsReportScreen: React.FC = () => {
                 <AppIcon name="briefcase" size={14} color="#FFFFFF" />
               </View>
               <Text style={[typography.subtitle, { color: '#FFFFFF', marginLeft: 8, opacity: 0.9 }]}>
-                Total Capital Invested
+                {displayTitlePrefix} Capital Invested
               </Text>
             </View>
             <View style={[styles.divider, { backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: 12 }]} />
             
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <Text style={[typography.h1, { color: '#FFFFFF', fontSize: 32, fontWeight: '800' }]}>
-                {formatINR(partner.summary?.contributions || 0)}
-              </Text>
+              {partner.isLoading && !isRefreshing ? (
+                <Skeleton width={150} height={32} borderRadius={8} style={{ opacity: 0.5 }} />
+              ) : (
+                <Text style={[typography.h1, { color: '#FFFFFF', fontSize: 32, fontWeight: '800' }]}>
+                  {formatINR(partner.summary?.total_investment ?? partner.summary?.contributions ?? 0)}
+                </Text>
+              )}
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981', marginRight: 6 }} />
                 <Text style={[typography.caption, { color: '#FFFFFF', fontWeight: '600' }]}>
@@ -159,59 +273,58 @@ export const PartnerEarningsReportScreen: React.FC = () => {
           </LinearGradient>
 
           {/* Investment Agreement Details */}
-          <Text style={[typography.h3, { color: '#0F172A', marginBottom: 16, marginTop: 8 }]}>
-            Agreement Details
-          </Text>
-          <View style={[styles.card, { backgroundColor: colors.white, borderColor: '#E2E8F0' }]}>
-            <View style={[styles.dataRow, { borderBottomColor: '#F1F5F9' }]}>
-              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Profit Share Percentage</Text>
-              <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                {partner.profile?.profit_share_percentage || '0'}% of Net Profit
-              </Text>
-            </View>
-            <View style={[styles.dataRow, { borderBottomColor: '#F1F5F9' }]}>
-              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Payout Frequency</Text>
-              <Text style={[typography.subtitle, { color: '#0F172A' }]}>Monthly (Wallet Credit)</Text>
-            </View>
-            <View style={[styles.dataRow, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 }]}>
-              <Text style={[typography.bodyMedium, { color: '#64748B' }]}>Lock-in Period</Text>
-              <Text style={[typography.subtitle, { color: '#0F172A' }]}>36 Months</Text>
-            </View>
-          </View>
+         
 
           {/* Investment History Log */}
           <Text style={[typography.h3, { color: '#0F172A', marginBottom: 16, marginTop: 8 }]}>
             Investment History
           </Text>
-          {investmentHistory.map((item) => (
-            <View key={item.id} style={[styles.historyCard, { backgroundColor: colors.white, borderColor: '#E2E8F0' }]}>
-              <View style={styles.historyLeft}>
-                <View style={[styles.historyIconBox, { backgroundColor: '#F0FDF4' }]}>
-                  <AppIcon name="download" size={18} color="#16A34A" />
-                </View>
-                <View>
-                  <Text style={[typography.subtitle, { color: '#0F172A' }]}>
-                    {item.title}
-                  </Text>
-                  <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]}>
-                    {item.date} • {item.time}
-                  </Text>
-                </View>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={[typography.subtitle, { color: '#10B981', fontWeight: '700' }]}>
-                  +{formatINR(item.amount)}
-                </Text>
-                <Text style={[typography.caption, { color: '#64748B', marginTop: 2, fontWeight: '600', textTransform: 'capitalize' }]}>
-                  {item.status}
-                </Text>
-              </View>
+          {(partner.isLoading || isFiltering) && partner.summary ? (
+            <View style={{ marginTop: 8 }}>
+              <Skeleton height={80} borderRadius={12} style={{ marginBottom: 12 }} />
+              <Skeleton height={80} borderRadius={12} style={{ marginBottom: 12 }} />
+              <Skeleton height={80} borderRadius={12} style={{ marginBottom: 12 }} />
             </View>
-          ))}
-          {investmentHistory.length === 0 && (
-            <Text style={{ textAlign: 'center', marginTop: 20, color: '#94A3B8' }}>No investments found.</Text>
+          ) : investmentHistory.length === 0 ? (
+            <View style={[styles.historyCard, { backgroundColor: colors.white, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+              <Text style={[typography.caption, { color: '#64748B' }]}>No investment history found</Text>
+            </View>
+          ) : (
+            investmentHistory.map((item) => (
+              <View key={item.id} style={[styles.historyCard, { backgroundColor: colors.white, borderColor: '#E2E8F0' }]}>
+                <View style={styles.historyLeft}>
+                  <View style={[styles.historyIconBox, { backgroundColor: '#F0FDF4' }]}>
+                    <AppIcon name="arrow-down-left" size={16} color="#16A34A" />
+                  </View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={[typography.subtitle, { color: '#0F172A' }]} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]} numberOfLines={1}>
+                      {item.date} • {item.time}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.historyRight}>
+                  <Text style={[typography.subtitle, { color: '#0F172A' }]}>
+                    {formatINR(item.amount)}
+                  </Text>
+                  <View style={[styles.statusBadge, { 
+                    backgroundColor: item.status === 'approved' ? '#ECFDF5' : '#FFF7ED',
+                    marginTop: 4 
+                  }]}>
+                    <Text style={[typography.caption, { 
+                      color: item.status === 'approved' ? '#059669' : '#D97706',
+                      fontWeight: '600'
+                    }]}>
+                      {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))
           )}
-          </>
+        </>
         )}
       </ScrollView>
 
@@ -295,6 +408,8 @@ export const PartnerEarningsReportScreen: React.FC = () => {
                     onChangeText={setNotes}
                     placeholder="Capital contribution"
                     leftIcon="file-text"
+                    multiline={true}
+                    numberOfLines={4}
                   />
                 </View>
 
@@ -465,4 +580,50 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
   },
+  filterContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 16,
+    position: 'relative',
+  },
+  slidingPill: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: 3,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  pillTab: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  pillTabText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  pillTabTextActive: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  historyRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  }
 });

@@ -6,9 +6,9 @@ import { APP_ROLES } from '../../constants/roles';
 import { withRoleAccess } from '../../hoc/withRoleAccess';
 import { PartnerTabNavigator } from './PartnerTabNavigator';
 import { PartnerWalletScreen } from '../../screens/partner/PartnerWalletScreen';
-import { PartnerWithdrawScreen } from '../../screens/partner/PartnerWithdrawScreen';
 import { PartnerEarningsReportScreen } from '../../screens/partner/PartnerEarningsReportScreen';
 import { NotificationsScreen } from '../../screens/Customer/NotificationsScreen';
+import { PartnerCustomersScreen } from '../../screens/partner/PartnerCustomersScreen';
 
 const Stack = createNativeStackNavigator<PartnerStackParamList>();
 
@@ -18,8 +18,8 @@ function PartnerStackNavigatorBase() {
       <Stack.Screen name={ROUTES.PARTNER_TABS} component={PartnerTabNavigator} />
       <Stack.Screen name={ROUTES.PARTNER_EARNINGS_REPORT} component={PartnerEarningsReportScreen} />
       <Stack.Screen name={ROUTES.PARTNER_WALLET} component={PartnerWalletScreen} />
-      <Stack.Screen name={ROUTES.PARTNER_WITHDRAW} component={PartnerWithdrawScreen} />
       <Stack.Screen name={ROUTES.PARTNER_NOTIFICATIONS} component={NotificationsScreen} />
+      <Stack.Screen name={ROUTES.PARTNER_CUSTOMERS} component={PartnerCustomersScreen} />
     </Stack.Navigator>
   );
 }
