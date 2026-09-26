@@ -19,9 +19,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
 import { useAppTheme } from '../../theme/useAppTheme';
 import { typography } from '../../theme/typography';
-import { Header } from '../../component/Header';
 import { AppIcon } from '../../component/AppIcon';
 import { formatINR } from '../../utils/currency';
+import { useTranslation } from '../../context/LanguageContext';
 import { 
   fetchPartnerDashboardThunk, 
   fetchPartnerContributionsThunk, 
@@ -34,22 +34,29 @@ import { showToast } from '../../store/toastSlice';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { CustomInput } from '../../component/Common/CustomInput';
 import { Skeleton } from '../../component/Common/Skeleton';
+import { Header } from '../../component';
 
 export const PartnerEarningsReportScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { colors, typography, radius } = useAppTheme();
   const partner = useAppSelector(state => state.partner);
   const dispatch = useAppDispatch();
+  const { t } = useTranslation();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [amount, setAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Bank Transfer'>('Cash');
-  const [notes, setNotes] = useState('Capital contribution');
+  const [paymentMethod, setPaymentMethod] = useState<string>('Select payment method');
+  const [notes, setNotes] = useState('');
   const [contributionDate, setContributionDate] = useState(() => {
     const d = new Date();
     return `${d.getDate().toString().padStart(2, '0')}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getFullYear()}`;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [amountError, setAmountError] = useState('');
+  const [paymentError, setPaymentError] = useState('');
+  const [dateError, setDateError] = useState('');
+  const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const [filterWidth, setFilterWidth] = useState(0);
@@ -141,11 +148,31 @@ export const PartnerEarningsReportScreen: React.FC = () => {
   }));
 
   const handleAddInvestment = () => {
+    let hasError = false;
     const numAmount = parseFloat(amount.replace(/[^0-9.]/g, ''));
+    
     if (!numAmount || numAmount <= 0) {
-      dispatch(showToast({ type: 'error', title: 'Invalid Amount', message: 'Enter a valid investment amount.' }));
-      return;
+      setAmountError(t('Please enter a valid investment amount.') || 'Please enter a valid investment amount.');
+      hasError = true;
+    } else {
+      setAmountError('');
     }
+
+    if (!paymentMethod || paymentMethod === 'Select payment method') {
+      setPaymentError(t('Please select an item in the list.') || 'Please select an item in the list.');
+      hasError = true;
+    } else {
+      setPaymentError('');
+    }
+
+    if (!contributionDate) {
+      setDateError(t('Please enter a valid date.') || 'Please enter a valid date.');
+      hasError = true;
+    } else {
+      setDateError('');
+    }
+
+    if (hasError) return;
 
     setIsSubmitting(true);
     let backendDate = contributionDate;
@@ -156,19 +183,25 @@ export const PartnerEarningsReportScreen: React.FC = () => {
       }
     }
 
-    dispatch(addPartnerContributionThunk({ 
+    const payload = { 
       amount: numAmount, 
       payment_method: paymentMethod,
       contribution_date: backendDate,
       reference_number: "null",
       notes: notes || "Capital contribution",
       partnership_id: idToFetch
-    }))
+    };
+
+    console.log("New Investment API Request Payload:", JSON.stringify(payload, null, 2));
+
+    dispatch(addPartnerContributionThunk(payload))
       .unwrap()
       .then(() => {
         setIsSubmitting(false);
         setModalVisible(false);
         setAmount('');
+        setPaymentMethod('Select payment method');
+        setNotes('');
         dispatch(showToast({ type: 'success', title: 'Success', message: 'Investment added successfully.' }));
         dispatch(fetchPartnerContributionsThunk({ partnership_id: idToFetch }));
       })
@@ -181,7 +214,7 @@ export const PartnerEarningsReportScreen: React.FC = () => {
   return (
     <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
       <StatusBar barStyle="dark-content" />
-      <Header title="My Investment" showBack={false} showNotification={true} />
+      <Header title={t('My Investment') || 'My Investment'} showBack={false} showNotification={true} />
       
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -250,7 +283,7 @@ export const PartnerEarningsReportScreen: React.FC = () => {
                 <AppIcon name="briefcase" size={14} color="#FFFFFF" />
               </View>
               <Text style={[typography.subtitle, { color: '#FFFFFF', marginLeft: 8, opacity: 0.9 }]}>
-                {displayTitlePrefix} Capital Invested
+                {displayTitlePrefix} {t('Capital Invested') || 'Capital Invested'}
               </Text>
             </View>
             <View style={[styles.divider, { backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: 12 }]} />
@@ -277,7 +310,7 @@ export const PartnerEarningsReportScreen: React.FC = () => {
 
           {/* Investment History Log */}
           <Text style={[typography.h3, { color: '#0F172A', marginBottom: 16, marginTop: 8 }]}>
-            Investment History
+            {t('Investment History') || 'Investment History'}
           </Text>
           {(partner.isLoading || isFiltering) && partner.summary ? (
             <View style={{ marginTop: 8 }}>
@@ -287,7 +320,7 @@ export const PartnerEarningsReportScreen: React.FC = () => {
             </View>
           ) : investmentHistory.length === 0 ? (
             <View style={[styles.historyCard, { backgroundColor: colors.white, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
-              <Text style={[typography.caption, { color: '#64748B' }]}>No investment history found</Text>
+              <Text style={[typography.caption, { color: '#64748B' }]}>{t('No investments found') || 'No investment history found'}</Text>
             </View>
           ) : (
             investmentHistory.map((item) => (
@@ -349,64 +382,72 @@ export const PartnerEarningsReportScreen: React.FC = () => {
             <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom || 24 }}>
                 <View style={styles.modalHeader}>
-                  <Text style={[typography.h3, { color: colors.textPrimary }]}>Add Investment</Text>
+                  <Text style={[typography.h3, { color: colors.textPrimary }]}>{t('New Investment') || 'Add Investment'}</Text>
                   <TouchableOpacity onPress={() => setModalVisible(false)}>
                     <AppIcon name="x" size={24} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={[typography.bodyMedium, styles.label]}>Investment Amount</Text>
-                  <View style={[styles.inputBox, { borderColor: colors.border }]}>
+                  <Text style={[typography.bodyMedium, styles.label]}>{t('Investment Amount') || 'Investment Amount'} <Text style={{ color: colors.error }}>*</Text></Text>
+                  <View style={[styles.inputBox, { borderColor: amountError ? colors.error : colors.border }]}>
                     <Text style={[styles.currencyPrefix, { color: colors.textPrimary }]}>₹</Text>
                     <TextInput
                       style={[styles.numericInput, { color: colors.textPrimary }]}
                       value={amount}
-                      onChangeText={setAmount}
+                      onChangeText={(val) => { setAmount(val); setAmountError(''); }}
                       keyboardType="numeric"
                       placeholder="10000"
                       placeholderTextColor={colors.textMuted}
                     />
                   </View>
+                  {amountError ? <Text style={[typography.caption, { color: colors.error, marginTop: 4 }]}>{amountError}</Text> : null}
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={[typography.bodyMedium, styles.label]}>Payment Method</Text>
-                  <View style={styles.paymentMethodsRow}>
-                    {(['Cash', 'Bank Transfer'] as const).map(mode => {
-                      const isSelected = paymentMethod === mode;
-                      return (
-                        <TouchableOpacity
-                          key={mode}
-                          style={[
-                            styles.paymentMethodPill,
-                            { borderColor: isSelected ? '#10B981' : colors.border, backgroundColor: isSelected ? '#ECFDF5' : colors.white }
-                          ]}
-                          onPress={() => setPaymentMethod(mode)}
+                <View style={[styles.inputGroup, { zIndex: 10 }]}>
+                  <Text style={[typography.bodyMedium, styles.label]}>{t('Payment Method') || 'Payment Method'} <Text style={{ color: colors.error }}>*</Text></Text>
+                  <TouchableOpacity 
+                    style={[styles.inputBox, { borderColor: paymentError ? colors.error : colors.border, justifyContent: 'space-between', paddingHorizontal: 12 }]}
+                    onPress={() => setShowPaymentDropdown(!showPaymentDropdown)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[typography.bodyMedium, { color: paymentMethod === 'Select payment method' ? colors.textMuted : colors.textPrimary }]}>
+                      {t(paymentMethod) || paymentMethod}
+                    </Text>
+                    <AppIcon name={showPaymentDropdown ? "chevron-up" : "chevron-down"} size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                  
+                  {showPaymentDropdown && (
+                    <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginTop: 4, backgroundColor: colors.white }}>
+                      {['Select payment method', 'Cash', 'Bank Transfer', 'UPI', 'Cheque', 'Other'].map((opt, index, arr) => (
+                        <TouchableOpacity 
+                          key={opt}
+                          style={{ padding: 12, borderBottomWidth: index < arr.length - 1 ? 1 : 0, borderBottomColor: '#F1F5F9' }}
+                          onPress={() => { setPaymentMethod(opt); setShowPaymentDropdown(false); setPaymentError(''); }}
                         >
-                          <Text style={[typography.bodyMedium, { color: isSelected ? '#047857' : '#64748B', fontWeight: isSelected ? '700' : '500' }]}>
-                            {mode}
-                          </Text>
+                          <Text style={[typography.bodyMedium, { color: opt === 'Select payment method' ? colors.textMuted : colors.textPrimary }]}>{t(opt) || opt}</Text>
                         </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                      ))}
+                    </View>
+                  )}
+                  {paymentError ? <Text style={[typography.caption, { color: colors.error, marginTop: 4 }]}>{paymentError}</Text> : null}
                 </View>
 
                 <CustomInput
-                  label="Contribution Date (DD-MM-YYYY)"
+                  label={(t('Date') || "Contribution Date") + " *"}
                   value={contributionDate}
-                  onChangeText={setContributionDate}
+                  onChangeText={(val) => { setContributionDate(val); setDateError(''); }}
                   placeholder="16-09-2026"
                   leftIcon="calendar"
+                  error={dateError}
                 />
                 
                 <View style={{ marginTop: -8 }}>
                   <CustomInput
-                    label="Notes (Optional)"
+                    label={t('Notes (Optional)') || "Notes (Optional)"}
                     value={notes}
                     onChangeText={setNotes}
-                    placeholder="Capital contribution"
+                    placeholder={t('Notes (Optional)') || "Capital contribution"}
                     leftIcon="file-text"
                     multiline={true}
                     numberOfLines={4}
@@ -414,7 +455,7 @@ export const PartnerEarningsReportScreen: React.FC = () => {
                 </View>
 
                 <CustomButton
-                  title={isSubmitting ? 'Processing...' : 'Submit Investment'}
+                  title={isSubmitting ? '...' : (t('Confirm Investment') || 'Submit Investment')}
                   onPress={handleAddInvestment}
                   isLoading={isSubmitting}
                   variant="primary"

@@ -39,6 +39,7 @@ export const AddCollectionScreen: React.FC = () => {
   const [amount, setAmount] = useState(
     String(route.params?.defaultAmount || initialCustomer?.pendingAmount || '50000'),
   );
+  const [advanceAmount, setAdvanceAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI' | 'Bank Transfer'>('Cash');
   const [remarks, setRemarks] = useState('');
   const isSubmitting = useAppSelector(state => state.agent.isSubmittingCollection);
@@ -58,12 +59,14 @@ export const AddCollectionScreen: React.FC = () => {
 
     try {
       if (initialCustomer) {
+        const numAdvanceAmount = parseFloat(advanceAmount.replace(/[^0-9.]/g, '')) || undefined;
         await dispatch(
           recordCollectionThunk({
             customerName: initialCustomer.name,
             customerId: initialCustomer.id,
             loanId: initialCustomer.loanId,
             amount: numAmount,
+            advanceAmount: numAdvanceAmount,
             paymentMethod: paymentMode as any,
             remarks,
           }),
@@ -154,6 +157,23 @@ export const AddCollectionScreen: React.FC = () => {
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[typography.bodyMedium, styles.label]}>
+              Advance Amount (Optional)
+            </Text>
+            <View style={[styles.inputContainer, dynamicStyles.inputContainer]}>
+              <Text style={[typography.bodyLarge, styles.currencyText]}>₹</Text>
+              <TextInput
+                style={[styles.input, typography.bodyLarge, styles.inputText]}
+                value={advanceAmount}
+                onChangeText={setAdvanceAmount}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor="#94A3B8"
               />
             </View>
           </View>

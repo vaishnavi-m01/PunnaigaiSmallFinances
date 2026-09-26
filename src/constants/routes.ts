@@ -24,6 +24,8 @@ export const ROUTES = {
   MY_DOCUMENTS: 'MyDocumentsScreen',
   CUSTOMER_NOTIFICATIONS: 'CustomerNotificationsScreen',
   CUSTOMER_PROFILE: 'CustomerProfileScreen',
+  CUSTOMER_PROFILE_VIEW: 'CustomerProfileViewScreen',
+  HELP_AND_SUPPORT: 'HelpSupportScreen',
   MAKE_PAYMENT: 'MakePaymentScreen',
 
   // Agent Routes

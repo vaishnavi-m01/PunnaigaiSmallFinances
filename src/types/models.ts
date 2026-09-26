@@ -104,13 +104,17 @@ export interface CustomerDocumentItem {
 }
 
 export interface AppNotification {
-  id: string;
+  id: string;           // string version for Redux keying
+  numericId: number;    // real API id (used for mark-read patch)
   title: string;
   message: string;
   timeAgo: string;
   type: NotificationType;
   isRead: boolean;
   createdAt?: string;
+  readAt?: string | null;
+  /** Raw data payload from API (schedule_id, due_date, etc.) */
+  payload?: Record<string, string>;
 }
 
 // Agent Domain
@@ -365,6 +369,25 @@ export interface LoanRequest {
   status: 'Pending' | 'Approved' | 'Rejected';
   adminNotes: string | null;
 }
+
+export interface OverdueSchedule {
+  scheduleId: number;
+  dueDate: string;
+  amount: number;
+  paidAmount: number;
+  balance: number;
+  penalty: number;
+  totalDue: number;
+  status: string;
+  loanPackageName: string;
+}
+
+export interface OverdueResponse {
+  count: number;
+  totalDue: number;
+  overdue: OverdueSchedule[];
+}
+
 
 export interface DashboardData {
   activeLoan: {

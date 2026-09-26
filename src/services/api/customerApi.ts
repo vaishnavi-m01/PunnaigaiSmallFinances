@@ -72,11 +72,16 @@ export interface LoanDetailResponse {
   id: number;
   customer_id: number;
   loan_package_id: number;
-  loan_request_id: number;
-  requested_amount: string;
-  deduction_amount: string;
-  approved_amount: string;
-  repayment_obligation: string;
+  loan_request_id?: number;
+  total_amount?: number | string;
+  disbursed_amount?: number | string;
+  repayment_amount?: number | string;
+  paid_amount?: number | string;
+  outstanding_amount?: number | string;
+  requested_amount?: string;
+  deduction_amount?: string;
+  approved_amount?: string;
+  repayment_obligation?: string;
   due_date: string;
   status: string;
   created_at: string;
@@ -120,6 +125,7 @@ export interface MyLoanResponse {
   finance_id: number;
   loan_package_id: number;
   loan_package_name: string;
+  loan_amount: number;
   installment_count: number;
   duration: number;
   frequency: string;
@@ -249,4 +255,67 @@ export const getPaymentHistory = async (params: {
 }): Promise<PaymentHistoryResponse> => {
   const response = await apiClient.get('/mypaymentshistory', { params });
   return response.data;
+};
+
+// ─── Overdue ──────────────────────────────────────────────────────────────────
+
+export const getOverdue = async (): Promise<{
+  success: boolean;
+  message: string;
+  data: any;
+}> => {
+  const response = await apiClient.get(ENDPOINTS.CUSTOMER.OVERDUE);
+  return response.data;
+};
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export interface NotificationApiItem {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  data: Record<string, string>;
+  read: boolean;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface NotificationsApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    notifications: NotificationApiItem[];
+    counts: {
+      total: number;
+      read: number;
+      unread: number;
+    };
+  };
+}
+
+/** GET /notifications */
+export const getNotifications = async (): Promise<NotificationsApiResponse> => {
+  const response = await apiClient.get(ENDPOINTS.CUSTOMER.NOTIFICATIONS);
+  return response.data;
+};
+
+/** GET /notifications/unreadcount */
+export const getNotificationUnreadCount = async (): Promise<{
+  success: boolean;
+  message: string;
+  data: { unread_count: number };
+}> => {
+  const response = await apiClient.get(ENDPOINTS.CUSTOMER.NOTIFICATION_UNREAD_COUNT);
+  return response.data;
+};
+
+/** PATCH /notifications/:id/read */
+export const markNotificationReadApi = async (id: number | string): Promise<void> => {
+  await apiClient.patch(ENDPOINTS.CUSTOMER.NOTIFICATION_READ(id));
+};
+
+/** POST /notifications/read-all */
+export const markAllNotificationsReadApi = async (): Promise<void> => {
+  await apiClient.post(ENDPOINTS.CUSTOMER.NOTIFICATIONS_READ_ALL);
 };

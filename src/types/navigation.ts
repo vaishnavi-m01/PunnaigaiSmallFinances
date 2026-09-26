@@ -33,6 +33,8 @@ export type CustomerStackParamList = {
   [ROUTES.MY_DOCUMENTS]: undefined;
   [ROUTES.CUSTOMER_NOTIFICATIONS]: undefined;
   [ROUTES.CUSTOMER_PROFILE]: undefined;
+  [ROUTES.CUSTOMER_PROFILE_VIEW]: undefined;
+  [ROUTES.HELP_AND_SUPPORT]: undefined;
   [ROUTES.MAKE_PAYMENT]: { amount?: number; title?: string };
 };
 
@@ -96,4 +98,5 @@ export type PartnerStackParamList = {
   [ROUTES.PARTNER_DOCUMENTS]: undefined;
   [ROUTES.PARTNER_NOTIFICATIONS]: undefined;
   [ROUTES.PARTNER_ADD_EXPENSE]: undefined;
+  [ROUTES.PARTNER_CUSTOMERS]: undefined;
 };

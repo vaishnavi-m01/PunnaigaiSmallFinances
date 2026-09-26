@@ -8,6 +8,7 @@ export interface RecordCollectionInput {
   customerName: string;
   loanId: string;
   amount: number;
+  advanceAmount?: number;
   paymentMethod: agentApi.CollectionPaymentMethod;
   remarks?: string;
 }
@@ -43,6 +44,7 @@ export const recordCollectionThunk = createAsyncThunk(
       const collection = await agentApi.recordCollection({
         customer_id: Number(input.customerId),
         amount: input.amount,
+        advance_amount: input.advanceAmount,
         mode: input.paymentMethod.toLowerCase(),
         notes: input.remarks,
         collected_at: new Date().toISOString().split('T')[0], 

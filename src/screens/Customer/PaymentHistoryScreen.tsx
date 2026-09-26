@@ -18,7 +18,7 @@ import * as customerApi from '../../services/api/customerApi';
 import { formatDate } from '../../utils/date';
 
 export const PaymentHistoryScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
+  // const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const initialLoanId = route.params?.loanId;
 
@@ -45,7 +45,7 @@ export const PaymentHistoryScreen: React.FC = () => {
       const fmt = (d: Date) =>
         `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-      const to_date = fmt(now);
+      const to_date = fmt(new Date(now.getFullYear(), 11, 31));
       const from = new Date(
         now.getFullYear() - 1,
         now.getMonth(),
@@ -362,12 +362,7 @@ export const PaymentHistoryScreen: React.FC = () => {
 
                 <View style={styles.listCard}>
                   {(() => {
-                    const isExpanded =
-                      expandedLoans[String(loan.finance_id)] || false;
-                    const itemsToShow = isExpanded
-                      ? filteredHistory
-                      : filteredHistory.slice(0, 3);
-                    const hasMore = filteredHistory.length > 3;
+                    const itemsToShow = filteredHistory;
 
                     return (
                       <>
@@ -377,8 +372,7 @@ export const PaymentHistoryScreen: React.FC = () => {
                             'completed',
                             'approved',
                           ].includes(item.status?.toLowerCase());
-                          const isLast =
-                            index === itemsToShow.length - 1 && !hasMore;
+                          const isLast = index === itemsToShow.length - 1;
                           return (
                             <View
                               key={item.payment_id || index}
@@ -400,16 +394,14 @@ export const PaymentHistoryScreen: React.FC = () => {
                                       item.paid_at || (item as any).due_date,
                                     )}
                                   </Text>
+                                  <Text style={styles.historySubtitle}>
+                                    {item.mode
+                                      ? item.mode.toUpperCase()
+                                      : 'EMI Payment'}
+                                  </Text>
                                 </View>
                               </View>
-                              <Text style={styles.historySubtitle}>
-                                {item.mode
-                                  ? item.mode.toUpperCase()
-                                  : 'EMI Payment'}
-                              </Text>
-                              <View
-                                style={{ alignItems: 'flex-end', minWidth: 60 }}
-                              >
+                              <View style={{ alignItems: 'flex-end' }}>
                                 <Text style={styles.historyAmountCompact}>
                                   {formatINR(Number(item.amount))}
                                 </Text>
@@ -425,28 +417,6 @@ export const PaymentHistoryScreen: React.FC = () => {
                             </View>
                           );
                         })}
-                        {hasMore && (
-                          <TouchableOpacity
-                            style={styles.viewMoreBtn}
-                            onPress={() =>
-                              toggleExpand(String(loan.finance_id))
-                            }
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.viewMoreBtnText}>
-                              {isExpanded
-                                ? 'Hide transactions'
-                                : `View ${
-                                    filteredHistory.length - 3
-                                  } more transactions`}
-                            </Text>
-                            <AppIcon
-                              name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                              size={14}
-                              color="#0D523B"
-                            />
-                          </TouchableOpacity>
-                        )}
                       </>
                     );
                   })()}

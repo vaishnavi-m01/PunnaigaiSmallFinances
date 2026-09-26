@@ -17,6 +17,8 @@ import { PenaltyDetailsScreen } from '../../screens/Customer/PenaltyDetailsScree
 import { MyDocumentsScreen } from '../../screens/Customer/MyDocumentsScreen';
 import { NotificationsScreen } from '../../screens/Customer/NotificationsScreen';
 import { CustomerProfileScreen } from '../../screens/Customer/CustomerProfileScreen';
+import { CustomerProfileViewScreen } from '../../screens/Customer/CustomerProfileViewScreen';
+import { HelpSupportScreen } from '../../screens/Customer/HelpSupportScreen';
 
 const Stack = createNativeStackNavigator<CustomerStackParamList>();
 
@@ -67,6 +69,14 @@ function CustomerStackNavigatorBase() {
       <Stack.Screen
         name={ROUTES.CUSTOMER_PROFILE}
         component={CustomerProfileScreen}
+      />
+      <Stack.Screen
+        name={ROUTES.CUSTOMER_PROFILE_VIEW}
+        component={CustomerProfileViewScreen}
+      />
+      <Stack.Screen
+        name={ROUTES.HELP_AND_SUPPORT}
+        component={HelpSupportScreen}
       />
     </Stack.Navigator>
   );

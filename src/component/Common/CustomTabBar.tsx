@@ -53,8 +53,8 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({
             });
           };
 
-          const activeColor = '#0D523B';
-          const inactiveColor = '#64748B';
+          const activeColor = '#047857';
+          const inactiveColor = '#94A3B8';
 
           return (
             <TouchableOpacity
@@ -117,13 +117,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconWrapper: {
-    height: 24,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
   tabLabel: {
-    fontSize: 10.5,
+    fontSize: 11,
     textAlign: 'center',
     letterSpacing: 0.1,
   },

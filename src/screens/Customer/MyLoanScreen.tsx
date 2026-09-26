@@ -72,8 +72,9 @@ export const MyLoanScreen: React.FC = () => {
       >
         {isRefreshing || isLoansLoading ? (
           <View style={{ paddingTop: 8 }}>
-            <Skeleton height={260} borderRadius={24} style={{ marginBottom: 16 }} />
-            <Skeleton height={260} borderRadius={24} style={{ marginBottom: 16 }} />
+            <Skeleton height={160} borderRadius={12} style={{ marginBottom: 12 }} />
+            <Skeleton height={160} borderRadius={12} style={{ marginBottom: 12 }} />
+            <Skeleton height={160} borderRadius={12} style={{ marginBottom: 12 }} />
           </View>
         ) : (
           <>
@@ -87,7 +88,7 @@ export const MyLoanScreen: React.FC = () => {
               <View style={styles.loansList}>
                 {myLoans.map(loan => {
                   const schedule = loan.repayment_schedule ?? [];
-                  const totalLoanAmount = schedule.reduce((sum, s) => sum + s.amount, 0);
+                  const totalLoanAmount = loan.loan_amount ?? 0;
                   const totalPaid = schedule.reduce((sum, s) => sum + (s.paid_amount ?? 0), 0);
                   const completedInstallments = schedule.filter(s =>
                     ['paid', 'completed'].includes(s.status?.toLowerCase()),
@@ -107,7 +108,7 @@ export const MyLoanScreen: React.FC = () => {
                       <View style={styles.cardHeaderRow}>
                         <View style={styles.cardHeaderLeft}>
                           <View style={[styles.iconCircle, { backgroundColor: theme.primary }]}>
-                            <AppIcon name={theme.icon} size={20} color="#FFFFFF" />
+                            <AppIcon name={theme.icon} size={14} color="#FFFFFF" />
                           </View>
                           <View>
                             <Text style={styles.loanName}>{loan.loan_package_name}</Text>
@@ -202,57 +203,52 @@ const styles = StyleSheet.create({
   },
   loanCard: {
     backgroundColor: '#FFFFFF',
-    marginBottom: 20,
-    borderRadius: 24,
-    padding: 20,
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 12,
   },
   cardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loanName: {
     color: '#0F172A',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
   },
   loanId: {
     color: '#64748B',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 2,
   },
   activeBadge: {
     backgroundColor: '#ECFDF5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#D1FAE5',
   },
   activeBadgeText: {
     color: '#059669',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
@@ -260,59 +256,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 12,
   },
   amountText: {
     color: '#0D523B',
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: '900',
     letterSpacing: -0.5,
   },
   amountLabel: {
     color: '#64748B',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 2,
   },
   tenureText: {
     color: '#0F172A',
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '800',
   },
   progressArea: {
-    marginBottom: 24,
+    marginBottom: 12,
   },
   progressLabel: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '700',
-    marginBottom: 10,
+    marginBottom: 4,
   },
   progressBarTrack: {
-    height: 8,
+    height: 4,
     backgroundColor: '#F1F5F9',
-    borderRadius: 4,
+    borderRadius: 2,
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: 4,
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 2,
   },
   progressValues: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '700',
   },
   viewDetailsButton: {
     backgroundColor: '#0D523B',
-    height: 54,
-    borderRadius: 16,
+    height: 38,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   viewDetailsText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '800',
   },
 });

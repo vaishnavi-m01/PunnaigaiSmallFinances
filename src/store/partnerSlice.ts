@@ -12,6 +12,7 @@ import {
   PartnershipTransactionDetail
 } from '../types/models';
 import * as partnerApi from '../services/api/partnerApi';
+import { logout } from './authSlice';
 
 export interface PartnerState {
   profile: PartnerProfile | null;
@@ -173,6 +174,20 @@ export const partnerSlice = createSlice({
     }
   },
   extraReducers: (builder) => {
+    // Helper to sort partnerships so the logged in partner is first
+    const sortPartnerships = (state: PartnerState) => {
+      state.partnerships.sort((a, b) => {
+        if (state.profile) {
+          if (a.partnership_code === state.profile.par_code) return -1;
+          if (b.partnership_code === state.profile.par_code) return 1;
+          if (a.partnership_name === state.profile.name) return -1;
+          if (b.partnership_name === state.profile.name) return 1;
+        }
+        if (a.partner_type === 'individual' && b.partner_type !== 'individual') return -1;
+        if (b.partner_type === 'individual' && a.partner_type !== 'individual') return 1;
+        return 0;
+      });
+    };
     // Dashboard
     builder.addCase(fetchPartnerDashboardThunk.pending, (state) => {
       state.isLoading = true;
@@ -256,6 +271,9 @@ export const partnerSlice = createSlice({
           });
         }
         
+        // Sort so the logged-in partner is first
+        sortPartnerships(state);
+
         // Auto-select first active partner if none selected or if selected is not in list
         if (state.partnerships.length > 0) {
            const exists = state.partnerships.find((p: any) => p.partnership_code === state.selectedPartnershipCode);
@@ -279,6 +297,15 @@ export const partnerSlice = createSlice({
     builder.addCase(fetchPartnerProfileThunk.fulfilled, (state, action) => {
       state.isLoading = false;
       state.profile = action.payload;
+      
+      const prevFirst = state.partnerships[0]?.partnership_code;
+      sortPartnerships(state);
+      
+      // If the selected partnership was the old first item (auto-selected), 
+      // update it to the new first item after sorting.
+      if (state.partnerships.length > 0 && state.selectedPartnershipCode === prevFirst) {
+         state.selectedPartnershipCode = state.partnerships[0].partnership_code;
+      }
     });
     builder.addCase(fetchPartnerProfileThunk.rejected, (state, action) => {
       state.isLoading = false;
@@ -404,6 +431,9 @@ export const partnerSlice = createSlice({
       state.isLoading = false;
       state.error = action.payload as string;
     });
+
+    // Clear state on logout
+    builder.addCase(logout, () => initialState);
   },
 });
 

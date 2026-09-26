@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
@@ -25,6 +24,7 @@ import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
 import { requestPartnerWithdrawalThunk, fetchPartnerWithdrawalsThunk, fetchPartnerDashboardThunk, fetchPartnerPartnershipsThunk } from '../../store/partnerSlice';
 import { showToast } from '../../store/toastSlice';
+import { useTranslation } from '../../context/LanguageContext';
 
 const QUICK_AMOUNTS = [5000, 10000, 20000, 35000];
 
@@ -34,6 +34,7 @@ export const PartnerWithdrawScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const { colors, typography, radius } = useAppTheme();
   const partner = useAppSelector(state => state.partner);
+  const { t } = useTranslation();
 
   const availableBalance = partner.summary?.available_balance || 0;
 
@@ -134,7 +135,7 @@ export const PartnerWithdrawScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
-      <Header title="Withdraw Partner Earnings" showBack={true} />
+      <Header title={t('Withdraw Partner Earnings') || 'Withdraw Partner Earnings'} showBack={true} />
 
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
@@ -162,9 +163,9 @@ export const PartnerWithdrawScreen: React.FC = () => {
         {/* Amount Section */}
         <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="flat">
           <View style={styles.sectionHeaderRow}>
-            <Text style={[typography.h4, { color: colors.textPrimary }]}>Enter Withdrawal Amount</Text>
+            <Text style={[typography.h4, { color: colors.textPrimary }]}>{t('Enter Withdrawal Amount') || 'Enter Withdrawal Amount'}</Text>
             <TouchableOpacity onPress={handleMaxSelect}>
-              <Text style={[typography.captionBold, { color: colors.primary }]}>WITHDRAW ALL</Text>
+              <Text style={[typography.captionBold, { color: colors.primary }]}>{t('WITHDRAW ALL') || 'WITHDRAW ALL'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -211,10 +212,10 @@ export const PartnerWithdrawScreen: React.FC = () => {
         {/* Remarks Section */}
         <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="flat">
           <CustomInput
-            label="Remarks / Note (Optional)"
+            label={t('Remarks / Note (Optional)') || "Remarks / Note (Optional)"}
             value={remarks}
             onChangeText={setRemarks}
-            placeholder="e.g. Monthly profit share withdrawal"
+            placeholder={t('e.g. Monthly profit share withdrawal') || "e.g. Monthly profit share withdrawal"}
             multiline={true}
             numberOfLines={4}
           />
@@ -230,7 +231,7 @@ export const PartnerWithdrawScreen: React.FC = () => {
       {/* Sticky Bottom Action Button */}
       <View style={[styles.stickyBottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <CustomButton
-          title={isSubmitting ? 'Submitting Request...' : `Withdraw ${formatINR(parsedAmount)}`}
+          title={isSubmitting ? (t('Submitting Request...') || 'Submitting Request...') : `${t('Withdraw') || 'Withdraw'} ${formatINR(parsedAmount)}`}
           onPress={handleSubmit}
           variant="primary"
           isLoading={isSubmitting}
@@ -247,28 +248,28 @@ export const PartnerWithdrawScreen: React.FC = () => {
             </View>
 
             <Text style={[typography.h3, { color: colors.textPrimary, marginTop: 16, textAlign: 'center' }]}>
-              Partner Withdrawal Requested!
+              {t('Partner Withdrawal Requested!') || 'Partner Withdrawal Requested!'}
             </Text>
 
             <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', marginTop: 8 }]}>
-              Your request for <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{formatINR(parsedAmount)}</Text> has been submitted for finance approval and disbursement.
+              {t('Your request for') || 'Your request for'} <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{formatINR(parsedAmount)}</Text> {t('has been submitted for finance approval and disbursement.') || 'has been submitted for finance approval and disbursement.'}
             </Text>
 
             <View style={[styles.summaryBox, { backgroundColor: colors.surfaceSubtle }]}>
               <View style={styles.summaryRow}>
-                <Text style={[typography.caption, { color: colors.textMuted }]}>Notes</Text>
+                <Text style={[typography.caption, { color: colors.textMuted }]}>{t('Notes') || 'Notes'}</Text>
                 <Text style={[typography.captionBold, { color: colors.textPrimary }]} numberOfLines={1}>
                   {remarks || '-'}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={[typography.caption, { color: colors.textMuted }]}>Estimated Time</Text>
-                <Text style={[typography.captionBold, { color: colors.primary }]}>24 - 48 Hours</Text>
+                <Text style={[typography.caption, { color: colors.textMuted }]}>{t('Estimated Time') || 'Estimated Time'}</Text>
+                <Text style={[typography.captionBold, { color: colors.primary }]}>{t('24 - 48 Hours') || '24 - 48 Hours'}</Text>
               </View>
             </View>
 
             <CustomButton
-              title="Done & View Wallet"
+              title={t('Done & View Wallet') || 'Done & View Wallet'}
               onPress={() => {
                 setSuccessModal(false);
                 navigation.goBack();

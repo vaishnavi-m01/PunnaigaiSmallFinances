@@ -4,6 +4,7 @@ import { STORAGE_KEYS } from '../constants/storageKeys';
 import { API_BASE_URL } from '@env';
 import * as NavigationService from '../navigation/navigationService';
 import { ROUTES } from '../constants/routes';
+import { store } from '../store/store';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -72,10 +73,14 @@ apiClient.interceptors.response.use(
     const responseData = error.response?.data as any;
     const errorMessage = responseData?.message;
 
+    // Do not trigger auto-logout if the request was to the login endpoint
+    const isLoginEndpoint = url?.includes('/login');
+
     // Auto-logout on 401 Unauthorized or if the partner profile is deleted/inactive
-    if (status === 401 || (status === 404 && errorMessage === 'No active partner profile is available.')) {
+    if (!isLoginEndpoint && (status === 401 || (status === 404 && errorMessage === 'No active partner profile is available.'))) {
       console.warn('[API] Unauthorized or No Active Profile — clearing auth token');
       await StorageService.clearAuth();
+      store.dispatch({ type: 'auth/logout' });
       NavigationService.reset(ROUTES.LOGIN);
     }
 

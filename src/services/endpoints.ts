@@ -11,11 +11,17 @@ export const ENDPOINTS = {
     LOAN_REQUEST: '/loan-request',
     LOAN_REQUESTS: '/loan-requests',
     LOAN_DETAIL: (id: number) => `/loanPackageDetail/${id}`,
+    NOTIFICATIONS: '/notifications',
+    NOTIFICATION_UNREAD_COUNT: '/notifications/unreadcount',
+    NOTIFICATION_READ: (id: number | string) => `/notifications/${id}/read`,
+    NOTIFICATIONS_READ_ALL: '/notifications/read-all',
+    OVERDUE: '/overdue',
   },
   AGENT: {
     ASSIGNED_CUSTOMERS: '/agent/assigned-customers',
-    COLLECTIONS: '/agent/collections/store',
-    COLLECTION_STATUS: (id: string | number) => `/agent/collections/${id}/status`,
+    COLLECTIONS: '/collections',
+    COLLECTION_STATUS: (id: string | number) =>
+      `/agent/collections/${id}/status`,
   },
   PARTNER: {
     PROFILE: '/partner/profile',

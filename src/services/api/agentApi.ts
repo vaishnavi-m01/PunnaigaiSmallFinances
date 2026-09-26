@@ -6,6 +6,7 @@ export type CollectionPaymentMethod = 'Cash' | 'UPI' | 'Cheque';
 export interface RecordCollectionPayload {
   customer_id: string | number;
   amount: number;
+  advance_amount?: number;
   mode: string;
   notes?: string;
   collected_at: string;

@@ -11,10 +11,13 @@ import { CustomTabBar } from '../../component/Common/CustomTabBar';
 
 import { PartnerCustomersScreen } from '../../screens/partner/PartnerCustomersScreen';
 import { PartnerExpensesScreen } from '../../screens/partner/PartnerExpensesScreen';
+import { useTranslation } from '../../context/LanguageContext';
 
 const Tab = createBottomTabNavigator<PartnerTabParamList>();
 
 export const PartnerTabNavigator: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
@@ -26,7 +29,7 @@ export const PartnerTabNavigator: React.FC = () => {
         name={ROUTES.PARTNER_DASHBOARD}
         component={PartnerDashboardScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: t('Home') || 'Home',
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="home" size={size || 20} color={color} />
           ),
@@ -36,7 +39,7 @@ export const PartnerTabNavigator: React.FC = () => {
         name={ROUTES.MY_EARNINGS}
         component={PartnerEarningsReportScreen}
         options={{
-          tabBarLabel: 'Investment',
+          tabBarLabel: t('Investment') || 'Investment',
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="trending-up" size={size || 20} color={color} />
           ),
@@ -46,7 +49,7 @@ export const PartnerTabNavigator: React.FC = () => {
         name={ROUTES.PARTNER_WALLET}
         component={PartnerWalletScreen}
         options={{
-          tabBarLabel: 'Wallet',
+          tabBarLabel: t('Wallet') || 'Wallet',
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="credit-card" size={size || 20} color={color} />
           ),
@@ -56,7 +59,7 @@ export const PartnerTabNavigator: React.FC = () => {
         name={ROUTES.PARTNER_EXPENSES}
         component={PartnerExpensesScreen}
         options={{
-          tabBarLabel: 'Expenses',
+          tabBarLabel: t('Expenses') || 'Expenses',
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="file-text" size={size || 20} color={color} />
           ),
@@ -66,7 +69,7 @@ export const PartnerTabNavigator: React.FC = () => {
         name={ROUTES.PARTNER_PROFILE}
         component={PartnerProfileScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: t('Profile') || 'Profile',
           tabBarIcon: ({ color, size }) => (
             <AppIcon name="user" size={size || 20} color={color} />
           ),

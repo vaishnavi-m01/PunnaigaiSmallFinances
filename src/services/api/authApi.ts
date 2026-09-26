@@ -5,6 +5,7 @@ export interface LoginPayload {
   otp?: string;
   email?: string;
   password?: string;
+  fcm_token?: string;
 }
 
 export interface SendOtpPayload {
@@ -32,18 +33,17 @@ export interface ProfileUpdatePayload {
 }
 
 export const login = async (payload: LoginPayload): Promise<LoginResponse> => {
-  const response = await apiClient.post<{ data: LoginResponse } | LoginResponse>(
-    '/login',
-    payload
-  );
+  const response = await apiClient.post<
+    { data: LoginResponse } | LoginResponse
+  >('/login', payload);
   // Handle both { data: ... } and flat response shapes
   const body = response.data as any;
   const data = body.data ?? body;
-  
+
   if (data.access_token && !data.token) {
     data.token = data.access_token;
   }
-  
+
   return data;
 };
 
@@ -53,11 +53,9 @@ export const sendOtp = async (payload: SendOtpPayload) => {
   return body.data ?? body;
 };
 
-
 export const logoutApi = async (): Promise<void> => {
   await apiClient.post('/logout');
 };
-
 
 export const getProfile = async () => {
   const response = await apiClient.get('/profile');
@@ -69,4 +67,9 @@ export const updateProfile = async (payload: ProfileUpdatePayload) => {
   const response = await apiClient.put('/profile', payload);
   const body = response.data as any;
   return body.data ?? body;
+};
+
+export const sendDeviceToken = async (payload: { fcm_token: string }) => {
+  const response = await apiClient.post('/device-token', payload);
+  return response.data;
 };

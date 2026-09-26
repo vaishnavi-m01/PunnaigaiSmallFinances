@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "464102156280",
+    "project_id": "punnagai-small-finances",
+    "storage_bucket": "punnagai-small-finances.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:464102156280:android:caeff5ce02fa5be1fa980d",
+        "android_client_info": {
+          "package_name": "com.punnaigaismallfinances"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZPZGITAxGkZpWTt2cTZXesIn9uhBW2gU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -12,8 +12,8 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
@@ -21,6 +21,7 @@ import { fetchPartnerWithdrawalsThunk, fetchPartnerTransactionsThunk, fetchPartn
 import { showToast } from '../../store/toastSlice';
 import { useAppTheme } from '../../theme/useAppTheme';
 import { Header } from '../../component/Header';
+import { useTranslation } from '../../context/LanguageContext';
 import { AppIcon } from '../../component/AppIcon';
 import { Skeleton } from '../../component/Common/Skeleton';
 import { CustomInput } from '../../component/Common/CustomInput';
@@ -29,6 +30,7 @@ import { formatINR } from '../../utils/currency';
 import { formatDate } from '../../utils';
 import { ROUTES } from '../../constants/routes';
 import { PartnerTransaction } from '../../types/models';
+import { deleteWithdrawal } from '../../services/api/partnerApi';
 
 const QUICK_AMOUNTS = [5000, 10000, 20000, 35000];
 
@@ -41,6 +43,7 @@ export const PartnerWalletScreen: React.FC = () => {
   const { colors, typography } = useAppTheme();
   const dispatch = useAppDispatch();
   const partner = useAppSelector(state => state.partner);
+  const { t } = useTranslation();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
   const [filterWidth, setFilterWidth] = useState(0);
@@ -75,7 +78,7 @@ export const PartnerWalletScreen: React.FC = () => {
   const [withdrawNotes, setWithdrawNotes] = useState('');
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawSuccessModal, setWithdrawSuccessModal] = useState(false);
-  const [withdrawAmountError, setWithdrawAmountError] = useState(false);
+  const [withdrawAmountError, setWithdrawAmountError] = useState('');
 
   const parsedWithdrawAmount = parseFloat(withdrawAmount) || 0;
   const availableBalance = partner.summary?.available_balance || 0;
@@ -91,25 +94,22 @@ export const PartnerWalletScreen: React.FC = () => {
 
   const handleWithdrawSubmit = () => {
     if (!parsedWithdrawAmount || parsedWithdrawAmount <= 0) {
-      setWithdrawAmountError(true);
-      dispatch(
-        showToast({
-          type: 'error',
-          title: 'Invalid Amount',
-          message: 'Please enter a valid withdrawal amount.',
-        })
-      );
+      setWithdrawAmountError('Please enter a valid withdrawal amount.');
       return;
     }
 
     setIsWithdrawing(true);
+    const withdrawalPayload = {
+      amount: parsedWithdrawAmount,
+      withdrawal_type: 'profit' as 'profit',
+      notes: withdrawNotes,
+      partnership_id: idToFetch,
+    };
+    
+    console.log("Withdraw API Request Payload:", JSON.stringify(withdrawalPayload, null, 2));
+
     dispatch(
-      requestPartnerWithdrawalThunk({
-        amount: parsedWithdrawAmount,
-        withdrawal_type: 'profit',
-        notes: withdrawNotes,
-        partnership_id: idToFetch,
-      })
+      requestPartnerWithdrawalThunk(withdrawalPayload)
     ).unwrap().then(() => {
       setIsWithdrawing(false);
       setWithdrawModalVisible(false);
@@ -124,6 +124,32 @@ export const PartnerWalletScreen: React.FC = () => {
       setIsWithdrawing(false);
       dispatch(showToast({ type: 'error', title: 'Withdrawal Failed', message: err as string }));
     });
+  };
+
+  const handleDeleteWithdrawal = (tx: any) => {
+    Alert.alert(
+      'Delete Withdrawal',
+      `Are you sure you want to delete this withdrawal of ${formatINR(tx.amount)}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Extract the id properly. The user said { "withdrawal_id": 12 }
+              // Wait, tx.rawId might just be the transaction ID.
+              // We'll pass rawId which we assigned when mapping transactions.
+              await deleteWithdrawal({ withdrawal_id: tx.rawId });
+              dispatch(showToast({ type: 'success', title: 'Success', message: 'Withdrawal deleted successfully' }));
+              onRefresh();
+            } catch (err: any) {
+              dispatch(showToast({ type: 'error', title: 'Error', message: err?.response?.data?.message || err?.message || 'Failed to delete withdrawal' }));
+            }
+          }
+        }
+      ]
+    );
   };
 
   let displayTitlePrefix = 'Total';
@@ -221,14 +247,14 @@ export const PartnerWalletScreen: React.FC = () => {
     <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
       <StatusBar barStyle="dark-content" />
       <Header 
-        title="Wallet" 
+        title={t('Wallet') || 'Wallet'} 
         showBack={false} 
         rightComponent={
           <TouchableOpacity 
             style={[styles.dropdownBtn, { backgroundColor: '#F8FAFC', paddingHorizontal: 12, paddingVertical: 8, minWidth: 100, justifyContent: 'space-between', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' }]}
             onPress={() => setShowDateModal(true)}
           >
-            <Text style={[styles.dropdownBtnText, { flex: 1, textAlign: 'center' }]}>{dateFilter === 'All' ? 'All Time' : dateFilter}</Text>
+            <Text style={[styles.dropdownBtnText, { flex: 1, textAlign: 'center' }]}>{dateFilter === 'All' ? (t('All Time') || 'All Time') : dateFilter}</Text>
             <AppIcon name="chevron-down" size={14} color="#64748B" />
           </TouchableOpacity>
         } 
@@ -308,7 +334,7 @@ export const PartnerWalletScreen: React.FC = () => {
                           <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#EDE9FE', justifyContent: 'center', alignItems: 'center' }}>
                             <AppIcon name="pocket" size={14} color="#7C3AED" />
                           </View>
-                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>Avail Balance</Text>
+                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>{t('Avail Balance') || 'Avail Balance'}</Text>
                         </View>
                         <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
                           {formatINR(partner?.summary?.available_balance ?? 0)}
@@ -321,7 +347,7 @@ export const PartnerWalletScreen: React.FC = () => {
                           <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center' }}>
                             <AppIcon name="trending-up" size={14} color="#0284C7" />
                           </View>
-                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>Total Profit</Text>
+                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>{t('Total Profit') || 'Total Profit'}</Text>
                         </View>
                         <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
                           {formatINR(partner?.summary?.total_profit ?? 0)}
@@ -336,7 +362,7 @@ export const PartnerWalletScreen: React.FC = () => {
                           <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#FFEDD5', justifyContent: 'center', alignItems: 'center' }}>
                             <AppIcon name="arrow-up-right" size={14} color="#EA580C" />
                           </View>
-                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>Total Withdraw</Text>
+                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>{t('Total Withdraw') || 'Total Withdraw'}</Text>
                         </View>
                         <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
                           {formatINR(partner?.summary?.total_withdrawal ?? 0)}
@@ -349,7 +375,7 @@ export const PartnerWalletScreen: React.FC = () => {
                           <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#D1FAE5', justifyContent: 'center', alignItems: 'center' }}>
                             <AppIcon name="briefcase" size={14} color="#059669" />
                           </View>
-                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>Total Invest</Text>
+                          <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>{t('Total Invest') || 'Total Invest'}</Text>
                         </View>
                         <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
                           {formatINR(partner?.summary?.total_investment ?? 0)}
@@ -361,7 +387,7 @@ export const PartnerWalletScreen: React.FC = () => {
                   {/* Transaction History Header */}
                   <View style={styles.historyHeader}>
                     <Text style={[typography.h3, { color: '#0F172A' }]}>
-                      Transaction History
+                      {t('Transaction History') || 'Transaction History'}
                     </Text>
                   </View>
 
@@ -380,7 +406,7 @@ export const PartnerWalletScreen: React.FC = () => {
                           styles.filterChipText, 
                           directionFilter === type && { color: '#047857' }
                         ]}>
-                          {type === 'All' ? 'All' : type === 'credit' ? 'Credit (+)' : 'Debit (-)'}
+                          {type === 'All' ? (t('All') || 'All') : type === 'credit' ? (t('Credit (+)') || 'Credit (+)') : (t('Debit (-)') || 'Debit (-)')}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -400,6 +426,7 @@ export const PartnerWalletScreen: React.FC = () => {
                         
                         const txs = (p.transactions || []).map((t: any) => ({
                           id: `tx_${t.id}`,
+                          rawId: t.transactionable_id || t.id,
                           title: t.description || t.transaction_type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
                           subtitle: t.transaction_code,
                           amount: Number(t.amount),
@@ -415,7 +442,7 @@ export const PartnerWalletScreen: React.FC = () => {
                         return (
                           <View key={`tx_group_${p.partnership_id}`} style={{ marginBottom: 24 }}>
                             <Text style={[typography.h3, { color: '#0F172A', marginBottom: 16, marginTop: 8 }]}>
-                              {partnerName}'s Transactions
+                              {partnerName} {t('s Transactions') || "'s Transactions"}
                             </Text>
                             {txs.map((tx) => (
                               <View key={tx.id} style={[styles.txCard, { backgroundColor: colors.white, marginBottom: 8 }]}>
@@ -431,6 +458,14 @@ export const PartnerWalletScreen: React.FC = () => {
                                       {tx.subtitle}
                                     </Text>
                                   </View>
+                                  {tx.type === 'debit' && (
+                                    <TouchableOpacity 
+                                      style={{ padding: 4, marginRight: 8 }}
+                                      onPress={() => handleDeleteWithdrawal(tx)}
+                                    >
+                                      <AppIcon name="trash-2" size={16} color="#EF4444" />
+                                    </TouchableOpacity>
+                                  )}
                                 </View>
                                 <View style={styles.txRight}>
                                   <Text style={[
@@ -482,7 +517,7 @@ export const PartnerWalletScreen: React.FC = () => {
             <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom || 24 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                  <Text style={[typography.h3, { color: colors.textPrimary }]}>Withdraw Earnings</Text>
+                  <Text style={[typography.h3, { color: colors.textPrimary }]}>{t('Withdraw Partner Earnings') || 'Withdraw Earnings'}</Text>
                   <TouchableOpacity onPress={() => setWithdrawModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <AppIcon name="x-circle" size={24} color={colors.textSecondary} />
                   </TouchableOpacity>
@@ -491,9 +526,9 @@ export const PartnerWalletScreen: React.FC = () => {
                 {/* Amount Section */}
                 <View style={{ marginBottom: 20 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <Text style={[typography.bodyMedium, styles.label, { marginBottom: 0 }]}>Enter Withdrawal Amount</Text>
+                    <Text style={[typography.bodyMedium, styles.label, { marginBottom: 0 }]}>{t('Enter Withdrawal Amount') || 'Enter Withdrawal Amount'} <Text style={{ color: colors.error }}>*</Text></Text>
                     <TouchableOpacity onPress={handleMaxSelect}>
-                      <Text style={[typography.captionBold, { color: colors.primary }]}>WITHDRAW ALL</Text>
+                      <Text style={[typography.captionBold, { color: colors.primary }]}>{t('WITHDRAW ALL') || 'WITHDRAW ALL'}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -504,13 +539,15 @@ export const PartnerWalletScreen: React.FC = () => {
                       value={withdrawAmount}
                       onChangeText={(val) => {
                         setWithdrawAmount(val);
-                        if (withdrawAmountError) setWithdrawAmountError(false);
+                        if (withdrawAmountError) setWithdrawAmountError('');
                       }}
                       keyboardType="numeric"
                       placeholder="0"
                       placeholderTextColor={colors.textMuted}
                     />
                   </View>
+                  {withdrawAmountError ? <Text style={[typography.caption, { color: colors.error, marginTop: 4 }]}>{withdrawAmountError}</Text> : null}
+                  {(parsedWithdrawAmount > availableBalance) ? <Text style={[typography.caption, { color: colors.error, marginTop: 4 }]}>Amount exceeds available balance.</Text> : null}
 
                   {/* Quick Select Chips */}
                   <View style={styles.chipsContainer}>
@@ -539,16 +576,16 @@ export const PartnerWalletScreen: React.FC = () => {
 
                 {/* Remarks Section */}
                 <CustomInput
-                  label="Remarks / Note (Optional)"
+                  label={t('Remarks / Note (Optional)') || "Remarks / Note (Optional)"}
                   value={withdrawNotes}
                   onChangeText={setWithdrawNotes}
-                  placeholder="e.g. Monthly profit share withdrawal"
+                  placeholder={t('e.g. Monthly profit share withdrawal') || "e.g. Monthly profit share withdrawal"}
                   multiline={true}
                   numberOfLines={4}
                 />
 
                 <CustomButton
-                  title={isWithdrawing ? 'Submitting Request...' : `Withdraw ${formatINR(parsedWithdrawAmount)}`}
+                  title={isWithdrawing ? (t('Submitting Request...') || 'Submitting Request...') : `${t('Withdraw') || 'Withdraw'} ${formatINR(parsedWithdrawAmount)}`}
                   onPress={handleWithdrawSubmit}
                   variant="primary"
                   isLoading={isWithdrawing}
@@ -569,11 +606,10 @@ export const PartnerWalletScreen: React.FC = () => {
             </View>
 
             <Text style={[typography.h3, { color: colors.textPrimary, marginTop: 16, textAlign: 'center' }]}>
-              Partner Withdrawal Requested!
+              {t('Partner Withdrawal Requested!') || 'Partner Withdrawal Requested!'}
             </Text>
-
             <Text style={[typography.body, { color: colors.textSecondary, textAlign: 'center', marginTop: 8 }]}>
-              Your request has been submitted for finance approval and disbursement.
+              {t('has been submitted for finance approval and disbursement.') || 'Your request has been submitted for finance approval and disbursement.'}
             </Text>
 
             <CustomButton
@@ -619,7 +655,7 @@ export const PartnerWalletScreen: React.FC = () => {
                 }}
                 onPress={() => { setDateFilter(period); setShowDateModal(false); }}
               >
-                <Text style={[typography.body, dateFilter === period && { color: '#10B981', fontWeight: 'bold' }]}>
+                <Text style={[typography.body, { color: dateFilter === period ? '#10B981' : '#475569', fontWeight: dateFilter === period ? 'bold' : 'normal' }]}>
                   {period === 'All' ? 'All Time' : period}
                 </Text>
                 {dateFilter === period && <AppIcon name="check" size={16} color="#10B981" />}
@@ -761,6 +797,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
+  },
+  modalDismiss: {
+    flex: 1,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',

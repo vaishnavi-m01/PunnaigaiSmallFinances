@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useAppTheme';
 import { AppIcon } from '../../component/AppIcon';
+import { useTranslation } from '../../context/LanguageContext';
 
 export const PartnerAddExpenseScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -25,6 +26,39 @@ export const PartnerAddExpenseScreen: React.FC = () => {
   const [date, setDate] = useState('');
   const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [amountError, setAmountError] = useState('');
+  const [dateError, setDateError] = useState('');
+  const { t } = useTranslation();
+
+  const handleSubmit = () => {
+    let hasError = false;
+    if (!category) {
+      setCategoryError(t('Please select a category.') || 'Please select a category.');
+      hasError = true;
+    } else {
+      setCategoryError('');
+    }
+
+    if (!amount || parseFloat(amount) <= 0) {
+      setAmountError(t('Please enter a valid amount.') || 'Please enter a valid amount.');
+      hasError = true;
+    } else {
+      setAmountError('');
+    }
+
+    if (!date) {
+      setDateError(t('Please enter a valid date.') || 'Please enter a valid date.');
+      hasError = true;
+    } else {
+      setDateError('');
+    }
+
+    if (hasError) return;
+
+    // Mock submission
+    navigation.goBack();
+  };
 
   return (
     <KeyboardAvoidingView 
@@ -41,59 +75,62 @@ export const PartnerAddExpenseScreen: React.FC = () => {
               <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginRight: 12 }}>
                 <AppIcon name="arrow-left" size={24} color="#0F172A" />
               </TouchableOpacity>
-              <Text style={[typography.h2, { color: '#0F172A' }]}>Add Expense</Text>
+              <Text style={[typography.h2, { color: '#0F172A' }]}>{t('Add Expense')}</Text>
             </View>
           </View>
           <Text style={[typography.bodyMedium, { color: '#64748B', marginTop: 8 }]}>
-            Expense transaction
+            {t('Expense transaction')}
           </Text>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          <Text style={[typography.h3, { color: '#0F172A', marginBottom: 20 }]}>New Expense</Text>
+          <Text style={[typography.h3, { color: '#0F172A', marginBottom: 20 }]}>{t('New Expense')}</Text>
 
           <View style={[styles.formCard, { backgroundColor: colors.white }]}>
             <View style={styles.row}>
               <View style={styles.inputGroup}>
-                <Text style={[typography.caption, styles.label]}>Expense category *</Text>
-                <TouchableOpacity style={styles.inputBox}>
+                <Text style={[typography.caption, styles.label]}>{t('Expense category')} <Text style={{ color: colors.error }}>*</Text></Text>
+                <TouchableOpacity style={[styles.inputBox, { borderColor: categoryError ? colors.error : '#E2E8F0' }]}>
                   <Text style={[typography.bodyMedium, { color: category ? '#0F172A' : '#94A3B8' }]}>
-                    {category || 'Select category'}
+                    {category || t('Select category')}
                   </Text>
                   <AppIcon name="chevron-down" size={16} color="#64748B" />
                 </TouchableOpacity>
+                {categoryError ? <Text style={[typography.caption, { color: colors.error, marginTop: 4 }]}>{categoryError}</Text> : null}
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[typography.caption, styles.label]}>Amount (₹) *</Text>
-                <View style={styles.inputBox}>
+                <Text style={[typography.caption, styles.label]}>{t('Amount (₹)')} <Text style={{ color: colors.error }}>*</Text></Text>
+                <View style={[styles.inputBox, { borderColor: amountError ? colors.error : '#E2E8F0' }]}>
                   <TextInput
                     style={[styles.input, typography.bodyMedium, { color: '#0F172A' }]}
                     value={amount}
-                    onChangeText={setAmount}
+                    onChangeText={(val) => { setAmount(val); setAmountError(''); }}
                     keyboardType="numeric"
                   />
                 </View>
+                {amountError ? <Text style={[typography.caption, { color: colors.error, marginTop: 4 }]}>{amountError}</Text> : null}
               </View>
             </View>
 
             <View style={styles.row}>
               <View style={styles.inputGroup}>
-                <Text style={[typography.caption, styles.label]}>Date *</Text>
-                <TouchableOpacity style={styles.inputBox}>
+                <Text style={[typography.caption, styles.label]}>{t('Date')} <Text style={{ color: colors.error }}>*</Text></Text>
+                <TouchableOpacity style={[styles.inputBox, { borderColor: dateError ? colors.error : '#E2E8F0' }]}>
                   <Text style={[typography.bodyMedium, { color: date ? '#0F172A' : '#94A3B8' }]}>
                     {date || 'dd-mm-yyyy'}
                   </Text>
                   <AppIcon name="calendar" size={16} color="#64748B" />
                 </TouchableOpacity>
+                {dateError ? <Text style={[typography.caption, { color: colors.error, marginTop: 4 }]}>{dateError}</Text> : null}
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[typography.caption, styles.label]}>Reference</Text>
+                <Text style={[typography.caption, styles.label]}>{t('Reference')}</Text>
                 <View style={styles.inputBox}>
                   <TextInput
                     style={[styles.input, typography.bodyMedium, { color: '#0F172A' }]}
-                    placeholder="Invoice or voucher number"
+                    placeholder={t('Invoice or voucher number')}
                     placeholderTextColor="#94A3B8"
                     value={reference}
                     onChangeText={setReference}
@@ -103,7 +140,7 @@ export const PartnerAddExpenseScreen: React.FC = () => {
             </View>
 
             <View style={[styles.inputGroup, { marginBottom: 24 }]}>
-              <Text style={[typography.caption, styles.label]}>Description</Text>
+              <Text style={[typography.caption, styles.label]}>{t('Description')}</Text>
               <View style={[styles.inputBox, { height: 100, alignItems: 'flex-start', paddingTop: 8 }]}>
                 <TextInput
                   style={[styles.input, typography.bodyMedium, { color: '#0F172A', textAlignVertical: 'top' }]}
@@ -116,12 +153,9 @@ export const PartnerAddExpenseScreen: React.FC = () => {
 
             <TouchableOpacity 
               style={[styles.primaryBtn, { backgroundColor: '#0D523B' }]}
-              onPress={() => {
-                // Mock submission
-                navigation.goBack();
-              }}
+              onPress={handleSubmit}
             >
-              <Text style={[typography.bodyMedium, { color: colors.white, fontWeight: '700' }]}>Create expense</Text>
+              <Text style={[typography.bodyMedium, { color: colors.white, fontWeight: '700' }]}>{t('Create expense')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

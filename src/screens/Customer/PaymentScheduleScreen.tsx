@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Activity
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Header } from '../../component/Header';
 import { AppIcon } from '../../component/AppIcon';
+import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
 import * as customerApi from '../../services/api/customerApi';
 import { formatDate } from '../../utils/date';
@@ -16,22 +17,27 @@ const getDateRange = (filter: TimeFilter): { from_date: string; to_date: string 
   const fmt = (d: Date) =>
     `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-  const to_date = fmt(now);
   let from = new Date(now);
+  let to = new Date(now);
 
   switch (filter) {
-    case 'Today': break; 
+    case 'Today': 
+      break; 
     case 'Week':
       from.setDate(now.getDate() - now.getDay());
+      to = new Date(from);
+      to.setDate(to.getDate() + 6);
       break;
     case 'Month':
       from = new Date(now.getFullYear(), now.getMonth(), 1);
+      to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       break;
     case 'Year':
       from = new Date(now.getFullYear(), 0, 1);
+      to = new Date(now.getFullYear(), 11, 31);
       break;
   }
-  return { from_date: fmt(from), to_date };
+  return { from_date: fmt(from), to_date: fmt(to) };
 };
 
 export const PaymentScheduleScreen: React.FC = () => {
@@ -100,13 +106,29 @@ export const PaymentScheduleScreen: React.FC = () => {
     return () => { mounted = false; };
   }, [initialLoanId, timeFilter, loadHistoryData]);
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#10B981" />
+  const renderSkeleton = () => (
+    <View style={{ padding: 16 }}>
+      <Skeleton height={120} borderRadius={16} style={{ marginBottom: 20 }} />
+      <Skeleton height={20} width={150} style={{ marginBottom: 16 }} />
+      <View style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' }}>
+        {[1, 2, 3].map(i => (
+          <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: i !== 3 ? 16 : 0, paddingBottom: i !== 3 ? 16 : 0, borderBottomWidth: i !== 3 ? 1 : 0, borderBottomColor: '#F1F5F9' }}>
+            <View style={{ flexDirection: 'row' }}>
+              <Skeleton height={40} width={40} borderRadius={20} style={{ marginRight: 12 }} />
+              <View>
+                <Skeleton height={16} width={80} style={{ marginBottom: 6 }} />
+                <Skeleton height={12} width={100} />
+              </View>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Skeleton height={16} width={60} style={{ marginBottom: 6 }} />
+              <Skeleton height={20} width={50} borderRadius={10} />
+            </View>
+          </View>
+        ))}
       </View>
-    );
-  }
+    </View>
+  );
 
   // Build Tabs: All Loans + each loan
   const tabs = [{ id: 'all', label: 'All Loans' }];
@@ -132,52 +154,78 @@ export const PaymentScheduleScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />}
       >
-        <LinearGradient
-          colors={[accentColor, accentColor + 'DD']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.globalSummaryCard}
-        >
-          <View style={[styles.watermarkContainer, { top: -20, right: -10 }]}>
-            <AppIcon name={iconName} size={150} color="rgba(255,255,255,0.08)" />
-          </View>
-          <View style={styles.globalSummaryMain}>
-            <Text style={styles.globalSummaryLabelPremium}>{loan.loan_package_name} - Paid ({timeFilter})</Text>
-            <Text style={styles.globalSummaryAmountPremium}>{formatINR(filteredTotalAmount)}</Text>
-          </View>
-        </LinearGradient>
+        {loading || isRefreshing ? (
+          renderSkeleton()
+        ) : (
+          <>
+            <LinearGradient
+              colors={[accentColor, accentColor + 'DD']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.globalSummaryCard}
+            >
+              <View style={[styles.watermarkContainer, { top: -20, right: -10 }]}>
+                <AppIcon name={iconName} size={150} color="rgba(255,255,255,0.08)" />
+              </View>
+              <View style={styles.globalSummaryMain}>
+                <Text style={styles.globalSummaryLabelPremium}>{loan.loan_package_name} - Paid ({timeFilter})</Text>
+                <Text style={styles.globalSummaryAmountPremium}>{formatINR(filteredTotalAmount)}</Text>
+              </View>
+            </LinearGradient>
 
-        <Text style={styles.sectionTitle}>Transactions ({timeFilter})</Text>
-        
-        <View style={styles.listCard}>
-          {filteredHistory.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No transactions found for {timeFilter.toLowerCase()}.</Text>
-            </View>
-          ) : (
-            filteredHistory.map((item, index) => {
-              const isPaid = ['paid', 'completed', 'approved'].includes(item.status?.toLowerCase());
-              const isLast = index === filteredHistory.length - 1;
-              return (
-                <View key={item.payment_id || index} style={[styles.historyRow, !isLast && styles.rowBorder]}>
-                  <View style={styles.historyLeft}>
-                    <AppIcon name={isPaid ? 'check-circle' : 'clock'} size={20} color={isPaid ? '#10B981' : '#F59E0B'} />
-                    <View style={{ marginLeft: 12 }}>
-                      <Text style={styles.historyDate}>{formatDate(item.paid_at || (item as any).due_date)}</Text>
-                      <Text style={styles.historySubtitle}>{item.mode ? item.mode.toUpperCase() : 'EMI Payment'}</Text>
-                    </View>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.historyAmount}>{formatINR(Number(item.amount))}</Text>
-                    <Text style={[styles.historyStatus, { color: isPaid ? '#10B981' : '#F59E0B' }]}>
-                      {isPaid ? 'Paid' : 'Pending'}
-                    </Text>
-                  </View>
+            <Text style={styles.sectionTitle}>Transactions ({timeFilter})</Text>
+            
+            <View style={[styles.listCard, { borderWidth: 0, paddingBottom: 16 }]}>
+              {filteredHistory.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>No transactions found for {timeFilter.toLowerCase()}.</Text>
                 </View>
-              );
-            })
-          )}
-        </View>
+              ) : (
+                filteredHistory.map((item, index) => {
+                  const isPaid = ['paid', 'completed', 'approved'].includes(item.status?.toLowerCase());
+                  const isLast = index === filteredHistory.length - 1;
+                  const statusColor = isPaid ? '#047857' : '#B45309';
+                  const statusBg = isPaid ? '#D1FAE5' : '#FEF3C7';
+                  return (
+                    <View
+                      key={item.payment_id || index}
+                      style={[styles.historyRow, !isLast && styles.rowBorder]}
+                    >
+                      <View style={styles.historyLeft}>
+                        <AppIcon
+                          name={isPaid ? 'check-circle' : 'clock'}
+                          size={20}
+                          color={isPaid ? '#10B981' : '#F59E0B'}
+                        />
+                        <View style={{ marginLeft: 12 }}>
+                          <Text style={styles.historyDate}>
+                            {formatDate(item.paid_at || (item as any).due_date)}
+                          </Text>
+                          <Text style={styles.historySubtitle}>
+                            {item.mode ? item.mode.toUpperCase() : 'EMI Payment'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={styles.historyAmount}>
+                          {formatINR(Number(item.amount))}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.historyStatus,
+                            { color: isPaid ? '#10B981' : '#F59E0B' },
+                          ]}
+                        >
+                          {isPaid ? 'Paid' : 'Pending'}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          </>
+        )}
       </ScrollView>
     );
   };
@@ -185,37 +233,43 @@ export const PaymentScheduleScreen: React.FC = () => {
   const renderAllLoansView = () => {
     return (
       <View style={styles.content}>
-        <LinearGradient
-          colors={['#047857', '#064E3B']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.globalSummaryCard}
-        >
-          <View style={[styles.watermarkContainer, { top: -20, right: -10 }]}>
-            <AppIcon name="pie-chart" size={150} color="rgba(255,255,255,0.08)" />
-          </View>
-          <View style={styles.globalSummaryMain}>
-            <Text style={styles.globalSummaryLabelPremium}>Total Amount ({timeFilter})</Text>
-            <Text style={styles.globalSummaryAmountPremium}>{formatINR(totalAmount)}</Text>
-          </View>
-        </LinearGradient>
+        {loading || isRefreshing ? (
+          <ScrollView refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />}>
+            {renderSkeleton()}
+          </ScrollView>
+        ) : (
+          <>
+            <LinearGradient
+              colors={['#047857', '#064E3B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.globalSummaryCard}
+            >
+              <View style={[styles.watermarkContainer, { top: -20, right: -10 }]}>
+                <AppIcon name="pie-chart" size={150} color="rgba(255,255,255,0.08)" />
+              </View>
+              <View style={styles.globalSummaryMain}>
+                <Text style={styles.globalSummaryLabelPremium}>Total Amount ({timeFilter})</Text>
+                <Text style={styles.globalSummaryAmountPremium}>{formatINR(totalAmount)}</Text>
+              </View>
+            </LinearGradient>
 
-        <FlatList
-          data={historyData.length === 0 ? [] : myLoans}
-          keyExtractor={item => String(item.finance_id)}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />}
-          ListEmptyComponent={
-            <View style={[styles.emptyContainer, { marginTop: 40 }]}>
-              <AppIcon name="file-text" size={48} color="#E2E8F0" style={{ marginBottom: 12 }} />
-              <Text style={styles.emptyText}>
-                {myLoans.length === 0 
-                  ? 'No active loans found.' 
-                  : `No payment history found for ${timeFilter.toLowerCase()}.`}
-              </Text>
-            </View>
-          }
+            <FlatList
+              data={historyData.length === 0 ? [] : myLoans}
+              keyExtractor={item => String(item.finance_id)}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 100 }}
+              refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#10B981" />}
+              ListEmptyComponent={
+                <View style={[styles.emptyContainer, { marginTop: 40 }]}>
+                  <AppIcon name="file-text" size={48} color="#E2E8F0" style={{ marginBottom: 12 }} />
+                  <Text style={styles.emptyText}>
+                    {myLoans.length === 0 
+                      ? 'No active loans found.' 
+                      : `No payment history found for ${timeFilter.toLowerCase()}.`}
+                  </Text>
+                </View>
+              }
           renderItem={({ item: loan }) => {
             const filteredHistory = historyData.filter(h => String(h.finance_id) === String(loan.finance_id));
             if (filteredHistory.length === 0) return null; // Don't show loans with no transactions in this filter
@@ -238,52 +292,61 @@ export const PaymentScheduleScreen: React.FC = () => {
                   
                   <View style={styles.loanGroupList}>
                     {(() => {
-                    const isExpanded = expandedLoans[String(loan.finance_id)] || false;
-                    const itemsToShow = isExpanded ? filteredHistory : filteredHistory.slice(0, 3);
-                    const hasMore = filteredHistory.length > 3;
+                    const itemsToShow = filteredHistory;
 
                     return (
                       <>
                         {itemsToShow.map((item, index) => {
                           const isPaid = ['paid', 'completed', 'approved'].includes(item.status?.toLowerCase());
+                          const isLast = index === itemsToShow.length - 1;
+                          const statusColor = isPaid ? '#047857' : '#B45309';
+                          const statusBg = isPaid ? '#D1FAE5' : '#FEF3C7';
                           return (
-                            <View key={item.payment_id || index} style={styles.historyRowCompact}>
+                            <View
+                              key={item.payment_id || index}
+                              style={[styles.historyRow, !isLast && styles.rowBorder]}
+                            >
                               <View style={styles.historyLeft}>
-                                <AppIcon name={isPaid ? 'check-circle' : 'clock'} size={16} color={isPaid ? '#10B981' : '#F59E0B'} />
+                                <AppIcon
+                                  name={isPaid ? 'check-circle' : 'clock'}
+                                  size={18}
+                                  color={isPaid ? '#10B981' : '#F59E0B'}
+                                />
                                 <View style={{ marginLeft: 10 }}>
-                                  <Text style={styles.historyDate}>{formatDate(item.paid_at || (item as any).due_date)}</Text>
+                                  <Text style={styles.historyDate}>
+                                    {formatDate(item.paid_at || (item as any).due_date)}
+                                  </Text>
+                                  <Text style={styles.historySubtitle}>
+                                    {item.mode ? item.mode.toUpperCase() : 'EMI Payment'}
+                                  </Text>
                                 </View>
                               </View>
-                              <Text style={styles.historySubtitle}>{item.mode ? item.mode.toUpperCase() : 'EMI'}</Text>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', width: 90, justifyContent: 'space-between' }}>
-                                <Text style={styles.historyAmountCompact}>{formatINR(Number(item.amount))}</Text>
-                                <Text style={[styles.historyStatusCompact, { color: isPaid ? '#10B981' : '#F59E0B' }]}>
+                              <View style={{ alignItems: 'flex-end' }}>
+                                <Text style={styles.historyAmount}>
+                                  {formatINR(Number(item.amount))}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.historyStatus,
+                                    { color: isPaid ? '#10B981' : '#F59E0B' },
+                                  ]}
+                                >
                                   {isPaid ? 'Paid' : 'Pending'}
                                 </Text>
                               </View>
                             </View>
                           );
                         })}
-                        {hasMore && (
-                          <TouchableOpacity 
-                            style={styles.viewMoreBtn} 
-                            onPress={() => toggleExpand(String(loan.finance_id))}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.viewMoreBtnText}>
-                              {isExpanded ? 'Hide transactions' : `View ${filteredHistory.length - 3} more`}
-                            </Text>
-                            <AppIcon name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color="#10B981" />
-                          </TouchableOpacity>
-                        )}
                       </>
                     );
-                  })()}
-                </View>
-              </View>
-            );
-          }}
-        />
+                      })()}
+                    </View>
+                  </View>
+                );
+              }}
+            />
+          </>
+        )}
       </View>
     );
   };
@@ -387,7 +450,7 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 90 : 60,
+    top: Platform.OS === 'ios' ? 100 : 85,
     right: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,

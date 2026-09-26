@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar, StyleSheet, View, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -8,8 +8,14 @@ import { navigationRef } from './src/navigation/navigationService';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { GlobalToast } from './src/component/GlobalToast';
 import { GlobalErrorModal } from './src/component/GlobalErrorModal';
+import { pushNotificationManager } from './src/services/PushNotificationManager';
+import { LanguageProvider } from './src/context/LanguageContext';
 
 function App() {
+  useEffect(() => {
+    pushNotificationManager.setup();
+  }, []);
+
   return (
     <Provider store={store}>
       <SafeAreaProvider>
@@ -18,11 +24,13 @@ function App() {
           {...(Platform.OS === 'android' ? { backgroundColor: '#FFFFFF' } : {})}
         />
         <NavigationContainer ref={navigationRef}>
-          <View style={styles.container}>
-            <RootNavigator />
-            <GlobalToast />
-            <GlobalErrorModal />
-          </View>
+          <LanguageProvider>
+            <View style={styles.container}>
+              <RootNavigator />
+              <GlobalToast />
+              <GlobalErrorModal />
+            </View>
+          </LanguageProvider>
         </NavigationContainer>
       </SafeAreaProvider>
     </Provider>

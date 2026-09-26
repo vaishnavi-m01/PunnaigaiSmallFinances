@@ -15,7 +15,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useAppTheme';
 import { AppIcon } from '../../component/AppIcon';
 import { formatINR } from '../../utils/currency';
@@ -23,6 +22,7 @@ import { Header } from '../../component/Header';
 import { CustomInput } from '../../component/Common/CustomInput';
 import { CustomButton } from '../../component/Common/CustomButton';
 import Entypo from 'react-native-vector-icons/Entypo';
+import { useTranslation } from '../../context/LanguageContext';
 
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
 import { 
@@ -44,6 +44,7 @@ export const PartnerExpensesScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { colors, typography } = useAppTheme();
   const dispatch = useAppDispatch();
+  const { t } = useTranslation();
 
   // Redux state
   const { categories, expenses, summary, isLoading, isSubmitting, hasFetchedCategories } = useAppSelector(state => state.expense);
@@ -61,6 +62,9 @@ export const PartnerExpensesScreen: React.FC = () => {
   const [date, setDate] = useState('');
   const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
+  const [amountError, setAmountError] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [dateError, setDateError] = useState('');
   
   // Date Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -127,9 +131,12 @@ export const PartnerExpensesScreen: React.FC = () => {
     setEditingExpenseId(null);
     setAmount('');
     setExpenseCategoryId(categories.length > 0 ? categories[0].id : '');
-    setDate('');
+    setDate(new Date().toISOString().split('T')[0]);
     setReference('');
     setDescription('');
+    setAmountError('');
+    setCategoryError('');
+    setDateError('');
     setModalVisible(true);
   };
 
@@ -140,6 +147,9 @@ export const PartnerExpensesScreen: React.FC = () => {
     setDate(expense.expense_date);
     setReference(expense.reference_number || '');
     setDescription(expense.description || '');
+    setAmountError('');
+    setCategoryError('');
+    setDateError('');
     setModalVisible(true);
   };
 
@@ -160,10 +170,30 @@ export const PartnerExpensesScreen: React.FC = () => {
   };
 
   const handleSaveExpense = () => {
-    if (!amount || isNaN(Number(amount)) || !expenseCategoryId || !date) {
-      dispatch(showToast({ type: 'error', title: 'Missing fields', message: 'Please fill out amount, category, and date.' }));
-      return;
+    let hasError = false;
+    
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      setAmountError(t('Please enter a valid amount.') || 'Please enter a valid amount.');
+      hasError = true;
+    } else {
+      setAmountError('');
     }
+
+    if (!expenseCategoryId) {
+      setCategoryError(t('Please select a category.') || 'Please select a category.');
+      hasError = true;
+    } else {
+      setCategoryError('');
+    }
+
+    if (!date) {
+      setDateError(t('Please select a date.') || 'Please select a date.');
+      hasError = true;
+    } else {
+      setDateError('');
+    }
+
+    if (hasError) return;
 
     const payload = {
       amount: Number(amount),
@@ -256,7 +286,7 @@ export const PartnerExpensesScreen: React.FC = () => {
     <View style={[styles.container, { backgroundColor: '#F8FAFC' }]}>
       <StatusBar barStyle="dark-content" />
       <Header 
-        title="Expenses" 
+        title={t('Expenses') || 'Expenses'} 
         showBack={false} 
         rightComponent={
           <TouchableOpacity 
@@ -285,7 +315,7 @@ export const PartnerExpensesScreen: React.FC = () => {
               typography.caption,
               { color: selectedCategoryId === 'All' ? colors.white : '#475569', fontWeight: '600' }
             ]}>
-              All
+              {t('All') || 'All'}
             </Text>
           </TouchableOpacity>
           {categories.map((cat) => (
@@ -313,8 +343,8 @@ export const PartnerExpensesScreen: React.FC = () => {
       <View style={styles.summaryContainer}>
         <View style={styles.summaryInner}>
           <View>
-            <Text style={[typography.caption, { color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }]}>Total Expenses</Text>
-            <Text style={[typography.bodyMedium, { color: '#0F172A', marginTop: 2 }]}>{summary.total_records} records found</Text>
+            <Text style={[typography.caption, { color: '#64748B', fontWeight: '600', textTransform: 'uppercase' }]}>{t('Total Expenses') || 'Total Expenses'}</Text>
+            <Text style={[typography.bodyMedium, { color: '#0F172A', marginTop: 2 }]}>{summary.total_records} {t('records found') || 'records found'}</Text>
           </View>
           <Text style={[typography.h2, { color: '#047857', fontWeight: '800' }]}>{formatINR(summary.total_amount)}</Text>
         </View>
@@ -337,9 +367,9 @@ export const PartnerExpensesScreen: React.FC = () => {
               <View style={[styles.emptyIconCircle, { backgroundColor: '#F1F5F9' }]}>
                 <AppIcon name="inbox" size={32} color="#94A3B8" />
               </View>
-              <Text style={[typography.bodyLarge, { color: '#475569', marginTop: 16, fontWeight: '600' }]}>No expenses found</Text>
+              <Text style={[typography.bodyLarge, { color: '#475569', marginTop: 16, fontWeight: '600' }]}>{t('No expenses found') || 'No expenses found'}</Text>
               <Text style={[typography.bodyMedium, { color: '#94A3B8', marginTop: 8, textAlign: 'center' }]}>
-                Try adjusting your filters or add a new expense.
+                {t('Try adjusting your filters or add a new expense.') || 'Try adjusting your filters or add a new expense.'}
               </Text>
             </View>
           }
@@ -374,22 +404,23 @@ export const PartnerExpensesScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={[typography.bodyMedium, styles.label]}>Expense Amount</Text>
-                  <View style={[styles.inputBox, { borderColor: colors.border }]}>
+                  <Text style={[typography.bodyMedium, styles.label]}>{t('Expense Amount')} <Text style={{ color: '#EF4444' }}>*</Text></Text>
+                  <View style={[styles.inputBox, { borderColor: amountError ? '#EF4444' : colors.border }]}>
                     <Text style={[styles.currencyPrefix, { color: colors.textPrimary }]}>₹</Text>
                     <TextInput
                       style={[styles.numericInput, { color: colors.textPrimary }]}
                       value={amount}
-                      onChangeText={setAmount}
+                      onChangeText={(val) => { setAmount(val); setAmountError(''); }}
                       keyboardType="numeric"
                       placeholder="0"
                       placeholderTextColor={colors.textMuted}
                     />
                   </View>
+                  {amountError ? <Text style={[typography.caption, { color: '#EF4444', marginTop: 4 }]}>{amountError}</Text> : null}
                 </View>
 
                 <View style={[styles.inputGroup, { marginBottom: 16 }]}>
-                  <Text style={[typography.bodyMedium, styles.label]}>Category</Text>
+                  <Text style={[typography.bodyMedium, styles.label]}>{t('Category')} <Text style={{ color: '#EF4444' }}>*</Text></Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                      {categories.map((cat) => (
                        <TouchableOpacity
@@ -398,9 +429,9 @@ export const PartnerExpensesScreen: React.FC = () => {
                            styles.categoryPill,
                            expenseCategoryId === cat.id 
                              ? { backgroundColor: '#047857', borderColor: '#047857' }
-                             : { backgroundColor: colors.white, borderColor: '#E2E8F0' }
+                             : { backgroundColor: colors.white, borderColor: categoryError ? '#EF4444' : '#E2E8F0' }
                          ]}
-                         onPress={() => setExpenseCategoryId(cat.id)}
+                         onPress={() => { setExpenseCategoryId(cat.id); setCategoryError(''); }}
                        >
                          <Text style={[
                            typography.caption,
@@ -411,18 +442,20 @@ export const PartnerExpensesScreen: React.FC = () => {
                        </TouchableOpacity>
                      ))}
                   </ScrollView>
+                  {categoryError ? <Text style={[typography.caption, { color: '#EF4444', marginTop: 4 }]}>{categoryError}</Text> : null}
                 </View>
 
                 <View style={{ marginTop: 0 }}>
                   <TouchableOpacity onPress={() => setShowDatePicker(true)} activeOpacity={1}>
                     <View pointerEvents="none">
                       <CustomInput
-                        label="Date"
+                        label={(t('Date') || "Date") + " *"}
                         value={formatDisplayDate(date)}
                         onChangeText={() => {}}
                         placeholder="Select date"
                         leftIcon="calendar"
                         editable={false}
+                        error={dateError}
                       />
                     </View>
                   </TouchableOpacity>
@@ -436,6 +469,7 @@ export const PartnerExpensesScreen: React.FC = () => {
                         if (selectedDate) {
                           const formattedDate = selectedDate.toISOString().split('T')[0];
                           setDate(formattedDate);
+                          setDateError('');
                         }
                       }}
                     />

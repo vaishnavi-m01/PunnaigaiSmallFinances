@@ -1,9 +1,11 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { PermissionsAndroid, Platform } from 'react-native';
 import { UserProfile } from '../types/models';
 import { APP_ROLES, AppRoleType } from '../constants/roles';
 import { setActiveRole } from '../theme/activeRole';
 import { StorageService } from '../services/StorageService';
 import { STORAGE_KEYS } from '../constants/storageKeys';
+import { getMessaging, getToken } from '@react-native-firebase/messaging';
 import * as authApi from '../services/api/authApi';
 
 export interface AuthState {
@@ -36,11 +38,31 @@ export const loginThunk = createAsyncThunk(
   'auth/login',
   async (payload: { mobile?: string; otp?: string; email?: string; password?: string }, { rejectWithValue }) => {
     try {
+      // ─── FCM DEVICE TOKEN LOGIC ───
+      let fcmToken: string | undefined;
+      try {
+        if (Platform.OS === 'android' && Platform.Version >= 33) {
+          const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            console.warn('[FCM] Notification permission denied');
+          }
+        }
+        
+        const token = await getToken(getMessaging());
+        if (token) {
+          fcmToken = token;
+          console.log('[FCM] Device Token:', fcmToken);
+        }
+      } catch (fcmError) {
+        console.warn('[FCM] Error getting token:', fcmError);
+      }
+
       const result = await authApi.login({
         ...(payload.mobile ? { mobile: payload.mobile.replace(/\s+/g, '') } : {}),
         otp: payload.otp,
         email: payload.email,
         password: payload.password,
+        fcm_token: fcmToken,
       });
 
       // Persist token securely

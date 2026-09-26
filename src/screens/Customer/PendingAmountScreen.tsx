@@ -188,7 +188,7 @@ export const PendingAmountScreen: React.FC = () => {
             <View style={styles.payableBanner}>
               <Text style={styles.payableLabel}>Payable Amount</Text>
               <Text style={styles.payableValue}>
-                ₹ 12,000
+                {formatINR(pending.totalPendingAmount || 12000)}
               </Text>
             </View>
 
@@ -234,7 +234,7 @@ export const PendingAmountScreen: React.FC = () => {
             })}
 
             <CustomButton
-              title="Pay ₹ 12,000"
+              title={`Pay ${formatINR(pending.totalPendingAmount || 12000)}`}
               onPress={handleConfirmPayment}
               variant="alert"
               isLoading={isProcessing}

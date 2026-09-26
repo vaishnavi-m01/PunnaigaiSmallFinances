@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header } from '../../component/Header';
 import { AppIcon, IconName } from '../../component/AppIcon';
 import { logoutThunk } from '../../store/authSlice';
@@ -22,6 +23,7 @@ import * as authApi from '../../services/api/authApi';
 import { formatDate } from '../../utils/date';
 
 export const CustomerProfileScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.auth.user);
@@ -75,21 +77,14 @@ export const CustomerProfileScreen: React.FC = () => {
       title: 'Payment History',
       subtitle: 'View all transactions & receipts',
       icon: 'credit-card',
-      route: ROUTES.PAYMENT_HISTORY,
+      route: ROUTES.PAYMENT_SCHEDULE,
     },
     {
       id: 'schedule',
       title: 'Payment Schedule',
       subtitle: 'Upcoming EMI due dates',
       icon: 'calendar',
-      route: ROUTES.PAYMENT_SCHEDULE,
-    },
-    {
-      id: 'documents',
-      title: 'My Documents',
-      subtitle: 'Aadhaar, PAN & Bank proofs',
-      icon: 'upload',
-      route: ROUTES.MY_DOCUMENTS,
+      route: ROUTES.LOAN_DETAILS,
     },
   ];
 
@@ -98,6 +93,7 @@ export const CustomerProfileScreen: React.FC = () => {
     title: string;
     subtitle: string;
     icon: IconName;
+    route?: string;
   }[] = [
     {
       id: 'personal',
@@ -106,16 +102,11 @@ export const CustomerProfileScreen: React.FC = () => {
       icon: 'user',
     },
     {
-      id: 'password',
-      title: 'Change Password',
-      subtitle: 'Update login credentials & PIN',
-      icon: 'lock',
-    },
-    {
       id: 'support',
       title: 'Help & Support',
       subtitle: '24x7 Customer assistance & FAQ',
       icon: 'help-circle',
+      route: ROUTES.HELP_AND_SUPPORT,
     },
     {
       id: 'about',
@@ -166,9 +157,7 @@ export const CustomerProfileScreen: React.FC = () => {
                 marginBottom: 32,
               }}
             >
-              <Skeleton width="30%" height={80} borderRadius={16} />
-              <Skeleton width="30%" height={80} borderRadius={16} />
-              <Skeleton width="30%" height={80} borderRadius={16} />
+            
             </View>
             <Skeleton height={24} width={150} style={{ marginBottom: 16 }} />
             <Skeleton
@@ -186,7 +175,7 @@ export const CustomerProfileScreen: React.FC = () => {
         ) : (
           <>
             {/* Top Profile Header Card */}
-            <View style={styles.userHeaderCard}>
+            <View style={[styles.userHeaderCard, { marginTop: 16 }]}>
               <View style={styles.userHeaderLeft}>
                 <View style={styles.avatarCircle}>
                   <AppIcon name="user" size={28} color="#FFFFFF" />
@@ -209,33 +198,6 @@ export const CustomerProfileScreen: React.FC = () => {
               </View>
             </View>
 
-            {/* 3 Account Highlights Stat Cards */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>
-                  {profile?.status || 'Active'}
-                </Text>
-                <Text style={styles.statLabel}>Customer Status</Text>
-              </View>
-
-              <View style={styles.statBox}>
-                <Text style={styles.statValue}>
-                  {profile?.monthly_income
-                    ? `₹${Number(profile.monthly_income).toLocaleString(
-                        'en-IN',
-                      )}`
-                    : '—'}
-                </Text>
-                <Text style={styles.statLabel}>Monthly Income</Text>
-              </View>
-
-              <View style={styles.statBox}>
-                <Text style={[styles.statValue, styles.greenText]}>
-                  {profile?.id_proof_number ? 'Verified' : 'Pending'}
-                </Text>
-                <Text style={styles.statLabel}>KYC Status</Text>
-              </View>
-            </View>
 
             {/* Section 1: Loans & Transactions */}
             <Text style={styles.sectionTitle}>Loans & Transactions</Text>
@@ -279,7 +241,7 @@ export const CustomerProfileScreen: React.FC = () => {
                   <React.Fragment key={item.id}>
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={() => setActiveModal(item.id)}
+                      onPress={() => item.route ? navigation.navigate(item.route) : setActiveModal(item.id)}
                       activeOpacity={0.7}
                     >
                       <View style={styles.menuLeft}>
@@ -337,77 +299,21 @@ export const CustomerProfileScreen: React.FC = () => {
       </ScrollView>
 
       {/* Info Modals */}
-      <Modal visible={!!activeModal} transparent animationType="fade">
+      <Modal visible={activeModal === 'about'} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalHeaderTitle}>
-              {activeModal === 'personal'
-                ? 'Personal Information'
-                : activeModal === 'password'
-                ? 'Change Password'
-                : activeModal === 'support'
-                ? 'Help & Support'
-                : 'About Punnaigai Finances'}
-            </Text>
+            <Text style={styles.modalHeaderTitle}>About Punnaigai Finances</Text>
 
-            {activeModal === 'personal' && (
-              <View style={styles.modalContentBlock}>
-                <Text style={styles.modalItemText}>
-                  Full Name: {profileName}
-                </Text>
-                <Text style={styles.modalItemText}>Phone: {profileMobile}</Text>
-                <Text style={styles.modalItemText}>
-                  Email: {profileEmail || '—'}
-                </Text>
-                <Text style={styles.modalItemText}>
-                  Address:{' '}
-                  {[
-                    profile?.address,
-                    profile?.city,
-                    profile?.state,
-                    profile?.pincode,
-                  ]
-                    .filter(Boolean)
-                    .join(', ') || '—'}
-                </Text>
-                <Text style={styles.modalItemText}>
-                  Date of birth: {formatDate(profile?.date_of_birth) || '—'}
-                </Text>
-                <Text style={styles.modalItemText}>
-                  Occupation: {profile?.occupation || '—'}
-                </Text>
-              </View>
-            )}
-
-            {activeModal === 'password' && (
-              <View style={styles.modalContentBlock}>
-                <Text style={styles.modalSubText}>
-                  To change your password or transaction PIN, an OTP will be
-                  dispatched to your registered phone number (+91 98765 43210).
-                </Text>
-              </View>
-            )}
-
-            {activeModal === 'support' && (
-              <View style={styles.modalContentBlock}>
-                <Text style={styles.modalSubText}>
-                  Toll-free: 1800-123-PUNNAIGAI (7866)
-                </Text>
-                <Text style={styles.modalSubText}>
-                  Email: support@punnaigaifinances.com
-                </Text>
-                <Text style={styles.modalSubText}>
-                  Support Hours: Mon - Sat (9:00 AM - 6:00 PM)
-                </Text>
-              </View>
-            )}
-
-            {activeModal === 'about' && (
+            <View>
               <Text style={styles.modalAboutText}>
                 Punnaigai Small Finances provides reliable, transparent, and
                 digitally-enabled microfinance and loan solutions across India.
               </Text>
-            )}
+              <View style={{ backgroundColor: '#F8FAFC', padding: 12, borderRadius: 8, alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A' }}>App Version 1.0.4</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748B', marginTop: 4 }}>Build 204 (Latest)</Text>
+              </View>
+            </View>
 
             <CustomButton
               title="Close"
@@ -417,6 +323,61 @@ export const CustomerProfileScreen: React.FC = () => {
             />
           </View>
         </View>
+      </Modal>
+
+      {/* Personal Info Bottom Sheet */}
+      <Modal visible={activeModal === 'personal'} transparent animationType="slide">
+        <TouchableOpacity 
+          style={styles.bottomSheetBackdrop} 
+          activeOpacity={1} 
+          onPress={() => setActiveModal(null)}
+        >
+          <View style={styles.bottomSheetCard} onStartShouldSetResponder={() => true}>
+            <View style={styles.bottomSheetHandle} />
+            
+            <View style={styles.bottomSheetHeaderRow}>
+              <Text style={styles.bottomSheetTitle}>Personal Information</Text>
+              <TouchableOpacity 
+                onPress={() => setActiveModal(null)} 
+                style={styles.closeIconButton}
+                activeOpacity={0.7}
+              >
+                <AppIcon name="x" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Full Name</Text>
+                <Text style={styles.infoValue}>{profileName}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Phone Number</Text>
+                <Text style={styles.infoValue}>{profileMobile}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Email Address</Text>
+                <Text style={styles.infoValue}>{profileEmail || 'Not provided'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Address</Text>
+                <Text style={styles.infoValue}>
+                  {[profile?.address, profile?.city, profile?.state, profile?.pincode]
+                    .filter(Boolean)
+                    .join(', ') || 'Not provided'}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Date of Birth</Text>
+                <Text style={styles.infoValue}>{profile?.date_of_birth ? formatDate(profile.date_of_birth) : 'Not provided'}</Text>
+              </View>
+              <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.infoLabel}>Occupation</Text>
+                <Text style={styles.infoValue}>{profile?.occupation || 'Not provided'}</Text>
+              </View>
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -672,5 +633,61 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginBottom: 16,
+  },
+  bottomSheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 32,
+    maxHeight: '85%',
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#CBD5E1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  bottomSheetHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  bottomSheetTitle: {
+    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  closeIconButton: {
+    padding: 6,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
+  },
+  bottomSheetContent: {
+    paddingBottom: 20,
+  },
+  infoRow: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  infoLabel: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  infoValue: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

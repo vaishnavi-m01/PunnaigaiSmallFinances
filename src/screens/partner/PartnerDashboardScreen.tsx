@@ -28,6 +28,7 @@ import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
 import { formatDate } from '../../utils';
 import { ROUTES } from '../../constants/routes';
+import { useTranslation } from '../../context/LanguageContext';
 
 const PartnerDashboardScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -35,7 +36,9 @@ const PartnerDashboardScreen: React.FC = () => {
   const { colors, typography } = useAppTheme();
   const dispatch = useAppDispatch();
   const partner = useAppSelector(state => state.partner);
+  console.log("partner",partner)
   const user = useAppSelector(state => state.auth.user);
+  const { t } = useTranslation();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterWidth, setFilterWidth] = useState(0);
@@ -153,10 +156,10 @@ const PartnerDashboardScreen: React.FC = () => {
           {/* Greeting Text */}
           <View style={styles.nameBlock}>
             <Text style={styles.greetingTitle}>
-              Hello, {user?.name?.split(' ')[0] || 'Kavin'}
+              {t('Hello')}, {user?.name?.split(' ')[0] || 'Partner'}
             </Text>
             <Text style={styles.greetingSubtitle}>
-              Welcome back to your partnership!
+              {t('Welcome back')}
             </Text>
           </View>
         </View>
@@ -206,7 +209,7 @@ const PartnerDashboardScreen: React.FC = () => {
                     ]} 
                   />
                   {partner.partnerships.map((p, index) => {
-                    const partnerName = partner.partners?.find(pt => pt.id === p.partnership_id)?.name || p.partnership_name;
+                    const partnerName = partner.partners?.find(pt => pt.id === p.partnership_id)?.name || p.partnership_name || `Partner ${index + 1}`;
                     const isSelected = selectedIndex === index;
                     return (
                       <TouchableOpacity
@@ -227,7 +230,7 @@ const PartnerDashboardScreen: React.FC = () => {
 
               {/* Wallet Card (Hero) */}
               <LinearGradient
-                colors={['#047857', '#064E3B']}
+                colors={['#047857', '#022C22']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.investmentCard}
@@ -241,7 +244,7 @@ const PartnerDashboardScreen: React.FC = () => {
                     <AppIcon name="credit-card" size={18} color="#FFFFFF" />
                   </View>
                   <Text style={[typography.subtitle, { color: colors.white, marginLeft: 12, opacity: 0.9 }]}>
-                    Wallet Balance
+                    {t('Total Wallet Balance')}
                   </Text>
                 </View>
                 {partner.isLoading && !isRefreshing ? (
@@ -249,7 +252,7 @@ const PartnerDashboardScreen: React.FC = () => {
                     <Skeleton width={180} height={32} borderRadius={8} style={{ opacity: 0.5 }} />
                   </View>
                 ) : (
-                  <Text style={[typography.h1, { color: colors.white, marginTop: 16, fontSize: 36, fontWeight: 'bold' }]}>
+                  <Text style={[typography.h1, { color: colors.white, marginTop: 16, fontSize: 40, fontWeight: '900', letterSpacing: 0.5 }]}>
                     {formatINR(partner?.summary?.available_balance || 0)}
                   </Text>
                 )}
@@ -264,7 +267,7 @@ const PartnerDashboardScreen: React.FC = () => {
                       <AppIcon name="pie-chart" size={14} color="#EF4444" />
                     </View>
                     <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>
-                      Profit
+                      {t('Profit') || 'Profit'}
                     </Text>
                   </View>
                   {partner.isLoading && !isRefreshing ? (
@@ -283,7 +286,7 @@ const PartnerDashboardScreen: React.FC = () => {
                       <AppIcon name="briefcase" size={14} color="#8B5CF6" />
                     </View>
                     <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>
-                      Investment
+                      {t('Investment') || 'Investment'}
                     </Text>
                   </View>
                   {partner.isLoading && !isRefreshing ? (
@@ -300,7 +303,7 @@ const PartnerDashboardScreen: React.FC = () => {
 
               {/* Quick Access */}
               <Text style={[typography.h3, styles.sectionTitle, { color: '#0F172A', marginTop: 8 }]}>
-                Quick Access
+                {t('Quick Access') || 'Quick Access'}
               </Text>
               
               <View style={styles.quickAccessGrid}>
@@ -312,7 +315,7 @@ const PartnerDashboardScreen: React.FC = () => {
                   <View style={[styles.quickIconBox, { backgroundColor: '#EFF6FF' }]}>
                     <AppIcon name="users" size={24} color="#3B82F6" />
                   </View>
-                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>Customers</Text>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>{t('Customers')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
@@ -323,7 +326,7 @@ const PartnerDashboardScreen: React.FC = () => {
                   <View style={[styles.quickIconBox, { backgroundColor: '#ECFDF5' }]}>
                     <AppIcon name="trending-up" size={24} color="#10B981" />
                   </View>
-                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>Investment</Text>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>{t('Investment') || 'Investment'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
@@ -334,7 +337,7 @@ const PartnerDashboardScreen: React.FC = () => {
                   <View style={[styles.quickIconBox, { backgroundColor: '#F5F3FF' }]}>
                     <AppIcon name="credit-card" size={24} color="#8B5CF6" />
                   </View>
-                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>Wallet</Text>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>{t('Wallet')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
@@ -345,17 +348,19 @@ const PartnerDashboardScreen: React.FC = () => {
                   <View style={[styles.quickIconBox, { backgroundColor: '#FFF7ED' }]}>
                     <AppIcon name="user" size={24} color="#F97316" />
                   </View>
-                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>Profile</Text>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>{t('Profile')}</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Recent Transactions */}
               <View style={styles.historyHeader}>
-                <Text style={[typography.h3, { color: '#0F172A' }]}>
-                  Recent Transactions
-                </Text>
-                <TouchableOpacity onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)}>
-                  <Text style={[typography.subtitle, { color: '#16A34A' }]}>See All</Text>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={[typography.h3, { color: '#0F172A' }]} numberOfLines={1}>
+                    {t('Recent Transactions')}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)} style={{ flexShrink: 0 }}>
+                  <Text style={[typography.subtitle, { color: '#16A34A' }]}>{t('See All') || 'See All'}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -370,7 +375,7 @@ const PartnerDashboardScreen: React.FC = () => {
                   {recentTransactions.length === 0 ? (
                     <View style={[styles.txCard, { justifyContent: 'center', padding: 24 }]}>
                       <Text style={[typography.caption, { color: '#64748B', textAlign: 'center' }]}>
-                        No recent transactions found
+                        {t('No recent transactions found') || 'No recent transactions found'}
                       </Text>
                     </View>
                   ) : (
@@ -414,17 +419,16 @@ export { PartnerDashboardScreen };
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F9F6',
+    backgroundColor: '#F4F9F6', // Matching Investment Page background
   },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#F4F9F6', // Matching background
+    zIndex: 10,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -464,10 +468,10 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   bellButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F8FAFC',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     justifyContent: 'center',
@@ -491,14 +495,9 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   investmentCard: {
-    padding: 16,
-    borderRadius: 20,
-    marginBottom: 20,
-    elevation: 4,
-    shadowColor: '#047857',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    padding: 24,
+    borderRadius: 24,
+    marginBottom: 24,
   },
   investmentTop: {
     flexDirection: 'row',
@@ -519,8 +518,8 @@ const styles = StyleSheet.create({
   },
   splitCard: {
     width: '48%',
-    padding: 16,
-    borderRadius: 16,
+    padding: 20,
+    borderRadius: 24,
   },
   splitIconRow: {
     flexDirection: 'row',
@@ -547,12 +546,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quickIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 64,
+    height: 64,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   historyHeader: {
     flexDirection: 'row',
@@ -568,8 +567,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',

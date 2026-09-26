@@ -9,12 +9,18 @@ import {
   Image,
   Modal,
   RefreshControl,
+  Animated,
+  Easing,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
-import { fetchDashboardThunk } from '../../store/customerSlice';
+import {
+  fetchDashboardThunk,
+  fetchOverdueThunk,
+  fetchUnreadCountThunk,
+} from '../../store/customerSlice';
 import { AppIcon, IconName } from '../../component/AppIcon';
 import { ROUTES } from '../../constants/routes';
 import { AppNotification } from '../../types/models';
@@ -32,25 +38,87 @@ export const CustomerDashboardScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.auth.user);
   const unreadCount = useAppSelector(
-    state =>
-      state.customer.notifications.filter((n: AppNotification) => !n.isRead)
-        .length,
+    state => state.customer.unreadNotificationCount,
   );
   const dashboardData = useAppSelector(state => state.customer.dashboardData);
-  const isDashboardLoading = useAppSelector(state => state.customer.isDashboardLoading);
+  const overdueData = useAppSelector(state => state.customer.overdueData);
+  const isDashboardLoading = useAppSelector(
+    state => state.customer.isDashboardLoading,
+  );
 
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch real dashboard data on mount
-  useEffect(() => {
-    dispatch(fetchDashboardThunk());
-  }, [dispatch]);
+  // Animation Values - declared before useEffect for stable hook order
+  const fadeAnimHeader = React.useRef(new Animated.Value(0)).current;
+  const slideAnimCards = React.useRef(new Animated.Value(30)).current;
+  const opacityAnimCards = React.useRef(new Animated.Value(0)).current;
+  const slideAnimActions = React.useRef(new Animated.Value(30)).current;
+  const opacityAnimActions = React.useRef(new Animated.Value(0)).current;
+  const slideAnimRecent = React.useRef(new Animated.Value(30)).current;
+  const opacityAnimRecent = React.useRef(new Animated.Value(0)).current;
 
   const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
-    await dispatch(fetchDashboardThunk());
+    await Promise.all([
+      dispatch(fetchDashboardThunk()),
+      dispatch(fetchOverdueThunk()),
+      dispatch(fetchUnreadCountThunk()),
+    ]);
     setIsRefreshing(false);
+  }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchDashboardThunk());
+    dispatch(fetchOverdueThunk());
+    dispatch(fetchUnreadCountThunk());
+
+    Animated.stagger(150, [
+      Animated.timing(fadeAnimHeader, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.timing(opacityAnimCards, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnimCards, {
+          toValue: 0,
+          duration: 500,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(opacityAnimActions, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnimActions, {
+          toValue: 0,
+          duration: 500,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(opacityAnimRecent, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnimRecent, {
+          toValue: 0,
+          duration: 500,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
   }, [dispatch]);
 
   const quickActions: {
@@ -64,14 +132,8 @@ export const CustomerDashboardScreen: React.FC = () => {
     //   title: 'Loan\nPackages',
     //   icon: 'briefcase',
     //   route: ROUTES.APPLY_LOAN,
-    // },
-
-    {
-      id: 'profile',
-      title: 'My\nProfile',
-      icon: 'user',
-      route: ROUTES.CUSTOMER_PROFILE,
-    },
+    // }
+   
     {
       id: 'schedule',
       title: 'Payment\nHistory',
@@ -79,10 +141,16 @@ export const CustomerDashboardScreen: React.FC = () => {
       route: ROUTES.PAYMENT_SCHEDULE,
     },
     {
-      id: 'more',
-      title: 'More\nDetails',
+      id: 'overdue',
+      title: 'Overdue\nDetails',
       icon: 'grid',
       route: ROUTES.OVERDUE_DETAILS,
+    },
+     {
+      id: 'profile',
+      title: 'My\nProfile',
+      icon: 'user',
+      route: ROUTES.CUSTOMER_PROFILE,
     },
   ];
 
@@ -91,8 +159,22 @@ export const CustomerDashboardScreen: React.FC = () => {
       <StatusBar barStyle="dark-content" />
 
       {/* Top Header Bar */}
-      <View
-        style={[styles.topHeader, { paddingTop: Math.max(insets.top + 6, 16) }]}
+      <Animated.View
+        style={[
+          styles.topHeader,
+          { paddingTop: Math.max(insets.top + 6, 16) },
+          {
+            opacity: fadeAnimHeader,
+            transform: [
+              {
+                translateY: fadeAnimHeader.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-20, 0],
+                }),
+              },
+            ],
+          },
+        ]}
       >
         <View style={styles.headerLeft}>
           {/* User Avatar Circle */}
@@ -111,9 +193,7 @@ export const CustomerDashboardScreen: React.FC = () => {
             <Text style={styles.greetingTitle}>
               Hello, {user?.name || 'Customer'}
             </Text>
-            <Text style={styles.greetingSubtitle}>
-              Welcome back!
-            </Text>
+            <Text style={styles.greetingSubtitle}>Welcome back!</Text>
           </View>
         </View>
 
@@ -132,7 +212,7 @@ export const CustomerDashboardScreen: React.FC = () => {
             </View>
           )}
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -178,106 +258,136 @@ export const CustomerDashboardScreen: React.FC = () => {
           </View>
         ) : (
           <>
-            {/* 1. Active Finance / Loan Card */}
-            <LinearGradient
-              colors={['#047857', '#064E3B']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.activeLoanCard}
+            <Animated.View
+              style={{
+                paddingTop: 8,
+                opacity: opacityAnimCards,
+                transform: [{ translateY: slideAnimCards }],
+              }}
             >
-              {/* Top Row: Amount & View Details Button */}
-              <View style={styles.loanCardTop}>
-                <View style={styles.loanInfoLeft}>
-                  <View style={styles.activeLoanBadge}>
-                    <Text style={styles.activeLoanLabel}>Active Loan</Text>
-                  </View>
-                  <Text style={styles.loanAmountValue}>
-                    {formatINR(
-                      dashboardData?.activeLoan?.requestedAmount ??
-                      dashboardData?.finance?.totalAmount ??
-                      0
-                    )}
-                  </Text>
-                  <Text style={styles.loanIdText}>
-                    {dashboardData?.activeLoan
-                      ? `Loan ID: ${dashboardData.activeLoan.id}`
-                      : dashboardData?.finance
-                      ? `Finance: ${dashboardData.finance.financeCode}`
-                      : 'N/A'}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.viewDetailsPill}
-                  onPress={() => navigation.navigate(ROUTES.MY_LOAN)}
-                  activeOpacity={0.85}
+              {/* 1. Active Finance / Loan Card */}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => navigation.navigate(ROUTES.MY_LOAN)}
+              >
+                <LinearGradient
+                  colors={['#047857', '#064E3B']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.activeLoanCard}
                 >
-                  <Text style={styles.viewDetailsPillText}>View Details</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Bottom Row: 2 White Sub-Boxes */}
-              <View style={styles.loanMetricsRow}>
-                <TouchableOpacity
-                  style={styles.metricWhiteBox}
-                  onPress={() => navigation.navigate(ROUTES.PENDING_AMOUNT)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.metricHeaderRow}>
-                    <View style={styles.miniGreenIcon}>
-                      <AppIcon name="calendar" size={12} color="#0D523B" />
+                {/* Top Row: Amount & View Details Button */}
+                <View style={styles.loanCardTop}>
+                  <View style={styles.loanInfoLeft}>
+                    <View style={styles.activeLoanBadge}>
+                      <Text style={styles.activeLoanLabel}>Active Loan</Text>
                     </View>
-                    <Text style={styles.metricTitleText}>Outstanding</Text>
-                  </View>
-                  <Text style={styles.metricAmountText}>
-                    {formatINR(
-                      (dashboardData?.amountDue ?? 0) > 0
-                        ? dashboardData?.amountDue ?? 0
-                        : dashboardData?.finance?.outstandingAmount ?? 0
-                    )}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.metricWhiteBox}
-                  onPress={() => navigation.navigate(ROUTES.PAYMENT_SCHEDULE)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.metricHeaderRow}>
-                    <View style={styles.miniGreenIcon}>
-                      <AppIcon name="trending-up" size={12} color="#0D523B" />
-                    </View>
-                    <Text style={styles.metricTitleText}>Amount Paid</Text>
-                  </View>
-                  <Text style={styles.metricAmountText}>
-                    {formatINR(dashboardData?.finance?.paidAmount ?? 0)}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-
-
-            {/* 2. Upcoming EMI Due Alert Strip (Only if Overdue or Due) */}
-            {dashboardData?.overdueStatus && dashboardData.activeLoan && (
-              <View style={styles.dueAlertCard}>
-                <View style={styles.dueAlertLeft}>
-                  <View style={styles.dueAlertIconCircle}>
-                    <AppIcon name="alert-triangle" size={15} color="#D97706" />
-                  </View>
-                  <View style={styles.dueAlertTextCol}>
-                    <Text style={styles.dueAlertTitle}>
-                      Payment Overdue!
+                    <Text style={styles.loanAmountValue}>
+                      {formatINR(
+                        dashboardData?.activeLoan?.requestedAmount ??
+                          dashboardData?.finance?.totalAmount ??
+                          0,
+                      )}
                     </Text>
-                    <Text style={styles.dueAlertSub}>
-                      {formatINR(dashboardData.amountDue)} was due on {dashboardData.activeLoan.dueDate}
+                    <Text style={styles.loanIdText}>
+                      {dashboardData?.activeLoan
+                        ? `Loan ID: ${dashboardData.activeLoan.id}`
+                        : dashboardData?.finance
+                        ? `Finance: ${dashboardData.finance.financeCode}`
+                        : 'N/A'}
                     </Text>
                   </View>
+
+                  <TouchableOpacity
+                    style={styles.viewDetailsPill}
+                    onPress={() => navigation.navigate(ROUTES.MY_LOAN)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.viewDetailsPillText}>View Details</Text>
+                  </TouchableOpacity>
                 </View>
-              </View>
-            )}
+
+                {/* Bottom Row: 2 White Sub-Boxes */}
+                <View style={styles.loanMetricsRow}>
+                  <TouchableOpacity
+                    style={styles.metricWhiteBox}
+                    // onPress={() => navigation.navigate(ROUTES.PENDING_AMOUNT)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.metricHeaderRow}>
+                      <View style={styles.miniGreenIcon}>
+                        <AppIcon name="calendar" size={12} color="#0D523B" />
+                      </View>
+                      <Text style={styles.metricTitleText}>Balance to Pay</Text>
+                    </View>
+                    <Text style={styles.metricAmountText}>
+                      {formatINR(
+                        dashboardData?.finance?.outstandingAmount ?? 0,
+                      )}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.metricWhiteBox}
+                    onPress={() => navigation.navigate(ROUTES.PAYMENT_SCHEDULE)}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.metricHeaderRow}>
+                      <View style={styles.miniGreenIcon}>
+                        <AppIcon name="trending-up" size={12} color="#0D523B" />
+                      </View>
+                      <Text style={styles.metricTitleText}>Amount Paid</Text>
+                    </View>
+                    <Text style={styles.metricAmountText}>
+                      {formatINR(dashboardData?.finance?.paidAmount ?? 0)}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* 2. Upcoming EMI Due Alert Strip (Only if Overdue) */}
+              {overdueData &&
+                overdueData.totalDue > 0 &&
+                overdueData.overdue.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.dueAlertCard}
+                    onPress={() => navigation.navigate(ROUTES.OVERDUE_DETAILS)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.dueAlertLeft}>
+                      <View style={styles.dueAlertIconCircle}>
+                        <AppIcon
+                          name="alert-triangle"
+                          size={15}
+                          color="#D97706"
+                        />
+                      </View>
+                      <View style={styles.dueAlertTextCol}>
+                        <Text style={styles.dueAlertTitle}>
+                          Payment Overdue!
+                        </Text>
+                        <Text style={styles.dueAlertSub}>
+                          {formatINR(overdueData.totalDue)} total dues from{' '}
+                          {overdueData.overdue.length} schedule(s)
+                        </Text>
+                      </View>
+                    </View>
+                    <AppIcon name="chevron-right" size={20} color="#D97706" />
+                  </TouchableOpacity>
+                )}
+            </Animated.View>
 
             {/* 3. Premium Gradient Quick Actions Bar */}
-            <View style={styles.quickActionsContainer}>
+            <Animated.View
+              style={[
+                styles.quickActionsContainer,
+                {
+                  opacity: opacityAnimActions,
+                  transform: [{ translateY: slideAnimActions }],
+                },
+              ]}
+            >
               <Text style={styles.sectionHeading}>Quick Actions</Text>
 
               <View style={styles.quickActionsPremiumBar}>
@@ -297,14 +407,22 @@ export const CustomerDashboardScreen: React.FC = () => {
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
+            </Animated.View>
 
             {/* 4. Recent Transactions Section */}
-            <View style={styles.transactionsSection}>
+            <Animated.View
+              style={[
+                styles.transactionsSection,
+                {
+                  opacity: opacityAnimRecent,
+                  transform: [{ translateY: slideAnimRecent }],
+                },
+              ]}
+            >
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionHeading}>Recent Transactions</Text>
                 <TouchableOpacity
-                  onPress={() => navigation.navigate(ROUTES.PAYMENT_HISTORY)}
+                  onPress={() => navigation.navigate(ROUTES.PAYMENT_SCHEDULE)}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.viewAllText}>View All &gt;</Text>
@@ -312,59 +430,83 @@ export const CustomerDashboardScreen: React.FC = () => {
               </View>
 
               <View style={styles.transactionListCard}>
-                {dashboardData?.recentTransactions && dashboardData.recentTransactions.length > 0 ? (
-                  dashboardData.recentTransactions.slice(0, 2).map(
-                    (item, index) => {
-                      const isLast = index === Math.min(dashboardData.recentTransactions!.length, 2) - 1;
-                      return (
-                        <React.Fragment key={item.paymentId}>
-                          <TouchableOpacity
-                            style={styles.transactionItem}
-                            onPress={() =>
-                              navigation.navigate(ROUTES.PAYMENT_HISTORY)
-                            }
-                            activeOpacity={0.7}
-                          >
-                            <View style={styles.transactionLeft}>
-                              <View style={styles.txIconCircle}>
-                                <AppIcon
-                                  name="calendar"
-                                  size={15}
-                                  color="#0D523B"
-                                />
-                              </View>
-                              <View>
-                                <Text style={styles.txDateText}>
-                                  {formatDate(item.paidAt)}
-                                </Text>
-                                <Text style={styles.txReceiptText}>
-                                  {item.loanPackageName} • {item.mode ? item.mode.charAt(0).toUpperCase() + item.mode.slice(1) : ''}
-                                </Text>
-                              </View>
+                {dashboardData?.recentTransactions &&
+                dashboardData.recentTransactions.length > 0 ? (
+                  dashboardData.recentTransactions.map((item, index) => {
+                    const isLast =
+                      index === dashboardData.recentTransactions!.length - 1;
+                    return (
+                      <React.Fragment key={item.paymentId}>
+                        <TouchableOpacity
+                          style={styles.transactionItem}
+                          onPress={() =>
+                            navigation.navigate(ROUTES.PAYMENT_SCHEDULE)
+                          }
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.transactionLeft}>
+                            <View style={styles.txIconCircle}>
+                              <AppIcon
+                                name="calendar"
+                                size={15}
+                                color="#0D523B"
+                              />
                             </View>
-
-                            <View style={styles.transactionRight}>
-                              <Text style={styles.txAmountText}>
-                                {formatINR(item.amount)}
+                            <View>
+                              <Text style={styles.txDateText}>
+                                {formatDate(item.paidAt)}
                               </Text>
-                              <View style={[styles.txPaidBadge, { 
-                                backgroundColor: item.status.toLowerCase() === 'approved' ? '#DCFCE7' : '#FEF3C7',
-                                borderColor: item.status.toLowerCase() === 'approved' ? '#86EFAC' : '#FDE68A' 
-                              }]}>
-                                <Text style={[styles.txPaidBadgeText, {
-                                  color: item.status.toLowerCase() === 'approved' ? '#15803D' : '#D97706'
-                                }]}>
-                                  {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                                </Text>
-                              </View>
+                              <Text style={styles.txReceiptText}>
+                                {item.loanPackageName} •{' '}
+                                {item.mode
+                                  ? item.mode.charAt(0).toUpperCase() +
+                                    item.mode.slice(1)
+                                  : ''}
+                              </Text>
                             </View>
-                          </TouchableOpacity>
+                          </View>
 
-                          {!isLast && <View style={styles.txDivider} />}
-                        </React.Fragment>
-                      );
-                    },
-                  )
+                          <View style={styles.transactionRight}>
+                            <Text style={styles.txAmountText}>
+                              {formatINR(item.amount)}
+                            </Text>
+                            <View
+                              style={[
+                                styles.txPaidBadge,
+                                {
+                                  backgroundColor:
+                                    item.status.toLowerCase() === 'approved'
+                                      ? '#DCFCE7'
+                                      : '#FEF3C7',
+                                  borderColor:
+                                    item.status.toLowerCase() === 'approved'
+                                      ? '#86EFAC'
+                                      : '#FDE68A',
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.txPaidBadgeText,
+                                  {
+                                    color:
+                                      item.status.toLowerCase() === 'approved'
+                                        ? '#15803D'
+                                        : '#D97706',
+                                  },
+                                ]}
+                              >
+                                {item.status.charAt(0).toUpperCase() +
+                                  item.status.slice(1)}
+                              </Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+
+                        {!isLast && <View style={styles.txDivider} />}
+                      </React.Fragment>
+                    );
+                  })
                 ) : (
                   <View style={styles.txEmptyBox}>
                     <Text style={styles.txEmptyText}>
@@ -373,7 +515,7 @@ export const CustomerDashboardScreen: React.FC = () => {
                   </View>
                 )}
               </View>
-            </View>
+            </Animated.View>
 
             {/* 5. Secure Your Future Promotional Banner */}
             <View style={styles.bannerContainer}>
@@ -383,32 +525,6 @@ export const CustomerDashboardScreen: React.FC = () => {
                 resizeMode="contain"
               />
             </View>
-
-            {/* 6. Pre-Approved Top-up / Special Offer Card */}
-            <Card style={styles.offerCard} variant="flat" padding={14}>
-              <View style={styles.offerTopRow}>
-                <View style={styles.offerBadge}>
-                  <AppIcon name="star" size={12} color="#D97706" />
-                  <Text style={styles.offerBadgeText}>Special Offer</Text>
-                </View>
-                <Text style={styles.offerRateText}>10.5% p.a.</Text>
-              </View>
-
-              <Text style={styles.offerTitle}>Pre-Approved Top-up Loan</Text>
-              <Text style={styles.offerSubtitle}>
-                You are pre-qualified for an instant top-up up to ₹ 2,00,000
-                with zero documentation.
-              </Text>
-
-              <TouchableOpacity
-                style={styles.offerApplyBtn}
-                onPress={() => navigation.navigate(ROUTES.APPLY_LOAN)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.offerApplyBtnText}>Apply in 2 Minutes</Text>
-                <AppIcon name="chevron-right" size={14} color="#FFFFFF" />
-              </TouchableOpacity>
-            </Card>
 
             {/* 7. 24x7 Customer Helpline Support Strip */}
             <TouchableOpacity

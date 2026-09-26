@@ -31,6 +31,9 @@ export interface CustomerState {
   isDashboardLoading: boolean;
   isPackagesLoading: boolean;
   isSubmittingLoan: boolean;
+  overdueData: import('../types/models').OverdueResponse | null;
+  isOverdueLoading: boolean;
+  unreadNotificationCount: number;
 }
 
 const initialState: CustomerState = {
@@ -57,6 +60,9 @@ const initialState: CustomerState = {
   isDashboardLoading: false,
   isPackagesLoading: false,
   isSubmittingLoan: false,
+  overdueData: null,
+  isOverdueLoading: false,
+  unreadNotificationCount: 0,
 };
 
 // ─── ASYNC THUNKS ────────────────────────────────────────────────────────────
@@ -207,6 +213,130 @@ export const fetchLoanRequestsThunk = createAsyncThunk(
   }
 );
 
+/**
+ * GET /overdue
+ * Fetches overdue schedules for the customer.
+ */
+export const fetchOverdueThunk = createAsyncThunk(
+  'customer/fetchOverdue',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await customerApi.getOverdue();
+      const mapped: import('../types/models').OverdueResponse = {
+        count: res.data.count,
+        totalDue: res.data.total_due,
+        overdue: res.data.overdue.map((item: any) => ({
+          scheduleId: item.schedule_id,
+          dueDate: item.due_date,
+          amount: item.amount,
+          paidAmount: item.paid_amount,
+          balance: item.balance,
+          penalty: item.penalty,
+          totalDue: item.total_due,
+          status: item.status,
+          loanPackageName: item.loan_package_name,
+        })),
+      };
+      return mapped;
+    } catch {
+      return rejectWithValue('Failed to fetch overdue data');
+    }
+  }
+);
+
+/**
+ * GET /notifications
+ * Fetches all notifications from the real API.
+ */
+export const fetchNotificationsThunk = createAsyncThunk(
+  'customer/fetchNotifications',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await customerApi.getNotifications();
+      const now = Date.now();
+      return res.data.notifications.map((n, i) => ({
+        id: `notif_${n.id}`,
+        numericId: n.id,
+        title: n.title,
+        message: n.message,
+        type: mapNotifType(n.type),
+        isRead: n.read,
+        timeAgo: formatTimeAgo(n.created_at),
+        createdAt: n.created_at,
+        readAt: n.read_at,
+        payload: n.data,
+      })) as import('../types/models').AppNotification[];
+    } catch {
+      return rejectWithValue('Failed to fetch notifications');
+    }
+  }
+);
+
+/**
+ * PATCH /notifications/:id/read
+ */
+export const markNotificationReadThunk = createAsyncThunk(
+  'customer/markNotificationRead',
+  async (numericId: number, { rejectWithValue }) => {
+    try {
+      await customerApi.markNotificationReadApi(numericId);
+      return numericId;
+    } catch {
+      return rejectWithValue('Failed to mark notification as read');
+    }
+  }
+);
+
+/**
+ * POST /notifications/read-all
+ */
+export const markAllNotificationsReadThunk = createAsyncThunk(
+  'customer/markAllNotificationsRead',
+  async (_, { rejectWithValue }) => {
+    try {
+      await customerApi.markAllNotificationsReadApi();
+    } catch {
+      return rejectWithValue('Failed to mark all notifications as read');
+    }
+  }
+);
+
+/**
+ * GET /notifications/unreadcount
+ */
+export const fetchUnreadCountThunk = createAsyncThunk(
+  'customer/fetchUnreadCount',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await customerApi.getNotificationUnreadCount();
+      return res.data.unread_count;
+    } catch {
+      return rejectWithValue('Failed to fetch unread count');
+    }
+  }
+);
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function mapNotifType(apiType: string): import('../types/models').NotificationType {
+  if (apiType.includes('overdue') || apiType.includes('reminder')) return 'reminder';
+  if (apiType.includes('approval') || apiType.includes('approved')) return 'approval';
+  if (apiType.includes('document')) return 'document';
+  if (apiType.includes('offer')) return 'offer';
+  return 'system';
+}
+
+function formatTimeAgo(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 // ─── SLICE ───────────────────────────────────────────────────────────────────
 
 export const customerSlice = createSlice({
@@ -248,6 +378,7 @@ export const customerSlice = createSlice({
 
       state.notifications.unshift({
         id: `NT_${Date.now()}`,
+        numericId: 0,
         title: 'Payment Successful',
         message: `₹ ${amount.toLocaleString('en-IN')} payment received successfully.`,
         timeAgo: 'Just now',
@@ -268,13 +399,13 @@ export const customerSlice = createSlice({
       }
     },
     markNotificationAsRead: (state, action: PayloadAction<string>) => {
+      // Optimistic local update; API call happens in markNotificationReadThunk
       const notif = state.notifications.find(n => n.id === action.payload);
       if (notif) notif.isRead = true;
     },
     markAllNotificationsAsRead: state => {
-      state.notifications.forEach(n => {
-        n.isRead = true;
-      });
+      // Optimistic local update; API call happens in markAllNotificationsReadThunk
+      state.notifications.forEach(n => { n.isRead = true; });
     },
   },
   extraReducers: builder => {
@@ -330,6 +461,51 @@ export const customerSlice = createSlice({
     // ── fetchLoanRequestsThunk ──
     builder.addCase(fetchLoanRequestsThunk.fulfilled, (state, action) => {
       state.loanRequests = action.payload;
+    });
+
+    // ── fetchOverdueThunk ──
+    builder.addCase(fetchOverdueThunk.pending, state => {
+      state.isOverdueLoading = true;
+    });
+    builder.addCase(fetchOverdueThunk.fulfilled, (state, action) => {
+      state.isOverdueLoading = false;
+      state.overdueData = action.payload;
+      
+      // Sync total overdue to the old overdueDetails just in case it's used elsewhere
+      state.overdueDetails.totalOverdueAmount = action.payload.totalDue;
+    });
+    builder.addCase(fetchOverdueThunk.rejected, state => {
+      state.isOverdueLoading = false;
+    });
+
+    // ── fetchNotificationsThunk ──
+    builder.addCase(fetchNotificationsThunk.pending, state => {
+      state.isLoading = true;
+    });
+    builder.addCase(fetchNotificationsThunk.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.notifications = action.payload;
+      state.unreadNotificationCount = action.payload.filter(n => !n.isRead).length;
+    });
+    builder.addCase(fetchNotificationsThunk.rejected, state => {
+      state.isLoading = false;
+    });
+
+    // ── fetchUnreadCountThunk ──
+    builder.addCase(fetchUnreadCountThunk.fulfilled, (state, action) => {
+      state.unreadNotificationCount = action.payload;
+    });
+
+    // ── markNotificationReadThunk ── (optimistic already done in reducer)
+    builder.addCase(markNotificationReadThunk.fulfilled, (state, action) => {
+      const numericId = action.payload;
+      const notif = state.notifications.find(n => n.numericId === numericId);
+      if (notif) notif.isRead = true;
+    });
+
+    // ── markAllNotificationsReadThunk ──
+    builder.addCase(markAllNotificationsReadThunk.fulfilled, state => {
+      state.notifications.forEach(n => { n.isRead = true; });
     });
   },
 });

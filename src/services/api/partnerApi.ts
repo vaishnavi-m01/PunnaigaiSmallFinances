@@ -1,29 +1,38 @@
-import axios from 'axios';
-import { API_BASE_URL } from '@env';
 import apiClient from '../apiClient';
 import { ENDPOINTS } from '../endpoints';
-import { 
-   
-  PartnerProfile, 
+import { PartnerProfile } from '../../types/models';
 
-} from '../../types/models';
-
-export const getPartnerTransactions = async (params?: { from_date?: string, to_date?: string, direction?: string, partnership_id?: number }): Promise<any> => {
-  const cleanParams = Object.fromEntries(Object.entries(params || {}).filter(([_, v]) => v !== undefined));
+export const getPartnerTransactions = async (params?: {
+  from_date?: string;
+  to_date?: string;
+  direction?: string;
+  partnership_id?: number;
+}): Promise<any> => {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined),
+  );
   const query = new URLSearchParams(cleanParams as any).toString();
-  const url = query ? `${ENDPOINTS.PARTNER.TRANSACTIONS}?${query}` : ENDPOINTS.PARTNER.TRANSACTIONS;
+  const url = query
+    ? `${ENDPOINTS.PARTNER.TRANSACTIONS}?${query}`
+    : ENDPOINTS.PARTNER.TRANSACTIONS;
   const response = await apiClient.get(url, { skipAuth: true } as any);
   return response.data?.data || response.data;
 };
 
-export const getPartnerDashboard = async (partnership_id?: number): Promise<any> => {
-  const url = partnership_id ? `${ENDPOINTS.PARTNER.DASHBOARD}?partnership_id=${partnership_id}` : ENDPOINTS.PARTNER.DASHBOARD;
+export const getPartnerDashboard = async (
+  partnership_id?: number,
+): Promise<any> => {
+  const url = partnership_id
+    ? `${ENDPOINTS.PARTNER.DASHBOARD}?partnership_id=${partnership_id}`
+    : ENDPOINTS.PARTNER.DASHBOARD;
   const response = await apiClient.get(url, { skipAuth: true } as any);
   return response.data?.data || response.data;
 };
 
 export const getPartnerPartnerships = async (): Promise<any> => {
-  const response = await apiClient.get(ENDPOINTS.PARTNER.PARTNERSHIP, { skipAuth: true } as any);
+  const response = await apiClient.get(ENDPOINTS.PARTNER.PARTNERSHIP, {
+    skipAuth: true,
+  } as any);
   return response.data?.data || response.data;
 };
 
@@ -32,26 +41,52 @@ export const getPartnerProfile = async (): Promise<PartnerProfile> => {
   return response.data?.data || response.data;
 };
 
-export const getPartnerContributions = async (params?: { from_date?: string, to_date?: string, direction?: string, partnership_id?: number }): Promise<any> => {
-  const cleanParams = Object.fromEntries(Object.entries(params || {}).filter(([_, v]) => v !== undefined));
+export const getPartnerContributions = async (params?: {
+  from_date?: string;
+  to_date?: string;
+  direction?: string;
+  partnership_id?: number;
+}): Promise<any> => {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined),
+  );
   const query = new URLSearchParams(cleanParams as any).toString();
-  const url = query ? `${ENDPOINTS.PARTNER.CONTRIBUTIONS}?${query}` : ENDPOINTS.PARTNER.CONTRIBUTIONS;
+  const url = query
+    ? `${ENDPOINTS.PARTNER.CONTRIBUTIONS}?${query}`
+    : ENDPOINTS.PARTNER.CONTRIBUTIONS;
   const response = await apiClient.get(url, { skipAuth: true } as any);
   return response.data?.data || response.data;
 };
 
-export const getPartnerEarnings = async (params?: { from_date?: string, to_date?: string, partnership_id?: number }): Promise<any> => {
-  const cleanParams = Object.fromEntries(Object.entries(params || {}).filter(([_, v]) => v !== undefined));
+export const getPartnerEarnings = async (params?: {
+  from_date?: string;
+  to_date?: string;
+  partnership_id?: number;
+}): Promise<any> => {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined),
+  );
   const query = new URLSearchParams(cleanParams as any).toString();
-  const url = query ? `${ENDPOINTS.PARTNER.EARNINGS}?${query}` : ENDPOINTS.PARTNER.EARNINGS;
+  const url = query
+    ? `${ENDPOINTS.PARTNER.EARNINGS}?${query}`
+    : ENDPOINTS.PARTNER.EARNINGS;
   const response = await apiClient.get(url, { skipAuth: true } as any);
   return response.data?.data || response.data;
 };
 
-export const getPartnerWithdrawals = async (params?: { from_date?: string, to_date?: string, direction?: string, partnership_id?: number }): Promise<any> => {
-  const cleanParams = Object.fromEntries(Object.entries(params || {}).filter(([_, v]) => v !== undefined));
+export const getPartnerWithdrawals = async (params?: {
+  from_date?: string;
+  to_date?: string;
+  direction?: string;
+  partnership_id?: number;
+}): Promise<any> => {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined),
+  );
   const query = new URLSearchParams(cleanParams as any).toString();
-  const url = query ? `${ENDPOINTS.PARTNER.WITHDRAWALS}?${query}` : ENDPOINTS.PARTNER.WITHDRAWALS;
+  const url = query
+    ? `${ENDPOINTS.PARTNER.WITHDRAWALS}?${query}`
+    : ENDPOINTS.PARTNER.WITHDRAWALS;
   const response = await apiClient.get(url, { skipAuth: true } as any);
   return response.data?.data || response.data;
 };
@@ -72,11 +107,66 @@ export const addPartnerContribution = async (payload: {
   reference_number: string;
   notes: string;
 }) => {
-  const response = await apiClient.post(ENDPOINTS.PARTNER.CONTRIBUTIONS, payload);
+  const response = await apiClient.post(
+    ENDPOINTS.PARTNER.CONTRIBUTIONS,
+    payload,
+  );
   return response.data?.data || response.data;
 };
 
 export const searchCustomers = async (query: string): Promise<any> => {
-  const response = await apiClient.get(`/customers/search?query=${encodeURIComponent(query)}`, { skipAuth: true } as any);
+  const response = await apiClient.get(
+    `/customers/search?query=${encodeURIComponent(query)}`,
+    { skipAuth: true } as any,
+  );
+  return response.data?.data || response.data;
+};
+
+export const collectPayment = async (payload: {
+  customer_id: number;
+  finance_id: number;
+  schedule_id: number;
+  amount: number;
+  advance_amount?: number;
+  penalty_amount?: number;
+  use_advance?: boolean;
+  mode: string;
+  notes?: string;
+  collected_at: string;
+}) => {
+  console.log(
+    'Collection API Request -> Endpoint: collections, Payload:',
+    JSON.stringify(payload, null, 2),
+  );
+  const response = await apiClient.post(ENDPOINTS.AGENT.COLLECTIONS, payload);
+  return response.data?.data || response.data;
+};
+
+export const addGivenAmount = async (payload: {
+  customer_id: number;
+  schedule_id: number;
+  given_amount: number;
+  payment_date: string;
+  note?: string;
+}) => {
+  const response = await apiClient.post('/givenamount', payload);
+  return response.data?.data || response.data;
+};
+
+export const updateGivenAmount = async (payload: {
+  customer_id: number;
+  schedule_id: number;
+  given_amount: number;
+  payment_date: string;
+  note?: string;
+}) => {
+  const response = await apiClient.put('/givenamount/update', payload);
+  return response.data?.data || response.data;
+};
+
+export const deleteWithdrawal = async (payload: {
+  withdrawal_id: number;
+}) => {
+  const response = await apiClient.post('/partner/withdrawals/delete', payload);
   return response.data?.data || response.data;
 };
