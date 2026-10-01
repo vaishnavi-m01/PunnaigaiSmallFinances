@@ -101,18 +101,20 @@ export const Header: React.FC<HeaderProps> = ({
           </View>
         </>
       ) : (
-        <View style={styles.tabTitleContainer}>
-          {/* {showLogo ? <BrandLogo size={28} style={styles.headerLogo} /> : null} */}
-          {title ? (
-            <Text
-              style={[styles.title, { color: titleColor, textAlign: 'left' }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-            >
-              {title}
-            </Text>
-          ) : null}
-        </View>
+        <>
+          <View style={styles.leftContainer} />
+          <View style={styles.centerContainer}>
+            {title ? (
+              <Text
+                style={[styles.title, { color: titleColor, textAlign: 'center' }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {title}
+              </Text>
+            ) : null}
+          </View>
+        </>
       )}
 
       <View style={styles.rightContainer}>

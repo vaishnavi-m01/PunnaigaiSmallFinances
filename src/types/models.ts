@@ -27,19 +27,19 @@ export type NotificationType =
 
 export interface CustomerLoan {
   id: string;
-  loanId: string; // e.g. PLN000123
-  packageName: string; // e.g. Gold Loan
-  loanAmount: number; // ₹1,00,000
-  amountDisbursed: number; // ₹80,000
-  amountReceived: number; // ₹88,000
-  tenureMonths: number; // 12
+  loanId: string;
+  packageName: string;
+  loanAmount: number;
+  amountDisbursed: number;
+  amountReceived: number;
+  tenureMonths: number;
   status: LoanStatus;
-  totalRepaymentAmount: number; // ₹1,00,000
-  interestRate: number; // 12%
-  processingFee: number; // ₹2,000
-  pendingAmount: number; // ₹12,000
-  nextPaymentDate: string; // 15 Apr 2025
-  monthlyEmi: number; // ₹9,000
+  totalRepaymentAmount: number;
+  interestRate: number;
+  processingFee: number;
+  pendingAmount: number;
+  nextPaymentDate: string;
+  monthlyEmi: number;
   startDate?: string;
   endDate?: string;
 }
@@ -85,10 +85,10 @@ export interface OverdueDetails {
 export interface PenaltyDetails {
   totalPenalty: number;
   penaltyEnabled: boolean;
-  penaltyType: string; // 'Fixed Amount' or 'Percentage'
+  penaltyType: string;
   penaltyAmount: number;
-  penaltyFrequency: string; // 'Monthly'
-  gracePeriod: string; // '3 Days'
+  penaltyFrequency: string;
+  gracePeriod: string;
   isApplied: boolean;
   appliedReason?: string;
 }
@@ -104,8 +104,8 @@ export interface CustomerDocumentItem {
 }
 
 export interface AppNotification {
-  id: string;           // string version for Redux keying
-  numericId: number;    // real API id (used for mark-read patch)
+  id: string;
+  numericId: number;
   title: string;
   message: string;
   timeAgo: string;
@@ -113,7 +113,6 @@ export interface AppNotification {
   isRead: boolean;
   createdAt?: string;
   readAt?: string | null;
-  /** Raw data payload from API (schedule_id, due_date, etc.) */
   payload?: Record<string, string>;
 }
 
@@ -146,10 +145,10 @@ export interface CollectionRecord {
 export interface InvestorDetails {
   id: string;
   name: string;
-  totalInvestment: number; 
+  totalInvestment: number;
   walletBalance: number;
-  totalPaymentsReceived: number; 
-  monthlyReturnRate: number; 
+  totalPaymentsReceived: number;
+  monthlyReturnRate: number;
   agreementDate: string;
   tenureMonths: number;
 }
@@ -245,6 +244,8 @@ export interface PartnerSummary {
   available_balance?: number;
   pending_withdrawals?: number;
   total_contribution?: number;
+  total_collection?: number;
+  company_profit?: number;
   // Fallbacks for compatibility
   contributions?: number;
   earnings?: number;
@@ -276,6 +277,7 @@ export interface PartnershipDetail {
   status: string;
   summary: PartnerSummary;
   contributions?: PartnerContribution[];
+  partner?: PartnerProfile;
 }
 
 export interface PartnershipContributionDetail {
@@ -289,6 +291,7 @@ export interface PartnershipContributionDetail {
     total_contribution: number;
   };
   contributions: PartnerContribution[];
+  partner?: PartnerProfile;
 }
 
 export interface PartnershipEarningDetail {
@@ -303,6 +306,7 @@ export interface PartnershipEarningDetail {
     total_profit: number;
   };
   earnings: PartnerProfitShare[];
+  partner?: PartnerProfile;
 }
 
 export interface PartnershipWithdrawalDetail {
@@ -320,6 +324,7 @@ export interface PartnershipWithdrawalDetail {
     pending_withdrawals: number;
   };
   withdrawals: any[];
+  partner?: PartnerProfile;
 }
 
 export interface PartnershipTransactionDetail {
@@ -335,6 +340,7 @@ export interface PartnershipTransactionDetail {
     net_movement: number;
   };
   transactions: any[];
+  partner?: PartnerProfile;
 }
 
 export interface PartnerDashboardResponse {
@@ -345,11 +351,11 @@ export interface PartnerDashboardResponse {
 export interface LoanPackage {
   id: number;
   name: string;
-  minAmount: number; 
-  maxAmount: number; 
+  minAmount: number;
+  maxAmount: number;
   deductionPercentage: number;
   repaymentPeriod: number;
-  repaymentFrequency: string; 
+  repaymentFrequency: string;
   dueCalculationType: 'lump_sum' | 'installments';
   installmentCount: number;
   penaltyEnabled?: boolean;
@@ -387,7 +393,6 @@ export interface OverdueResponse {
   totalDue: number;
   overdue: OverdueSchedule[];
 }
-
 
 export interface DashboardData {
   activeLoan: {

@@ -13,7 +13,7 @@ import {
   Easing,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
 import {
@@ -29,6 +29,7 @@ import { Card } from '../../component/Common/Card';
 import { CustomButton } from '../../component/Common/CustomButton';
 import { Skeleton } from '../../component/Common/Skeleton';
 import * as customerApi from '../../services/api/customerApi';
+import * as authApi from '../../services/api/authApi';
 import { formatDate } from '../../utils/date';
 
 export const CustomerDashboardScreen: React.FC = () => {
@@ -48,6 +49,17 @@ export const CustomerDashboardScreen: React.FC = () => {
 
   const [supportModalVisible, setSupportModalVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      authApi.getProfile().then(response => {
+        if (response.profile?.profile_image_url || response.user?.customer?.profile_image_url || response.profile_image_url) {
+          setProfileImage(response.profile?.profile_image_url || response.user?.customer?.profile_image_url || response.profile_image_url);
+        }
+      }).catch(() => {});
+    }, [])
+  );
 
   // Animation Values - declared before useEffect for stable hook order
   const fadeAnimHeader = React.useRef(new Animated.Value(0)).current;
@@ -179,13 +191,21 @@ export const CustomerDashboardScreen: React.FC = () => {
         <View style={styles.headerLeft}>
           {/* User Avatar Circle */}
           <TouchableOpacity
-            style={styles.avatarCircle}
+            style={[styles.avatarCircle, { overflow: 'hidden' }]}
             activeOpacity={0.8}
             onPress={() => navigation.navigate(ROUTES.CUSTOMER_PROFILE)}
           >
-            <View style={styles.avatarInner}>
-              <AppIcon name="user" size={18} color="#FFFFFF" />
-            </View>
+            {profileImage ? (
+              <Image
+                source={{ uri: profileImage }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.avatarInner}>
+                <AppIcon name="user" size={18} color="#FFFFFF" />
+              </View>
+            )}
           </TouchableOpacity>
 
           {/* Greeting Text */}

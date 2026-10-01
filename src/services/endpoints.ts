@@ -4,6 +4,7 @@ export const ENDPOINTS = {
     LOGOUT: '/logout',
     PROFILE: '/profile',
     PROFILE_UPDATE: '/profile',
+    PROFILE_IMAGE_DELETE: '/profileimagedelte',
   },
   CUSTOMER: {
     DASHBOARD: '/dashboard',
@@ -25,6 +26,8 @@ export const ENDPOINTS = {
   },
   PARTNER: {
     PROFILE: '/partner/profile',
+    PROFILE_UPDATE: '/partner/profileupadate',
+    PROFILE_IMAGE_DELETE: '/partner/profileimagedelete',
     DASHBOARD: '/partner/dashboard',
     PARTNERSHIP: '/partner/partnership',
     WALLET: '/partner/wallet',
@@ -32,6 +35,7 @@ export const ENDPOINTS = {
     CONTRIBUTIONS: '/partner/contributions',
     TRANSACTIONS: '/partner/transactions',
     WITHDRAWALS: '/partner/withdrawals',
+    OVERALL_PROFIT_COLLECTION: '/partner/overalltotalprofictandcollection',
   },
   EXPENSES: {
     BASE: '/expenses',

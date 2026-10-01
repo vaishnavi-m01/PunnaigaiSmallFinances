@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { 
-  PartnerProfile, 
-  PartnerContribution, 
-  PartnerProfitShare, 
+import {
+  PartnerProfile,
+  PartnerContribution,
+  PartnerProfitShare,
   PartnerSummary,
 
   PartnershipDetail,
@@ -30,6 +30,7 @@ export interface PartnerState {
   transactions: any[];
   transactionsPartnerships: PartnershipTransactionDetail[];
   summary: PartnerSummary;
+  overallTotals: { total_collection: number; total_profit: number } | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -55,17 +56,31 @@ const initialState: PartnerState = {
     available_profit: 0,
     pending_withdrawals: 0,
   },
+  overallTotals: null,
   isLoading: false,
   error: null,
 };
 
 export const fetchPartnerDashboardThunk = createAsyncThunk(
   'partner/fetchDashboard',
-  async (partnership_id: number | undefined, { rejectWithValue }) => {
+  async (params: { partnership_id?: number; from_date?: string; to_date?: string } | undefined, { rejectWithValue }) => {
     try {
-      return await partnerApi.getPartnerDashboard(partnership_id);
+      return await partnerApi.getPartnerDashboard(params);
     } catch (error: any) {
       return rejectWithValue(error?.response?.data?.message || 'Failed to fetch dashboard');
+    }
+  }
+);
+
+export const fetchPartnerOverallProfitCollectionThunk = createAsyncThunk(
+  'partner/fetchOverallProfitCollection',
+  async (params: any | undefined, { rejectWithValue }) => {
+    try {
+      return await partnerApi.getPartnerOverallProfitCollection(params);
+    } catch (error: any) {
+      console.log('API FETCH ERROR:', error);
+      console.log('API RESPONSE ERROR DATA:', error?.response?.data);
+      return rejectWithValue(error?.response?.data?.message || 'Failed to fetch overall totals');
     }
   }
 );
@@ -138,8 +153,8 @@ export const fetchPartnerWithdrawalsThunk = createAsyncThunk(
 
 export const addPartnerContributionThunk = createAsyncThunk(
   'partner/addContribution',
-  async (payload: { 
-    amount: number; 
+  async (payload: {
+    amount: number;
     payment_method: string;
     contribution_date: string;
     reference_number: string;
@@ -156,11 +171,22 @@ export const addPartnerContributionThunk = createAsyncThunk(
 
 export const requestPartnerWithdrawalThunk = createAsyncThunk(
   'partner/requestWithdrawal',
-  async (payload: { withdrawal_type: 'profit' | 'principal'; amount: number; notes?: string; partnership_id?: number | null }, { rejectWithValue }) => {
+  async (payload: { amount: number; notes?: string; partnership_id?: number | null }, { rejectWithValue }) => {
     try {
       return await partnerApi.requestPartnerWithdrawal(payload);
     } catch (error: any) {
       return rejectWithValue(error?.response?.data?.message || 'Failed to request withdrawal');
+    }
+  }
+);
+
+export const deletePartnerTransactionThunk = createAsyncThunk(
+  'partner/deleteTransaction',
+  async (payload: { transaction_id: number }, { rejectWithValue }) => {
+    try {
+      return await partnerApi.deleteTransaction(payload);
+    } catch (error: any) {
+      return rejectWithValue(error?.response?.data?.message || 'Failed to delete transaction');
     }
   }
 );
@@ -196,47 +222,52 @@ export const partnerSlice = createSlice({
     builder.addCase(fetchPartnerDashboardThunk.fulfilled, (state, action) => {
       state.isLoading = false;
       const payload = action.payload;
-      
+
+      // Initialize base summary with current state
+      let baseSummary = { ...state.summary };
+
+      // Grab root level stats (sometimes backend sends them outside overall_summary)
+      if (payload.total_collection !== undefined) baseSummary.total_collection = payload.total_collection;
+      if (payload.total_profit !== undefined) baseSummary.total_profit = payload.total_profit;
+      if (payload.company_profit !== undefined) baseSummary.company_profit = payload.company_profit;
+
+      // Merge overall_summary if available
+      if (payload.overall_summary) {
+        baseSummary = { ...baseSummary, ...payload.overall_summary };
+      }
+
       // We merge dashboard data for any partnerships returned.
-      // Filter list mapping is now handled by fetchPartnerPartnershipsThunk, but if dashboard returns rich data, we merge it safely.
       if (payload.partnerships && payload.partnerships.length > 0) {
         payload.partnerships.forEach((incoming: any) => {
           let index = -1;
-          
-          // If a specific partnership was requested and the backend returned exactly one, 
-          // forcefully merge it into the selected partnership, even if the backend 
-          // returned the wrong partnership_code (backend bug workaround).
-          if (action.meta.arg !== undefined && payload.partnerships.length === 1 && state.selectedPartnershipCode) {
-             index = state.partnerships.findIndex(p => p.partnership_code === state.selectedPartnershipCode);
+
+          if (action.meta.arg?.partnership_id !== undefined && payload.partnerships.length === 1 && state.selectedPartnershipCode) {
+            index = state.partnerships.findIndex(p => p.partnership_code === state.selectedPartnershipCode);
           } else {
-             // Otherwise, safely match by code
-             index = state.partnerships.findIndex(p => p.partnership_code === incoming.partnership_code);
+            index = state.partnerships.findIndex(p => p.partnership_code === incoming.partnership_code);
           }
-          
+
           if (index !== -1) {
             const targetCode = state.partnerships[index].partnership_code;
-            
-            state.partnerships[index] = { 
-              ...state.partnerships[index], 
+
+            state.partnerships[index] = {
+              ...state.partnerships[index],
               ...incoming,
-              // Protect core identifiers from being corrupted by backend
               partnership_code: state.partnerships[index].partnership_code,
               partnership_id: state.partnerships[index].partnership_id
             };
-            
-            // If this is the currently selected partnership, update the summary at the root
+
+            // If this is the currently selected partnership, update the summary with its specific stats
             if (state.selectedPartnershipCode === targetCode && incoming.summary) {
-              state.summary = incoming.summary;
+              baseSummary = { ...baseSummary, ...incoming.summary };
             }
           }
         });
       }
-      
-      // Fallback for unfiltered (if it ever happens)
-      if (action.meta.arg === undefined && payload.overall_summary) {
-         state.summary = payload.overall_summary;
-      }
-      
+
+      // Apply the fully merged summary back to state
+      state.summary = baseSummary;
+
       if (payload.partners) {
         state.partners = payload.partners;
       }
@@ -254,8 +285,7 @@ export const partnerSlice = createSlice({
     builder.addCase(fetchPartnerPartnershipsThunk.fulfilled, (state, action) => {
       state.isLoading = false;
       const payload = action.payload;
-      console.log("✅ Partnerships fetched:", payload.partnerships?.length);
-      
+
       if (payload.partnerships) {
         // Merge instead of replace to prevent wiping out rich dashboard data (like recent_transactions)
         if (state.partnerships.length === 0) {
@@ -270,24 +300,22 @@ export const partnerSlice = createSlice({
             }
           });
         }
-        
+
         // Sort so the logged-in partner is first
         sortPartnerships(state);
 
-        // Auto-select first active partner if none selected or if selected is not in list
-        if (state.partnerships.length > 0) {
-           const exists = state.partnerships.find((p: any) => p.partnership_code === state.selectedPartnershipCode);
-           if (!state.selectedPartnershipCode || !exists) {
-             const activeP = state.partnerships.find((p: any) => p.status === 'active') || state.partnerships[0];
-             state.selectedPartnershipCode = activeP.partnership_code;
-           }
+        // Only reset if the selected code is no longer in the list (e.g. they lost access)
+        if (state.partnerships.length > 0 && state.selectedPartnershipCode) {
+          const exists = state.partnerships.find((p: any) => p.partnership_code === state.selectedPartnershipCode);
+          if (!exists) {
+            state.selectedPartnershipCode = null;
+          }
         }
       }
     });
     builder.addCase(fetchPartnerPartnershipsThunk.rejected, (state, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
-      console.log("❌ Partnerships fetch failed:", action.payload);
     });
     // Profile
     builder.addCase(fetchPartnerProfileThunk.pending, (state) => {
@@ -297,14 +325,14 @@ export const partnerSlice = createSlice({
     builder.addCase(fetchPartnerProfileThunk.fulfilled, (state, action) => {
       state.isLoading = false;
       state.profile = action.payload;
-      
+
       const prevFirst = state.partnerships[0]?.partnership_code;
       sortPartnerships(state);
-      
+
       // If the selected partnership was the old first item (auto-selected), 
       // update it to the new first item after sorting.
       if (state.partnerships.length > 0 && state.selectedPartnershipCode === prevFirst) {
-         state.selectedPartnershipCode = state.partnerships[0].partnership_code;
+        state.selectedPartnershipCode = state.partnerships[0].partnership_code;
       }
     });
     builder.addCase(fetchPartnerProfileThunk.rejected, (state, action) => {
@@ -321,7 +349,7 @@ export const partnerSlice = createSlice({
       state.isLoading = false;
       const payload = action.payload;
       state.contributionPartnerships = payload.partnerships || [];
-      
+
       const isFiltered = action.meta.arg !== undefined;
       const selectedP = (isFiltered && payload.partnerships?.length === 1)
         ? payload.partnerships[0]
@@ -387,7 +415,7 @@ export const partnerSlice = createSlice({
     builder.addCase(fetchPartnerWithdrawalsThunk.fulfilled, (state, action) => {
       state.isLoading = false;
       const payload = action.payload;
-      
+
       const isFiltered = action.meta.arg !== undefined;
       const selectedP = (isFiltered && payload.partnerships?.length === 1)
         ? payload.partnerships[0]
@@ -397,9 +425,9 @@ export const partnerSlice = createSlice({
       if (newSummary) {
         state.summary = { ...state.summary, ...newSummary };
       }
-      
+
       state.withdrawalsPartnerships = payload.partnerships || [];
-      
+
       let allWithdrawals: any[] = [];
       state.withdrawalsPartnerships.forEach(p => {
         if (p.withdrawals) allWithdrawals = [...allWithdrawals, ...p.withdrawals];
@@ -419,8 +447,19 @@ export const partnerSlice = createSlice({
     builder.addCase(fetchPartnerTransactionsThunk.fulfilled, (state, action) => {
       state.isLoading = false;
       const payload = action.payload;
+
+      const isFiltered = action.meta.arg !== undefined;
+      const selectedP = (isFiltered && payload.partnerships?.length === 1)
+        ? payload.partnerships[0]
+        : payload.partnerships?.find((p: any) => p.partnership_code === state.selectedPartnershipCode);
+
+      const newSummary = selectedP?.summary || payload.overall || payload.partnerships?.[0]?.summary;
+      if (newSummary) {
+        state.summary = { ...state.summary, ...newSummary };
+      }
+
       state.transactionsPartnerships = payload.partnerships || [];
-      
+
       let allTransactions: any[] = [];
       state.transactionsPartnerships.forEach(p => {
         if (p.transactions) allTransactions = [...allTransactions, ...p.transactions];
@@ -434,6 +473,21 @@ export const partnerSlice = createSlice({
 
     // Clear state on logout
     builder.addCase(logout, () => initialState);
+
+    // Overall Totals
+    builder.addCase(fetchPartnerOverallProfitCollectionThunk.pending, (state) => {
+      console.log('OVERALL_PROFIT_COLLECTION PENDING');
+    });
+    builder.addCase(fetchPartnerOverallProfitCollectionThunk.fulfilled, (state, action) => {
+      console.log('OVERALL_PROFIT_COLLECTION FULFILLED:', action.payload);
+      state.overallTotals = {
+        total_collection: action.payload.total_collection ?? 0,
+        total_profit: action.payload.total_profit ?? 0
+      };
+    });
+    builder.addCase(fetchPartnerOverallProfitCollectionThunk.rejected, (state, action) => {
+      console.log('OVERALL_PROFIT_COLLECTION REJECTED:', action.payload);
+    });
   },
 });
 

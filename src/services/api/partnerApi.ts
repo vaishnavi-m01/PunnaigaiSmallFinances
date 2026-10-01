@@ -9,21 +9,31 @@ export const getPartnerTransactions = async (params?: {
   partnership_id?: number;
 }): Promise<any> => {
   const cleanParams = Object.fromEntries(
-    Object.entries(params || {}).filter(([_, v]) => v !== undefined),
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== null),
   );
   const query = new URLSearchParams(cleanParams as any).toString();
   const url = query
     ? `${ENDPOINTS.PARTNER.TRANSACTIONS}?${query}`
     : ENDPOINTS.PARTNER.TRANSACTIONS;
+
+  console.log('🚀 [API REQUEST] getPartnerTransactions -> URL:', url);
   const response = await apiClient.get(url, { skipAuth: true } as any);
+  console.log('✅ [API RESPONSE] getPartnerTransactions -> DATA:', JSON.stringify(response.data?.data || response.data, null, 2));
+
   return response.data?.data || response.data;
 };
 
-export const getPartnerDashboard = async (
-  partnership_id?: number,
-): Promise<any> => {
-  const url = partnership_id
-    ? `${ENDPOINTS.PARTNER.DASHBOARD}?partnership_id=${partnership_id}`
+export const getPartnerDashboard = async (params?: {
+  partnership_id?: number;
+  from_date?: string;
+  to_date?: string;
+}): Promise<any> => {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== null),
+  );
+  const query = new URLSearchParams(cleanParams as any).toString();
+  const url = query
+    ? `${ENDPOINTS.PARTNER.DASHBOARD}?${query}`
     : ENDPOINTS.PARTNER.DASHBOARD;
   const response = await apiClient.get(url, { skipAuth: true } as any);
   return response.data?.data || response.data;
@@ -41,6 +51,20 @@ export const getPartnerProfile = async (): Promise<PartnerProfile> => {
   return response.data?.data || response.data;
 };
 
+export const updatePartnerProfile = async (formData: FormData) => {
+  const response = await apiClient.post(ENDPOINTS.PARTNER.PROFILE_UPDATE, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data?.data || response.data;
+};
+
+export const deletePartnerProfileImage = async () => {
+  const response = await apiClient.delete(ENDPOINTS.PARTNER.PROFILE_IMAGE_DELETE);
+  return response.data?.data || response.data;
+};
+
 export const getPartnerContributions = async (params?: {
   from_date?: string;
   to_date?: string;
@@ -48,7 +72,7 @@ export const getPartnerContributions = async (params?: {
   partnership_id?: number;
 }): Promise<any> => {
   const cleanParams = Object.fromEntries(
-    Object.entries(params || {}).filter(([_, v]) => v !== undefined),
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== null),
   );
   const query = new URLSearchParams(cleanParams as any).toString();
   const url = query
@@ -64,7 +88,7 @@ export const getPartnerEarnings = async (params?: {
   partnership_id?: number;
 }): Promise<any> => {
   const cleanParams = Object.fromEntries(
-    Object.entries(params || {}).filter(([_, v]) => v !== undefined),
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== null),
   );
   const query = new URLSearchParams(cleanParams as any).toString();
   const url = query
@@ -81,7 +105,7 @@ export const getPartnerWithdrawals = async (params?: {
   partnership_id?: number;
 }): Promise<any> => {
   const cleanParams = Object.fromEntries(
-    Object.entries(params || {}).filter(([_, v]) => v !== undefined),
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== null),
   );
   const query = new URLSearchParams(cleanParams as any).toString();
   const url = query
@@ -91,10 +115,22 @@ export const getPartnerWithdrawals = async (params?: {
   return response.data?.data || response.data;
 };
 
+export const getPartnerOverallProfitCollection = async (params?: { partnership_id?: number }) => {
+  const cleanParams = Object.fromEntries(
+    Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== null),
+  );
+  const query = new URLSearchParams(cleanParams as any).toString();
+  const url = query
+    ? `${ENDPOINTS.PARTNER.OVERALL_PROFIT_COLLECTION}?${query}`
+    : ENDPOINTS.PARTNER.OVERALL_PROFIT_COLLECTION;
+  const response = await apiClient.get(url);
+  return response.data?.data || response.data;
+};
+
 export const requestPartnerWithdrawal = async (payload: {
-  withdrawal_type: 'profit' | 'principal';
   amount: number;
   notes?: string;
+  partnership_id?: number | null;
 }) => {
   const response = await apiClient.post(ENDPOINTS.PARTNER.WITHDRAWALS, payload);
   return response.data?.data || response.data;
@@ -167,6 +203,15 @@ export const updateGivenAmount = async (payload: {
 export const deleteWithdrawal = async (payload: {
   withdrawal_id: number;
 }) => {
+  console.log('🚀 [API REQUEST] deleteWithdrawal -> PAYLOAD:', JSON.stringify(payload, null, 2));
   const response = await apiClient.post('/partner/withdrawals/delete', payload);
+  return response.data?.data || response.data;
+};
+
+export const deleteTransaction = async (payload: {
+  transaction_id: number;
+}) => {
+  console.log('🚀 [API REQUEST] deleteTransaction -> PAYLOAD:', JSON.stringify(payload, null, 2));
+  const response = await apiClient.delete('/partner/transactions/delete', { data: payload });
   return response.data?.data || response.data;
 };

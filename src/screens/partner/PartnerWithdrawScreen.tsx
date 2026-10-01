@@ -43,12 +43,11 @@ export const PartnerWithdrawScreen: React.FC = () => {
     return selectedP ? selectedP.partnership_id : undefined;
   }, [partner.partnerships, partner.selectedPartnershipCode]);
 
-  // Unconditionally fetch partnerships on mount to ensure the filter is always perfectly synced
   useEffect(() => {
     dispatch(fetchPartnerPartnershipsThunk());
   }, [dispatch]);
 
-  // On focus, get the list of partnerships unconditionally to ensure filter is always up to date
+
   useFocusEffect(
     React.useCallback(() => {
       dispatch(fetchPartnerPartnershipsThunk());
@@ -65,7 +64,7 @@ export const PartnerWithdrawScreen: React.FC = () => {
   // Fetch Dashboard only when idToFetch changes
   useEffect(() => {
     if (idToFetch !== undefined) {
-      dispatch(fetchPartnerDashboardThunk(idToFetch));
+      dispatch(fetchPartnerDashboardThunk({ partnership_id: idToFetch }));
     }
   }, [idToFetch, dispatch]);
 
@@ -74,7 +73,7 @@ export const PartnerWithdrawScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successModal, setSuccessModal] = useState(false);
   const [amountError, setAmountError] = useState(false);
-  
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
 
@@ -84,7 +83,7 @@ export const PartnerWithdrawScreen: React.FC = () => {
     if (idToFetch !== undefined) {
       await Promise.all([
         dispatch(fetchPartnerWithdrawalsThunk({ partnership_id: idToFetch })),
-        dispatch(fetchPartnerDashboardThunk(idToFetch))
+        dispatch(fetchPartnerDashboardThunk({ partnership_id: idToFetch }))
       ]);
     }
     setIsFiltering(false);
@@ -120,7 +119,6 @@ export const PartnerWithdrawScreen: React.FC = () => {
     dispatch(
       requestPartnerWithdrawalThunk({
         amount: parsedAmount,
-        withdrawal_type: 'profit',
         notes: remarks,
         partnership_id: idToFetch,
       })
@@ -137,94 +135,94 @@ export const PartnerWithdrawScreen: React.FC = () => {
     <View style={[styles.container, { backgroundColor: '#F4F9F6' }]}>
       <Header title={t('Withdraw Partner Earnings') || 'Withdraw Partner Earnings'} showBack={true} />
 
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
-        }
-      >
-              {(partner.isLoading || isFiltering) && !isRefreshing && (!partner.summary) ? (
-                <View style={{ marginTop: 8 }}>
-                  <Skeleton height={150} borderRadius={20} style={{ marginBottom: 24 }} />
-                  <Skeleton height={24} width={150} borderRadius={8} style={{ marginBottom: 16 }} />
-                  <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
-                  <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+        >
+          {(partner.isLoading || isFiltering) && !isRefreshing && (!partner.summary) ? (
+            <View style={{ marginTop: 8 }}>
+              <Skeleton height={150} borderRadius={20} style={{ marginBottom: 24 }} />
+              <Skeleton height={24} width={150} borderRadius={8} style={{ marginBottom: 16 }} />
+              <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+              <Skeleton height={80} borderRadius={16} style={{ marginBottom: 8 }} />
+            </View>
+          ) : (
+            <>
+
+
+              {/* Amount Section */}
+              <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="flat">
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[typography.h4, { color: colors.textPrimary }]}>{t('Enter Withdrawal Amount') || 'Enter Withdrawal Amount'}</Text>
+                  <TouchableOpacity onPress={handleMaxSelect}>
+                    <Text style={[typography.captionBold, { color: colors.primary }]}>{t('WITHDRAW ALL') || 'WITHDRAW ALL'}</Text>
+                  </TouchableOpacity>
                 </View>
-              ) : (
-          <>
 
+                <View style={[styles.inputBox, { borderColor: (amountError || parsedAmount > availableBalance) ? colors.error : colors.border }]}>
+                  <Text style={[styles.currencyPrefix, { color: colors.textPrimary }]}>₹</Text>
+                  <TextInput
+                    style={[styles.numericInput, { color: colors.textPrimary }]}
+                    value={amount}
+                    onChangeText={(val) => {
+                      setAmount(val);
+                      if (amountError) setAmountError(false);
+                    }}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                </View>
 
-        {/* Amount Section */}
-        <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="flat">
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[typography.h4, { color: colors.textPrimary }]}>{t('Enter Withdrawal Amount') || 'Enter Withdrawal Amount'}</Text>
-            <TouchableOpacity onPress={handleMaxSelect}>
-              <Text style={[typography.captionBold, { color: colors.primary }]}>{t('WITHDRAW ALL') || 'WITHDRAW ALL'}</Text>
-            </TouchableOpacity>
-          </View>
+                {/* Quick Select Chips */}
+                <View style={styles.chipsContainer}>
+                  {QUICK_AMOUNTS.map(val => (
+                    <TouchableOpacity
+                      key={val}
+                      style={[
+                        styles.chip,
+                        {
+                          backgroundColor: parsedAmount === val ? colors.primarySoft : colors.surfaceSubtle,
+                          borderColor: parsedAmount === val ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => handleQuickSelect(val)}>
+                      <Text
+                        style={[
+                          typography.captionBold,
+                          { color: parsedAmount === val ? colors.primary : colors.textSecondary },
+                        ]}>
+                        +{formatINR(val)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </Card>
 
-          <View style={[styles.inputBox, { borderColor: (amountError || parsedAmount > availableBalance) ? colors.error : colors.border }]}>
-            <Text style={[styles.currencyPrefix, { color: colors.textPrimary }]}>₹</Text>
-            <TextInput
-              style={[styles.numericInput, { color: colors.textPrimary }]}
-              value={amount}
-              onChangeText={(val) => {
-                setAmount(val);
-                if (amountError) setAmountError(false);
-              }}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={colors.textMuted}
-            />
-          </View>
-
-          {/* Quick Select Chips */}
-          <View style={styles.chipsContainer}>
-            {QUICK_AMOUNTS.map(val => (
-              <TouchableOpacity
-                key={val}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: parsedAmount === val ? colors.primarySoft : colors.surfaceSubtle,
-                    borderColor: parsedAmount === val ? colors.primary : colors.border,
-                  },
-                ]}
-                onPress={() => handleQuickSelect(val)}>
-                <Text
-                  style={[
-                    typography.captionBold,
-                    { color: parsedAmount === val ? colors.primary : colors.textSecondary },
-                  ]}>
-                  +{formatINR(val)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Card>
-
-        {/* Remarks Section */}
-        <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="flat">
-          <CustomInput
-            label={t('Remarks / Note (Optional)') || "Remarks / Note (Optional)"}
-            value={remarks}
-            onChangeText={setRemarks}
-            placeholder={t('e.g. Monthly profit share withdrawal') || "e.g. Monthly profit share withdrawal"}
-            multiline={true}
-            numberOfLines={4}
-          />
-        </Card>
+              {/* Remarks Section */}
+              <Card style={[styles.sectionCard, { borderColor: colors.border }]} variant="flat">
+                <CustomInput
+                  label={t('Remarks / Note (Optional)') || "Remarks / Note (Optional)"}
+                  value={remarks}
+                  onChangeText={setRemarks}
+                  placeholder={t('e.g. Monthly profit share withdrawal') || "e.g. Monthly profit share withdrawal"}
+                  multiline={true}
+                  numberOfLines={4}
+                />
+              </Card>
 
 
 
-        </>
-        )}
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 

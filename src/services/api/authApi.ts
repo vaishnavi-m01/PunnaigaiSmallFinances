@@ -1,4 +1,5 @@
 import apiClient from '../apiClient';
+import { ENDPOINTS } from '../endpoints';
 
 export interface LoginPayload {
   mobile?: string;
@@ -64,7 +65,23 @@ export const getProfile = async () => {
 };
 
 export const updateProfile = async (payload: ProfileUpdatePayload) => {
-  const response = await apiClient.put('/profile', payload);
+  const response = await apiClient.put(ENDPOINTS.AUTH.PROFILE_UPDATE, payload);
+  const body = response.data as any;
+  return body.data ?? body;
+};
+
+export const updateProfileImage = async (formData: FormData) => {
+  const response = await apiClient.post(ENDPOINTS.AUTH.PROFILE_UPDATE, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  const body = response.data as any;
+  return body.data ?? body;
+};
+
+export const deleteProfileImage = async () => {
+  const response = await apiClient.delete(ENDPOINTS.AUTH.PROFILE_IMAGE_DELETE);
   const body = response.data as any;
   return body.data ?? body;
 };

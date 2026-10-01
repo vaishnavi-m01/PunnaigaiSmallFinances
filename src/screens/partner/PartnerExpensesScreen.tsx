@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,13 @@ import {
   KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppTheme } from '../../theme/useAppTheme';
 import { AppIcon } from '../../component/AppIcon';
+import { Skeleton } from '../../component/Common/Skeleton';
 import { formatINR } from '../../utils/currency';
 import { Header } from '../../component/Header';
 import { CustomInput } from '../../component/Common/CustomInput';
@@ -25,10 +28,10 @@ import Entypo from 'react-native-vector-icons/Entypo';
 import { useTranslation } from '../../context/LanguageContext';
 
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
-import { 
-  fetchExpenseCategoriesThunk, 
-  fetchExpensesThunk, 
-  createExpenseThunk, 
+import {
+  fetchExpenseCategoriesThunk,
+  fetchExpensesThunk,
+  createExpenseThunk,
   updateExpenseThunk,
   removeExpenseThunk,
   clearExpenseError
@@ -51,8 +54,11 @@ export const PartnerExpensesScreen: React.FC = () => {
 
   // Filters
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | string>('All');
-  const [dateFilter, setDateFilter] = useState<DateFilter>('All');
-  const [showDateFilterModal, setShowDateFilterModal] = useState(false);
+  const [fromDate, setFromDate] = useState<Date | null>(null);
+  const [toDate, setToDate] = useState<Date | null>(null);
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Form State
   const [modalVisible, setModalVisible] = useState(false);
@@ -65,7 +71,7 @@ export const PartnerExpensesScreen: React.FC = () => {
   const [amountError, setAmountError] = useState('');
   const [categoryError, setCategoryError] = useState('');
   const [dateError, setDateError] = useState('');
-  
+
   // Date Picker State
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -85,36 +91,32 @@ export const PartnerExpensesScreen: React.FC = () => {
     }
   }, [dispatch, hasFetchedCategories]);
 
-  // Fetch Expenses on filter change
-  useEffect(() => {
-    const fetchParams: any = {};
-    if (selectedCategoryId !== 'All') {
-      fetchParams.category_id = selectedCategoryId;
-    }
-    
-    // Convert DateFilter to start_date / end_date (mocking logic for backend)
-    if (dateFilter !== 'All') {
-      const today = new Date();
-      fetchParams.end_date = today.toISOString().split('T')[0];
-      if (dateFilter === 'Today') {
-        fetchParams.start_date = today.toISOString().split('T')[0];
-      } else if (dateFilter === 'Week') {
-        const lastWeek = new Date(today);
-        lastWeek.setDate(lastWeek.getDate() - 7);
-        fetchParams.start_date = lastWeek.toISOString().split('T')[0];
-      } else if (dateFilter === 'Month') {
-        const lastMonth = new Date(today);
-        lastMonth.setMonth(lastMonth.getMonth() - 1);
-        fetchParams.start_date = lastMonth.toISOString().split('T')[0];
-      } else if (dateFilter === 'Year') {
-        const lastYear = new Date(today);
-        lastYear.setFullYear(lastYear.getFullYear() - 1);
-        fetchParams.start_date = lastYear.toISOString().split('T')[0];
+  // Fetch Expenses on filter change and when returning to screen
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchParams: any = {};
+      if (selectedCategoryId !== 'All') {
+        fetchParams.category_id = selectedCategoryId;
       }
-    }
 
-    dispatch(fetchExpensesThunk(fetchParams));
-  }, [dispatch, selectedCategoryId, dateFilter]);
+      if (fromDate) fetchParams.start_date = fromDate.toISOString().split('T')[0];
+      if (toDate) fetchParams.end_date = toDate.toISOString().split('T')[0];
+
+      dispatch(fetchExpensesThunk(fetchParams));
+    }, [dispatch, selectedCategoryId, fromDate, toDate])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    setFromDate(null);
+    setToDate(null);
+    setSelectedCategoryId('All');
+
+    const fetchParams: any = {};
+    await dispatch(fetchExpenseCategoriesThunk());
+    await dispatch(fetchExpensesThunk(fetchParams));
+    setIsRefreshing(false);
+  }, [dispatch]);
 
 
   const getCategoryIcon = (categoryName?: string) => {
@@ -156,22 +158,22 @@ export const PartnerExpensesScreen: React.FC = () => {
   const confirmDelete = (id: string | number) => {
     Alert.alert("Delete Expense", "Are you sure you want to delete this expense record?", [
       { text: "Cancel", style: "cancel" },
-      { 
-        text: "Delete", 
+      {
+        text: "Delete",
         style: "destructive",
         onPress: () => {
           dispatch(removeExpenseThunk(id))
             .unwrap()
             .then(() => dispatch(showToast({ type: 'success', title: 'Deleted', message: 'Expense deleted successfully.' })))
             .catch((err) => dispatch(showToast({ type: 'error', title: 'Error', message: err })));
-        } 
+        }
       }
     ]);
   };
 
   const handleSaveExpense = () => {
     let hasError = false;
-    
+
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       setAmountError(t('Please enter a valid amount.') || 'Please enter a valid amount.');
       hasError = true;
@@ -229,24 +231,24 @@ export const PartnerExpensesScreen: React.FC = () => {
   const renderExpenseCard = ({ item }: { item: Expense }) => (
     <View style={[styles.expenseCard, { backgroundColor: colors.white }]}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-        
+
         {/* Left: Icon */}
         <View style={styles.categoryIconCircle}>
           <AppIcon name={getCategoryIcon(item.category_name)} size={14} color="#047857" />
         </View>
-        
+
         {/* Middle: Details */}
         <View style={{ flex: 1, marginLeft: 10, marginRight: 8 }}>
           <Text style={[typography.bodyMedium, { color: '#0F172A', fontWeight: '700' }]} numberOfLines={1}>
             {item.category_name || 'Expense'}
           </Text>
-          
+
           {item.description ? (
             <Text style={[typography.caption, { color: '#475569', marginTop: 2 }]} numberOfLines={1}>
               {item.description}
             </Text>
           ) : null}
-          
+
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
             <AppIcon name="calendar" size={10} color="#94A3B8" />
             <Text style={[typography.caption, { color: '#94A3B8', fontSize: 10, marginLeft: 4 }]}>
@@ -270,10 +272,10 @@ export const PartnerExpensesScreen: React.FC = () => {
           </Text>
           <View style={{ flexDirection: 'row', marginTop: 10, gap: 10, alignItems: 'center' }}>
             <TouchableOpacity onPress={() => openEditModal(item)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-               <Entypo name="edit" color="#047857" size={18} />
+              <Entypo name="edit" color="#047857" size={18} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => confirmDelete(item.id)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-               <AppIcon name="trash-2" size={16} color="#EF4444" />
+              <AppIcon name="trash-2" size={16} color="#EF4444" />
             </TouchableOpacity>
           </View>
         </View>
@@ -285,27 +287,65 @@ export const PartnerExpensesScreen: React.FC = () => {
   return (
     <View style={[styles.container, { backgroundColor: '#F8FAFC' }]}>
       <StatusBar barStyle="dark-content" />
-      <Header 
-        title={t('Expenses') || 'Expenses'} 
-        showBack={false} 
-        rightComponent={
-          <TouchableOpacity 
-            style={[styles.dropdownBtn, { backgroundColor: '#F8FAFC', paddingHorizontal: 12, paddingVertical: 8, minWidth: 100, justifyContent: 'space-between', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' }]}
-            onPress={() => setShowDateFilterModal(true)}
-          >
-            <Text style={[styles.dropdownBtnText, { flex: 1, textAlign: 'center' }]}>{dateFilter === 'All' ? 'All Time' : dateFilter}</Text>
-            <AppIcon name="chevron-down" size={14} color="#64748B" />
-          </TouchableOpacity>
-        } 
+      <Header
+        title={t('Expenses') || 'Expenses'}
+        showBack={false}
+        rightComponent={null}
       />
 
       {/* Filter Row */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, backgroundColor: colors.white }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 8, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, backgroundColor: '#FFFFFF' }}>
+          <TouchableOpacity onPress={() => setShowFromPicker(true)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' }}>
+            <AppIcon name="calendar" size={16} color="#64748B" style={{ marginRight: 8 }} />
+            <View style={{ alignItems: 'flex-start' }}>
+              <Text style={{ fontSize: 9, color: '#94A3B8', fontWeight: '600', marginBottom: 1 }}>{t('From Date') || 'From Date'}</Text>
+              <Text style={{ fontSize: 12, color: '#334155', fontWeight: '700' }}>{fromDate ? fromDate.toISOString().split('T')[0].split('-').reverse().join('-') : 'dd-mm-yyyy'}</Text>
+            </View>
+          </TouchableOpacity>
+          <Text style={{ fontSize: 12, color: '#94A3B8', fontWeight: '700' }}>-</Text>
+          <TouchableOpacity onPress={() => setShowToPicker(true)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' }}>
+            <AppIcon name="calendar" size={16} color="#64748B" style={{ marginRight: 8 }} />
+            <View style={{ alignItems: 'flex-start' }}>
+              <Text style={{ fontSize: 9, color: '#94A3B8', fontWeight: '600', marginBottom: 1 }}>{t('To Date') || 'To Date'}</Text>
+              <Text style={{ fontSize: 12, color: '#334155', fontWeight: '700' }}>{toDate ? toDate.toISOString().split('T')[0].split('-').reverse().join('-') : 'dd-mm-yyyy'}</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {showFromPicker && (
+          <DateTimePicker
+            value={fromDate || new Date()}
+            mode="date"
+            display="default"
+            maximumDate={toDate || undefined}
+            onChange={(event, selectedDate) => {
+              setShowFromPicker(false);
+              if (selectedDate) setFromDate(selectedDate);
+            }}
+          />
+        )}
+        {showToPicker && (
+          <DateTimePicker
+            value={toDate || new Date()}
+            mode="date"
+            display="default"
+            minimumDate={fromDate || undefined}
+            maximumDate={new Date()}
+            onChange={(event, selectedDate) => {
+              setShowToPicker(false);
+              if (selectedDate) setToDate(selectedDate);
+            }}
+          />
+        )}
+      </View>
+
       <View style={[styles.filterSection, { backgroundColor: colors.white }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
           <TouchableOpacity
             style={[
               styles.categoryPill,
-              selectedCategoryId === 'All' 
+              selectedCategoryId === 'All'
                 ? { backgroundColor: '#047857', borderColor: '#047857' }
                 : { backgroundColor: colors.white, borderColor: '#E2E8F0' }
             ]}
@@ -323,7 +363,7 @@ export const PartnerExpensesScreen: React.FC = () => {
               key={cat.id}
               style={[
                 styles.categoryPill,
-                selectedCategoryId === cat.id 
+                selectedCategoryId === cat.id
                   ? { backgroundColor: '#047857', borderColor: '#047857' }
                   : { backgroundColor: colors.white, borderColor: '#E2E8F0' }
               ]}
@@ -351,9 +391,18 @@ export const PartnerExpensesScreen: React.FC = () => {
       </View>
 
       {/* Expenses List */}
-      {isLoading && expenses.length === 0 ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#047857" />
+      {(isLoading && expenses.length === 0) || isRefreshing ? (
+        <View style={{ flex: 1, padding: 16 }}>
+          {[1, 2, 3, 4, 5].map((item) => (
+            <View key={item} style={{ marginBottom: 16, flexDirection: 'row', alignItems: 'center' }}>
+              <Skeleton width={40} height={40} borderRadius={20} style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <Skeleton width="60%" height={16} borderRadius={4} style={{ marginBottom: 6 }} />
+                <Skeleton width="40%" height={12} borderRadius={4} />
+              </View>
+              <Skeleton width={60} height={16} borderRadius={4} />
+            </View>
+          ))}
         </View>
       ) : (
         <FlatList
@@ -362,6 +411,13 @@ export const PartnerExpensesScreen: React.FC = () => {
           renderItem={renderExpenseCard}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <View style={[styles.emptyIconCircle, { backgroundColor: '#F1F5F9' }]}>
@@ -377,7 +433,7 @@ export const PartnerExpensesScreen: React.FC = () => {
       )}
 
       {/* Floating Action Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.fab, { backgroundColor: '#0D523B' }]}
         onPress={openAddModal}
         activeOpacity={0.8}
@@ -387,8 +443,8 @@ export const PartnerExpensesScreen: React.FC = () => {
 
       {/* Bottom Sheet Modal for Add/Edit Expense */}
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <KeyboardAvoidingView 
-          style={{ flex: 1 }} 
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
@@ -422,25 +478,25 @@ export const PartnerExpensesScreen: React.FC = () => {
                 <View style={[styles.inputGroup, { marginBottom: 16 }]}>
                   <Text style={[typography.bodyMedium, styles.label]}>{t('Category')} <Text style={{ color: '#EF4444' }}>*</Text></Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                     {categories.map((cat) => (
-                       <TouchableOpacity
-                         key={cat.id}
-                         style={[
-                           styles.categoryPill,
-                           expenseCategoryId === cat.id 
-                             ? { backgroundColor: '#047857', borderColor: '#047857' }
-                             : { backgroundColor: colors.white, borderColor: categoryError ? '#EF4444' : '#E2E8F0' }
-                         ]}
-                         onPress={() => { setExpenseCategoryId(cat.id); setCategoryError(''); }}
-                       >
-                         <Text style={[
-                           typography.caption,
-                           { color: expenseCategoryId === cat.id ? colors.white : '#475569', fontWeight: '600' }
-                         ]}>
-                           {cat.name}
-                         </Text>
-                       </TouchableOpacity>
-                     ))}
+                    {categories.map((cat) => (
+                      <TouchableOpacity
+                        key={cat.id}
+                        style={[
+                          styles.categoryPill,
+                          expenseCategoryId === cat.id
+                            ? { backgroundColor: '#047857', borderColor: '#047857' }
+                            : { backgroundColor: colors.white, borderColor: categoryError ? '#EF4444' : '#E2E8F0' }
+                        ]}
+                        onPress={() => { setExpenseCategoryId(cat.id); setCategoryError(''); }}
+                      >
+                        <Text style={[
+                          typography.caption,
+                          { color: expenseCategoryId === cat.id ? colors.white : '#475569', fontWeight: '600' }
+                        ]}>
+                          {cat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </ScrollView>
                   {categoryError ? <Text style={[typography.caption, { color: '#EF4444', marginTop: 4 }]}>{categoryError}</Text> : null}
                 </View>
@@ -451,7 +507,7 @@ export const PartnerExpensesScreen: React.FC = () => {
                       <CustomInput
                         label={(t('Date') || "Date") + " *"}
                         value={formatDisplayDate(date)}
-                        onChangeText={() => {}}
+                        onChangeText={() => { }}
                         placeholder="Select date"
                         leftIcon="calendar"
                         editable={false}
@@ -511,48 +567,7 @@ export const PartnerExpensesScreen: React.FC = () => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Date Modal (Popover) */}
-      <Modal visible={showDateFilterModal} transparent animationType="fade">
-        <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowDateFilterModal(false)} activeOpacity={1}>
-          <View style={{
-            position: 'absolute',
-            top: Math.max(insets.top, 8) + 52 + 4,
-            right: 16,
-            backgroundColor: '#FFFFFF',
-            borderRadius: 12,
-            padding: 4,
-            width: 160,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 12,
-            elevation: 8,
-            borderWidth: 1,
-            borderColor: '#F1F5F9',
-          }}>
-            {(['All', 'Today', 'Week', 'Month', 'Year'] as DateFilter[]).map((period, index) => (
-              <TouchableOpacity 
-                key={period}
-                style={{
-                  paddingVertical: 12,
-                  paddingHorizontal: 12,
-                  borderBottomWidth: index !== 4 ? 1 : 0,
-                  borderBottomColor: '#F8FAFC',
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-                onPress={() => { setDateFilter(period); setShowDateFilterModal(false); }}
-              >
-                <Text style={[typography.body, dateFilter === period && { color: '#10B981', fontWeight: 'bold' }]}>
-                  {period === 'All' ? 'All Time' : period}
-                </Text>
-                {dateFilter === period && <AppIcon name="check" size={16} color="#10B981" />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+
 
     </View>
   );

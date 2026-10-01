@@ -45,20 +45,38 @@ export const LoginScreen: React.FC = () => {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      dispatch(showToast({ type: 'error', title: 'Required', message: 'Please enter your email and password.' }));
+      dispatch(
+        showToast({
+          type: 'error',
+          title: 'Required',
+          message: 'Please enter your email and password.',
+        }),
+      );
       return;
     }
-    
+
     setIsLoggingIn(true);
     try {
       const resultAction = await dispatch(loginThunk({ email, password }));
       if (loginThunk.fulfilled.match(resultAction)) {
         // Navigation is handled automatically by the auth state change in App.tsx
       } else {
-        dispatch(showToast({ type: 'error', title: 'Login Failed', message: resultAction.payload as string }));
+        dispatch(
+          showToast({
+            type: 'error',
+            title: 'Login Failed',
+            message: resultAction.payload as string,
+          }),
+        );
       }
     } catch (error: any) {
-      dispatch(showToast({ type: 'error', title: 'Error', message: 'An unexpected error occurred.' }));
+      dispatch(
+        showToast({
+          type: 'error',
+          title: 'Error',
+          message: 'An unexpected error occurred.',
+        }),
+      );
     } finally {
       setIsLoggingIn(false);
     }
@@ -67,17 +85,17 @@ export const LoginScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {/* @ts-ignore */}
-      <StatusBar barStyle="dark-content" backgroundColor="#F4F7F9" />
-      
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: insets.top + 50, paddingBottom: insets.bottom + 40 }
+            { paddingTop: insets.top + 50, paddingBottom: insets.bottom + 40 },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -101,13 +119,25 @@ export const LoginScreen: React.FC = () => {
           <View style={styles.formCard}>
             <View style={styles.welcomeSection}>
               <Text style={styles.welcomeTitle}>Sign In</Text>
-              <Text style={styles.welcomeSubtitle}>Enter your details to proceed.</Text>
+              <Text style={styles.welcomeSubtitle}>
+                Enter your details to proceed.
+              </Text>
             </View>
 
             {/* Email Field */}
             <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={[styles.inputWrapper, isFocusedEmail && styles.inputWrapperFocused]}>
-              <AppIcon name="mail" size={20} color={isFocusedEmail ? "#0D523B" : "#A0AAB5"} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputWrapper,
+                isFocusedEmail && styles.inputWrapperFocused,
+              ]}
+            >
+              <AppIcon
+                name="mail"
+                size={20}
+                color={isFocusedEmail ? '#0D523B' : '#A0AAB5'}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.inputField}
                 placeholder="hello@example.com"
@@ -124,8 +154,18 @@ export const LoginScreen: React.FC = () => {
 
             {/* Password Field */}
             <Text style={[styles.inputLabel, { marginTop: 24 }]}>Password</Text>
-            <View style={[styles.inputWrapper, isFocusedPassword && styles.inputWrapperFocused]}>
-              <AppIcon name="lock" size={20} color={isFocusedPassword ? "#0D523B" : "#A0AAB5"} style={styles.inputIcon} />
+            <View
+              style={[
+                styles.inputWrapper,
+                isFocusedPassword && styles.inputWrapperFocused,
+              ]}
+            >
+              <AppIcon
+                name="lock"
+                size={20}
+                color={isFocusedPassword ? '#0D523B' : '#A0AAB5'}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.inputField}
                 placeholder="Enter your password"
@@ -138,15 +178,22 @@ export const LoginScreen: React.FC = () => {
                 onBlur={() => setIsFocusedPassword(false)}
                 selectionColor="#0D523B"
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-                <AppIcon name={showPassword ? "eye-off" : "eye"} size={20} color="#A0AAB5" />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+              >
+                <AppIcon
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={20}
+                  color="#A0AAB5"
+                />
               </TouchableOpacity>
             </View>
 
             {/* Forgot Password */}
-            <TouchableOpacity style={styles.forgotPasswordButton}>
-               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
+            {/* <TouchableOpacity style={styles.forgotPasswordButton}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity> */}
 
             {/* Error Message */}
             {apiError ? (
@@ -158,7 +205,10 @@ export const LoginScreen: React.FC = () => {
 
             {/* Login Button */}
             <TouchableOpacity
-              style={[styles.primaryButton, isLoggingIn && styles.primaryButtonDisabled]}
+              style={[
+                styles.primaryButton,
+                isLoggingIn && styles.primaryButtonDisabled,
+              ]}
               onPress={handleLogin}
               disabled={isLoggingIn}
               activeOpacity={0.8}
@@ -171,12 +221,12 @@ export const LoginScreen: React.FC = () => {
             </TouchableOpacity>
 
             {/* Footer */}
-            <View style={styles.footerContainer}>
+            {/* <View style={styles.footerContainer}>
               <Text style={styles.footerText}>Don't have an account? </Text>
               <TouchableOpacity>
                 <Text style={styles.footerLink}>Contact Support</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -187,12 +237,12 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F7F9', // Premium light cool-gray
+    backgroundColor: '#FFFFFF', // Clean white
   },
   scrollContent: {
     flexGrow: 1,
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   headerSection: {
     alignItems: 'center',
@@ -202,13 +252,11 @@ const styles = StyleSheet.create({
   logoContainer: {
     width: 80,
     height: 80,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   logoImage: {
     width: 50,
@@ -226,7 +274,7 @@ const styles = StyleSheet.create({
   brandSubtitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#10B981',
+    color: '#059669',
     letterSpacing: 4,
     textTransform: 'uppercase',
     marginTop: 4,
@@ -234,10 +282,8 @@ const styles = StyleSheet.create({
   formCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 30,
-    padding: 30,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    paddingTop: 10,
+    paddingBottom: 30,
     marginBottom: 30,
   },
   welcomeSection: {
@@ -319,6 +365,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: 60,
+    marginTop: 40,
     backgroundColor: '#0D523B',
     borderRadius: 16,
     justifyContent: 'center',

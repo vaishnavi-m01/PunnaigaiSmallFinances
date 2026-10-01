@@ -1,0 +1,650 @@
+﻿import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  StatusBar,
+  Animated,
+  Image,
+} from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppSelector, useAppDispatch } from '../../hooks/useAppHooks';
+import { useAppTheme } from '../../theme/useAppTheme';
+import { 
+  fetchPartnerDashboardThunk, 
+  fetchPartnerContributionsThunk, 
+  fetchPartnerTransactionsThunk, 
+  fetchPartnerWithdrawalsThunk,
+  fetchPartnerPartnershipsThunk,
+  setSelectedPartnershipCode
+} from '../../store/partnerSlice';
+import { AppIcon } from '../../component/AppIcon';
+import { Skeleton } from '../../component/Common/Skeleton';
+import { formatINR } from '../../utils/currency';
+import { formatDate } from '../../utils';
+import { ROUTES } from '../../constants/routes';
+import { useTranslation } from '../../context/LanguageContext';
+
+const PartnerDashboardScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const { colors, typography } = useAppTheme();
+  const dispatch = useAppDispatch();
+  const partner = useAppSelector(state => state.partner);
+  console.log("partner",partner)
+  const user = useAppSelector(state => state.auth.user);
+  const { t } = useTranslation();
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [filterWidth, setFilterWidth] = useState(0);
+  const slideAnim = React.useRef(new Animated.Value(0)).current;
+
+  const selectedIndex = React.useMemo(() => {
+    if (!partner.partnerships) return 0;
+    const index = partner.partnerships.findIndex(p => p.partnership_code === partner.selectedPartnershipCode);
+    return index === -1 ? 0 : index;
+  }, [partner.partnerships, partner.selectedPartnershipCode]);
+
+  useEffect(() => {
+    if (filterWidth > 0 && partner.partnerships?.length > 0) {
+      const tabWidth = filterWidth / partner.partnerships.length;
+      Animated.spring(slideAnim, {
+        toValue: selectedIndex * tabWidth,
+        useNativeDriver: true,
+        bounciness: 4,
+        speed: 12,
+      }).start();
+    }
+  }, [selectedIndex, filterWidth, partner.partnerships?.length]);
+
+  const idToFetch = React.useMemo(() => {
+    const selectedP = partner.partnerships?.find(p => p.partnership_code === partner.selectedPartnershipCode);
+    return selectedP ? selectedP.partnership_id : undefined;
+  }, [partner.partnerships, partner.selectedPartnershipCode]);
+
+  // On mount, get the list of partnerships unconditionally to ensure filter is always up to date
+  useEffect(() => {
+    dispatch(fetchPartnerPartnershipsThunk());
+  }, [dispatch]);
+
+  // On focus, get the list of partnerships unconditionally to ensure filter is always up to date
+  useFocusEffect(
+    React.useCallback(() => {
+      dispatch(fetchPartnerPartnershipsThunk());
+    }, [dispatch])
+  );
+
+  // Fetch Dashboard data and Partnerships list once we know the selected ID
+  useEffect(() => {
+    const fetchOnFilter = async () => {
+      if (idToFetch !== undefined) {
+        // Run sequentially, but fetch partnerships list FIRST, so it doesn't overwrite 
+        // the rich dashboard data (which includes recent_transactions)
+        await dispatch(fetchPartnerPartnershipsThunk());
+        await dispatch(fetchPartnerDashboardThunk(idToFetch));
+      }
+    };
+    fetchOnFilter();
+  }, [dispatch, idToFetch]);
+
+  const fetchDashboardData = useCallback(async () => {
+    setIsRefreshing(true);
+    const selectedP = partner.partnerships?.find(p => p.partnership_code === partner.selectedPartnershipCode);
+    const currentId = selectedP ? selectedP.partnership_id : undefined;
+    
+    // Always refresh the partnership list too!
+    // MUST run sequentially: fetch list first, then fetch rich dashboard data 
+    // to avoid the list API wiping out the recent_transactions data.
+    await dispatch(fetchPartnerPartnershipsThunk());
+    if (currentId !== undefined) {
+      await dispatch(fetchPartnerDashboardThunk(currentId));
+    }
+    
+    setIsRefreshing(false);
+  }, [dispatch, partner.selectedPartnershipCode, partner.partnerships]);
+
+  const onRefresh = fetchDashboardData;
+
+  const getPartnerName = (code?: string) => {
+    if (!code) return 'Partner';
+    const p = partner?.partnerships?.find(pt => pt.partnership_code === code);
+    const name = partner?.partners?.find(pt => pt.id === p?.partnership_id)?.name || p?.partnership_name;
+    return name ? `${name}'s` : 'Partner';
+  };
+
+  const selectedPartnership = partner.partnerships?.find(p => p.partnership_code === partner.selectedPartnershipCode) || partner.partnerships?.[0];
+  const apiRecentTx = (selectedPartnership as any)?.recent_transactions || [];
+
+  const recentTransactions = apiRecentTx.map((tx: any) => ({
+    id: `tx_${tx.id}`,
+    title: tx.description || (tx.transaction_type === 'partner_contribution' ? 'Investment Added' : 'Profit Share'),
+    amount: Number(tx.amount),
+    date: formatDate(tx.transaction_date),
+    type: tx.direction === 'in' ? 'credit' : 'debit',
+    icon: tx.transaction_type === 'partner_contribution' ? 'triangle' : 'briefcase',
+    iconColor: tx.direction === 'in' ? '#10B981' : '#EF4444',
+    iconBg: tx.direction === 'in' ? '#D1FAE5' : '#FEE2E2',
+  })).slice(0, 5);
+
+  // User requested to hide partner name from titles
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* Top Header Bar */}
+      <View
+        style={[styles.topHeader, { paddingTop: Math.max(insets.top + 6, 16) }]}
+      >
+        <View style={styles.headerLeft}>
+          {/* User Avatar Circle */}
+          <TouchableOpacity
+            style={styles.avatarCircleHeader}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate(ROUTES.PARTNER_PROFILE)}
+          >
+            <View style={styles.avatarInner}>
+              <AppIcon name="user" size={18} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+
+          {/* Greeting Text */}
+          <View style={styles.nameBlock}>
+            <Text style={styles.greetingTitle}>
+              {t('Hello')}, {user?.name?.split(' ')[0] || 'Partner'}
+            </Text>
+            <Text style={styles.greetingSubtitle}>
+              {t('Welcome back')}
+            </Text>
+          </View>
+        </View>
+
+        {/* Notification Bell */}
+        <TouchableOpacity
+          style={styles.bellButton}
+          onPress={() => {}}
+          activeOpacity={0.7}
+        >
+          <AppIcon name="bell" size={20} color="#0F172A" />
+          <View style={styles.badgeDot} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {isRefreshing ? (
+          <View style={{ paddingTop: 16 }}>
+            <Skeleton height={100} borderRadius={16} style={{ marginBottom: 16 }} />
+            <Skeleton height={120} borderRadius={16} style={{ marginBottom: 16 }} />
+          </View>
+        ) : (
+          <>
+              {/* Partnership Filter */}
+              {partner.partnerships && partner.partnerships.length > 0 && (
+                <View 
+                  style={styles.filterContainer}
+                  onLayout={(e) => setFilterWidth(e.nativeEvent.layout.width - 6)}
+                >
+                  <Animated.View 
+                    style={[
+                      styles.slidingPill,
+                      { 
+                        width: `${100 / partner.partnerships.length}%`,
+                        transform: [{ translateX: slideAnim }]
+                      }
+                    ]} 
+                  />
+                  {partner.partnerships.map((p, index) => {
+                    const partnerName = partner.partners?.find(pt => pt.id === p.partnership_id)?.name || p.partnership_name || `Partner ${index + 1}`;
+                    const isSelected = selectedIndex === index;
+                    return (
+                      <TouchableOpacity
+                        key={p.partnership_id}
+                        style={styles.pillTab}
+                        onPress={() => dispatch(setSelectedPartnershipCode(p.partnership_code))}
+                        activeOpacity={1}
+                      >
+                        <Text style={[
+                          styles.pillTabText,
+                          isSelected && styles.pillTabTextActive
+                        ]}>{partnerName}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Wallet Card (Hero) */}
+              <LinearGradient
+                colors={['#047857', '#022C22']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.investmentCard}
+              >
+                <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', borderRadius: 20 }]} pointerEvents="none">
+                  <View style={{ position: 'absolute', bottom: -40, right: -20, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                  <View style={{ position: 'absolute', top: -20, right: 60, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                </View>
+                <View style={styles.investmentTop}>
+                  <View style={[styles.investIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                    <AppIcon name="credit-card" size={18} color="#FFFFFF" />
+                  </View>
+                  <Text style={[typography.subtitle, { color: colors.white, marginLeft: 12, opacity: 0.9 }]}>
+                    {t('Total Wallet Balance')}
+                  </Text>
+                </View>
+                {partner.isLoading && !isRefreshing ? (
+                  <View style={{ marginTop: 16, height: 40, justifyContent: 'center' }}>
+                    <Skeleton width={180} height={32} borderRadius={8} style={{ opacity: 0.5 }} />
+                  </View>
+                ) : (
+                  <Text style={[typography.h1, { color: colors.white, marginTop: 16, fontSize: 40, fontWeight: '900', letterSpacing: 0.5 }]}>
+                    {formatINR(partner?.summary?.available_balance || 0)}
+                  </Text>
+                )}
+              </LinearGradient>
+
+              {/* Profit & Wallet Row */}
+              <View style={styles.splitRow}>
+                {/* Profit */}
+                <View style={[styles.splitCard, { backgroundColor: '#FFF5F5' }]}>
+                  <View style={styles.splitIconRow}>
+                    <View style={[styles.smallIconCircle, { backgroundColor: '#FEE2E2' }]}>
+                      <AppIcon name="pie-chart" size={14} color="#EF4444" />
+                    </View>
+                    <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>
+                      {t('Profit') || 'Profit'}
+                    </Text>
+                  </View>
+                  {partner.isLoading && !isRefreshing ? (
+                    <Skeleton width={100} height={24} borderRadius={6} style={{ marginTop: 12 }} />
+                  ) : (
+                    <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
+                      {formatINR(partner?.summary?.total_profit ?? partner?.summary?.earnings ?? 0)}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Investment */}
+                <View style={[styles.splitCard, { backgroundColor: '#F5F3FF' }]}>
+                  <View style={styles.splitIconRow}>
+                    <View style={[styles.smallIconCircle, { backgroundColor: '#EDE9FE' }]}>
+                      <AppIcon name="briefcase" size={14} color="#8B5CF6" />
+                    </View>
+                    <Text style={[typography.subtitle, { color: '#475569', marginLeft: 8 }]}>
+                      {t('Investment') || 'Investment'}
+                    </Text>
+                  </View>
+                  {partner.isLoading && !isRefreshing ? (
+                    <Skeleton width={100} height={24} borderRadius={6} style={{ marginTop: 12 }} />
+                  ) : (
+                    <Text style={[typography.h3, { color: '#0F172A', marginTop: 12 }]}>
+                      {formatINR(partner?.summary?.total_investment ?? partner?.summary?.contributions ?? 0)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+
+
+              {/* Quick Access */}
+              <Text style={[typography.h3, styles.sectionTitle, { color: '#0F172A', marginTop: 8 }]}>
+                {t('Quick Access') || 'Quick Access'}
+              </Text>
+              
+              <View style={styles.quickAccessGrid}>
+                <TouchableOpacity 
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate(ROUTES.PARTNER_CUSTOMERS)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: '#EFF6FF' }]}>
+                    <AppIcon name="users" size={24} color="#3B82F6" />
+                  </View>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>{t('Customers')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate(ROUTES.MY_EARNINGS)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: '#ECFDF5' }]}>
+                    <AppIcon name="trending-up" size={24} color="#10B981" />
+                  </View>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>{t('Investment') || 'Investment'}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: '#F5F3FF' }]}>
+                    <AppIcon name="credit-card" size={24} color="#8B5CF6" />
+                  </View>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>{t('Wallet')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate(ROUTES.PARTNER_PROFILE)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: '#FFF7ED' }]}>
+                    <AppIcon name="user" size={24} color="#F97316" />
+                  </View>
+                  <Text style={[typography.subtitle, { color: '#0F172A', marginTop: 8 }]}>{t('Profile')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Recent Transactions */}
+              <View style={styles.historyHeader}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={[typography.h3, { color: '#0F172A' }]} numberOfLines={1}>
+                    {t('Recent Transactions')}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => navigation.navigate(ROUTES.PARTNER_WALLET)} style={{ flexShrink: 0 }}>
+                  <Text style={[typography.subtitle, { color: '#16A34A' }]}>{t('See All') || 'See All'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {partner.isLoading && !isRefreshing ? (
+                <View style={{ marginTop: 8 }}>
+                  <Skeleton height={70} borderRadius={12} style={{ marginBottom: 12 }} />
+                  <Skeleton height={70} borderRadius={12} style={{ marginBottom: 12 }} />
+                  <Skeleton height={70} borderRadius={12} style={{ marginBottom: 12 }} />
+                </View>
+              ) : (
+                <View style={styles.txList}>
+                  {recentTransactions.length === 0 ? (
+                    <View style={[styles.txCard, { justifyContent: 'center', padding: 24 }]}>
+                      <Text style={[typography.caption, { color: '#64748B', textAlign: 'center' }]}>
+                        {t('No recent transactions found') || 'No recent transactions found'}
+                      </Text>
+                    </View>
+                  ) : (
+                    recentTransactions.map((tx: any) => (
+                      <View key={tx.id} style={styles.txCard}>
+                        <View style={styles.txLeft}>
+                          <View style={[styles.txIconBox, { backgroundColor: tx.iconBg }]}>
+                            <AppIcon name={tx.icon} size={16} color={tx.iconColor} />
+                          </View>
+                          <View style={{ flex: 1, paddingRight: 8 }}>
+                            <Text style={[typography.subtitle, { color: '#0F172A' }]} numberOfLines={1}>
+                              {tx.title}
+                            </Text>
+                            <Text style={[typography.caption, { color: '#64748B', marginTop: 2 }]} numberOfLines={1}>
+                              {tx.date}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.txRight}>
+                          <Text style={[
+                            typography.subtitle, 
+                            { color: tx.type === 'credit' ? '#10B981' : '#EF4444' }
+                          ]}>
+                            {tx.type === 'credit' ? '+ ' : '- '}{formatINR(tx.amount)}
+                          </Text>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
+              )}
+
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
+};
+export { PartnerDashboardScreen };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F4F9F6', // Matching Investment Page background
+  },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    backgroundColor: '#F4F9F6', // Matching background
+    zIndex: 10,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatarCircleHeader: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0D523B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  avatarInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0D523B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nameBlock: {
+    justifyContent: 'center',
+  },
+  greetingTitle: {
+    color: '#0F172A',
+    fontSize: 14.5,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  greetingSubtitle: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  bellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 0,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#EF4444',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 80,
+  },
+  investmentCard: {
+    padding: 24,
+    borderRadius: 24,
+    marginBottom: 24,
+  },
+  investmentTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  investIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  splitRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
+  splitCard: {
+    width: '48%',
+    padding: 20,
+    borderRadius: 24,
+  },
+  splitIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontWeight: '800',
+    marginBottom: 16,
+  },
+  quickAccessGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  quickAccessItem: {
+    width: '23%',
+    alignItems: 'center',
+  },
+  quickIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 24,
+  },
+  txList: {
+    gap: 8,
+  },
+  txCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 18,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  txLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  txIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  txRight: {
+    alignItems: 'flex-end',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 24,
+    position: 'relative',
+  },
+  slidingPill: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: 3,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  pillTab: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  pillTabText: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  pillTabTextActive: {
+    color: '#0F172A',
+    fontWeight: '700',
+  },
+  partnershipCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  partnershipHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  partnershipDataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+});

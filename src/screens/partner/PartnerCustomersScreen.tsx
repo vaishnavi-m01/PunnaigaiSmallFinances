@@ -14,7 +14,13 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppDispatch } from '../../hooks/useAppHooks';
@@ -30,6 +36,7 @@ import {
 import { formatINR } from '../../utils/currency';
 import { formatDate, formatDateToShortMonth } from '../../utils/date';
 import { useTranslation } from '../../context/LanguageContext';
+import { roundTo } from '../../utils/number';
 
 const FinanceCard = ({
   finance,
@@ -37,6 +44,7 @@ const FinanceCard = ({
   typography,
   onCollectClick,
   onAddGivenClick,
+  onViewHistory,
   customer,
 }: any) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -47,8 +55,8 @@ const FinanceCard = ({
   today.setHours(0, 0, 0, 0);
 
   const checkIsCollectEnabled = (schedule: any) => {
-    if (schedule.status !== 'pending' && schedule.status !== 'overdue') return false;
-    if (schedule.status === 'overdue') return true;
+    if (schedule.status !== 'pending' && schedule.status !== 'overdue' && schedule.status !== 'partial') return false;
+    if (schedule.status === 'overdue' || schedule.status === 'partial') return true;
     
     if (firstTwoPendingIds.includes(schedule.id)) return true;
 
@@ -64,7 +72,10 @@ const FinanceCard = ({
     <View style={styles.financeContainer}>
       <TouchableOpacity
         style={styles.financeHeader}
-        onPress={() => setIsExpanded(!isExpanded)}
+        onPress={() => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          setIsExpanded(!isExpanded);
+        }}
         activeOpacity={0.7}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
@@ -87,7 +98,7 @@ const FinanceCard = ({
             >
               {finance.finance_code} • {formatDate(finance.start_date)}
             </Text>
-            {customer?.advance_balance > 0 && (
+            {finance?.advance_balance > 0 && (
               <View
                 style={{
                   backgroundColor: '#DBEAFE',
@@ -105,7 +116,7 @@ const FinanceCard = ({
                   ]}
                 >
                   {t('Advance:') || 'Advance:'}{' '}
-                  {formatINR(customer.advance_balance)}
+                  {formatINR(finance.advance_balance)}
                 </Text>
               </View>
             )}
@@ -149,16 +160,20 @@ const FinanceCard = ({
           {schedules.map((schedule: any) => {
             const isPending = schedule.status === 'pending';
             const isOverdue = schedule.status === 'overdue';
+            const isPartial = schedule.status === 'partial';
             
-            let statusColor = '#10B981'; // default green (paid)
+            let statusColor = '#10B981'; 
             let statusBg = '#D1FAE5';
             
             if (isPending) {
-              statusColor = '#F59E0B';
+              statusColor = '#F59E0B'; 
               statusBg = '#FEF3C7';
             } else if (isOverdue) {
               statusColor = '#EF4444';
               statusBg = '#FEE2E2';
+            } else if (isPartial) {
+              statusColor = '#0284C7'; 
+              statusBg = '#E0F2FE';
             }
 
             const isCollectEnabled = checkIsCollectEnabled(schedule);
@@ -204,37 +219,63 @@ const FinanceCard = ({
                       </Text>
                     </Text>
                   </View>
-                  <Text
-                    style={[
-                      typography.bodyMedium,
-                      { color: '#0F172A', fontWeight: '700' },
-                    ]}
-                  >
-                    {formatINR(schedule.amount)}
-                  </Text>
+                  <View style={{ marginTop: 4 }}>
+                    <Text
+                      style={[
+                        typography.bodyMedium,
+                        { color: '#0F172A', fontWeight: '700' },
+                      ]}
+                    >
+                      {formatINR(schedule.amount)}
+                    </Text>
+                    {(Number(schedule.given_amount) > 0 || Number(schedule.balance_amount) > 0) && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap', gap: 12 }}>
+                        {Number(schedule.given_amount) > 0 && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={[typography.caption, { color: '#475569', fontWeight: '600', fontSize: 11 }]}>
+                              {t('Given:') || 'Given:'} <Text style={{ color: '#059669' }}>{formatINR(schedule.given_amount)}</Text>
+                            </Text>
+                            {schedule.collections && schedule.collections.length > 0 && (
+                              <TouchableOpacity
+                                style={{ marginLeft: 6, padding: 2 }}
+                                onPress={() => onViewHistory && onViewHistory(schedule)}
+                              >
+                                <AppIcon name="info" size={14} color="#0284C7" />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        )}
+                        {Number(schedule.balance_amount) > 0 && (
+                          <Text style={[typography.caption, { color: '#475569', fontWeight: '600', fontSize: 11 }]}>
+                            {t('Bal:') || 'Bal:'} <Text style={{ color: '#DC2626' }}>{formatINR(schedule.balance_amount)}</Text>
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
 
-                  {/* Breakdown details */}
-                  {(Number(schedule.balance_amount) > 0 || Number(schedule.penalty_amount) > 0) && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 8 }}>
-                      {Number(schedule.balance_amount) > 0 && (
-                        <View style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4 }}>
-                          <Text style={[typography.caption, { color: '#475569', fontSize: 10, fontWeight: '700' }]}>
-                            Bal: <Text style={{ color: '#0F172A' }}>{formatINR(schedule.balance_amount)}</Text>
-                          </Text>
-                        </View>
-                      )}
-                      {Number(schedule.penalty_amount) > 0 && (
-                        <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 4 }}>
-                          <Text style={[typography.caption, { color: '#991B1B', fontSize: 10, fontWeight: '700' }]}>
-                            Pen: {formatINR(schedule.penalty_amount)}
-                          </Text>
-                        </View>
-                      )}
+                  {/* Penalty details if any */}
+                  {(Number(schedule.penalty_total_amount) > 0 || Number(schedule.penalty_amount) > 0) && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                      <View style={{ 
+                        backgroundColor: (schedule.penalty_status === 'paid' || schedule.penalty_paid) ? '#D1FAE5' : '#FEE2E2', 
+                        paddingHorizontal: 6, 
+                        paddingVertical: 4, 
+                        borderRadius: 4 
+                      }}>
+                        <Text style={[typography.caption, { 
+                          color: (schedule.penalty_status === 'paid' || schedule.penalty_paid) ? '#059669' : '#991B1B', 
+                          fontSize: 10, 
+                          fontWeight: '700' 
+                        }]}>
+                          Pen: {formatINR(schedule.penalty_total_amount || schedule.penalty_amount)}
+                        </Text>
+                      </View>
                     </View>
                   )}
                 </View>
 
-                {(isPending || isOverdue) && (
+                {(isPending || isOverdue || schedule.status === 'partial') && (
                   <View
                     style={{
                       flexDirection: 'row',
@@ -294,6 +335,8 @@ export const PartnerCustomersScreen: React.FC = () => {
 
   // Collection Modal States
   const [collectionModalVisible, setCollectionModalVisible] = useState(false);
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [historySchedule, setHistorySchedule] = useState<any>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [amount, setAmount] = useState('');
@@ -354,12 +397,11 @@ export const PartnerCustomersScreen: React.FC = () => {
         ? schedule.balance_amount
         : schedule.amount || 0;
     const penDue = schedule.penalty_amount || 0;
-    const custAdvance =
-      customer?.advance_balance || schedule?.finance_advance || 0;
+    const custAdvance = schedule?.finance_advance || 0;
     const totalDue = dueAmount + penDue;
     const advanceUsed = Math.min(custAdvance, totalDue);
 
-    setAmount((totalDue - advanceUsed).toString());
+    setAmount(parseFloat((totalDue - advanceUsed).toFixed(2)).toString());
     setPenaltyAmount(penDue > 0 ? penDue.toString() : '');
     setAdvanceAmount('');
     setUseAdvance(true);
@@ -369,23 +411,7 @@ export const PartnerCustomersScreen: React.FC = () => {
     setCollectionModalVisible(true);
   };
 
-  const handleToggleUseAdvance = (val: boolean) => {
-    setUseAdvance(val);
-    const dueAmt =
-      Number(selectedSchedule?.balance_amount) > 0
-        ? selectedSchedule?.balance_amount
-        : selectedSchedule?.amount || 0;
-    const custAdvance =
-      selectedCustomer?.advance_balance ||
-      selectedSchedule?.finance_advance ||
-      0;
-    if (val) {
-      const advanceUsed = Math.min(custAdvance, dueAmt);
-      setAmount((dueAmt - advanceUsed).toString());
-    } else {
-      setAmount(dueAmt.toString());
-    }
-  };
+
 
   const onAddGivenClick = (schedule: any, customer: any) => {
     setSelectedSchedule(schedule);
@@ -403,10 +429,7 @@ export const PartnerCustomersScreen: React.FC = () => {
         : selectedSchedule?.amount || 0;
     const colAmtNum = Number(amount) || 0;
     const penAmtNum = Number(penaltyAmount) || 0;
-    const custAdvance =
-      selectedCustomer?.advance_balance ||
-      selectedSchedule?.finance_advance ||
-      0;
+    const custAdvance = selectedSchedule?.finance_advance || 0;
 
     // Auto calculate advance stuff for backend payload based on the user's toggle and inputs
     const totalDue = dueAmt + penAmtNum;
@@ -419,6 +442,21 @@ export const PartnerCustomersScreen: React.FC = () => {
         'Please enter a valid amount to collect (must be > 0 if not fully covered by advance).',
       );
       return;
+    }
+
+    const currentFinance = selectedCustomer?.finances?.find((f: any) => f.id === selectedSchedule?.finance_id);
+    if (currentFinance) {
+      const amountTowardsLoan = totalTransactionValue - penAmtNum;
+      const newTotalPaid = Number(currentFinance.paid_amount || 0) + amountTowardsLoan;
+      const totalLoanAmount = Number(currentFinance.total_amount || 0);
+
+      if (newTotalPaid > totalLoanAmount) {
+        Alert.alert(
+          'Invalid Amount',
+          'Payment exceeds the total loan amount.'
+        );
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -586,6 +624,10 @@ export const PartnerCustomersScreen: React.FC = () => {
                 typography={typography}
                 onCollectClick={onCollectClick}
                 onAddGivenClick={onAddGivenClick}
+                onViewHistory={(schedule: any) => {
+                  setHistorySchedule(schedule);
+                  setHistoryModalVisible(true);
+                }}
                 customer={item}
               />
             );
@@ -744,11 +786,20 @@ export const PartnerCustomersScreen: React.FC = () => {
                   >
                     {t('Collect Payment') || 'Collect Payment'}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => setCollectionModalVisible(false)}
-                  >
-                    <AppIcon name="x" size={24} color="#64748B" />
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {(selectedSchedule?.finance_advance || 0) > 0 && (
+                      <View style={{ backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginRight: 12 }}>
+                        <Text style={[typography.caption, { color: '#2563EB', fontWeight: '700' }]}>
+                          {t('Advance:') || 'Advance:'} {formatINR(selectedSchedule?.finance_advance || 0)}
+                        </Text>
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      onPress={() => setCollectionModalVisible(false)}
+                    >
+                      <AppIcon name="x" size={24} color="#64748B" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <View style={styles.modalBody}>
@@ -759,19 +810,16 @@ export const PartnerCustomersScreen: React.FC = () => {
                         : selectedSchedule?.amount || 0;
                     const penDue = selectedSchedule?.penalty_amount || 0;
                     const penAmtNum = Number(penaltyAmount) || 0;
-                    const custAdvance =
-                      selectedCustomer?.advance_balance ||
-                      selectedSchedule?.finance_advance ||
-                      0;
+                    const custAdvance = selectedSchedule?.finance_advance || 0;
                     const totalDue = dueAmt + penAmtNum;
                     const advanceUsed = useAdvance
                       ? Math.min(custAdvance, totalDue)
                       : 0;
 
                     const colAmtNum = Number(amount) || 0;
-                    const remainingAdvance = useAdvance
-                      ? custAdvance - advanceUsed
-                      : custAdvance;
+                    // const remainingAdvance = useAdvance
+                    //   ? custAdvance - advanceUsed
+                    //   : custAdvance;
 
                     let remaining = colAmtNum + advanceUsed;
                     const paidPen = Math.min(penAmtNum, remaining);
@@ -835,6 +883,11 @@ export const PartnerCustomersScreen: React.FC = () => {
                           keyboardType="numeric"
                           placeholder="0.00"
                         />
+                        {penDue > 0 && penAmtNum > 0 && (
+                          <Text style={[typography.caption, { color: '#059669', marginTop: 4, fontWeight: '600' }]}>
+                            {t('* Inclusive of Penalty') || '* Inclusive of Penalty'}
+                          </Text>
+                        )}
 
                         {penDue > 0 && (
                           <View style={{ marginTop: 16 }}>
@@ -856,7 +909,7 @@ export const PartnerCustomersScreen: React.FC = () => {
                                 const adv = useAdvance
                                   ? Math.min(custAdvance, total)
                                   : 0;
-                                setAmount((total - adv).toString());
+                                setAmount(parseFloat((total - adv).toFixed(2)).toString());
                               }}
                               keyboardType="numeric"
                               placeholder="0.00"
@@ -1062,8 +1115,6 @@ export const PartnerCustomersScreen: React.FC = () => {
                               {formatINR(colAmtNum)}
                             </Text>
                           </View>
-
-
 
                           <View
                             style={{
@@ -1278,6 +1329,72 @@ export const PartnerCustomersScreen: React.FC = () => {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Payment History Modal */}
+      <Modal
+        visible={historyModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setHistoryModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            onPress={() => setHistoryModalVisible(false)}
+            activeOpacity={1}
+          />
+          <View style={[styles.modalContent, { maxHeight: '80%', paddingBottom: Math.max(insets.bottom, 20) + 20 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[typography.h3, { color: '#0F172A', fontWeight: '700' }]}>
+                {t('Payment History') || 'Payment History'}
+              </Text>
+              <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
+                <AppIcon name="x" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {historySchedule?.collections?.map((col: any, index: number) => (
+                <View
+                  key={`col_${col.id || index}`}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingVertical: 12,
+                    borderBottomWidth: index === (historySchedule?.collections?.length || 0) - 1 ? 0 : 1,
+                    borderBottomColor: '#E2E8F0',
+                  }}
+                >
+                  <Text style={[typography.bodyMedium, { color: '#475569' }]}>
+                    {col.collected_at || formatDateToShortMonth(col.created_at)}
+                  </Text>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[typography.bodyMedium, { color: '#059669', fontWeight: '700' }]}>
+                      {formatINR(col.amount)}
+                    </Text>
+                    <Text style={[typography.caption, { color: '#94A3B8', fontSize: 10, marginTop: 2 }]}>
+                      {col.mode ? col.mode.toUpperCase() : 'CASH'}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              {(!historySchedule?.collections || historySchedule.collections.length === 0) && (
+                <Text style={[typography.bodyMedium, { color: '#64748B', textAlign: 'center', marginVertical: 20 }]}>
+                  {t('No history available.') || 'No history available.'}
+                </Text>
+              )}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.submitBtn, { marginTop: 16 }]}
+              onPress={() => setHistoryModalVisible(false)}
+            >
+              <Text style={[typography.bodyMedium, { color: '#FFF', fontWeight: '700' }]}>
+                {t('Close') || 'Close'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );

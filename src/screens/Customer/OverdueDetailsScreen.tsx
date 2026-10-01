@@ -10,6 +10,7 @@ import { Skeleton } from '../../component/Common/Skeleton';
 import { ROUTES } from '../../constants/routes';
 import { BotanicalLeaves } from '../../component/Common/BotanicalArt';
 import { formatINR } from '../../utils/currency';
+import { formatDateToShortMonth } from '../../utils/date';
 
 /**
  * Screen 9: Overdue Details Screen
@@ -94,7 +95,7 @@ export const OverdueDetailsScreen: React.FC = () => {
                       </View>
                       <Text style={styles.rowTitle}>Due Date</Text>
                     </View>
-                    <Text style={styles.rowValue}>{item.dueDate}</Text>
+                    <Text style={styles.rowValue}>{formatDateToShortMonth(item.dueDate)}</Text>
                   </View>
 
                   <View style={styles.row}>
@@ -102,7 +103,7 @@ export const OverdueDetailsScreen: React.FC = () => {
                       <View style={[styles.iconCircle, { backgroundColor: '#FEE2E2' }]}>
                         <AppIcon name="alert-triangle" size={16} color="#EF4444" />
                       </View>
-                      <Text style={styles.rowTitle}>EMI Amount</Text>
+                      <Text style={styles.rowTitle}>Due Amount</Text>
                     </View>
                     <Text style={styles.rowValue}>{formatINR(item.amount)}</Text>
                   </View>

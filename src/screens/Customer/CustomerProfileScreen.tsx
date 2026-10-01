@@ -8,6 +8,7 @@ import {
   Modal,
   StatusBar,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppHooks';
@@ -21,10 +22,12 @@ import { Skeleton } from '../../component/Common/Skeleton';
 import { ROUTES } from '../../constants/routes';
 import * as authApi from '../../services/api/authApi';
 import { formatDate } from '../../utils/date';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { Image } from 'react-native';
 
 export const CustomerProfileScreen: React.FC = () => {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.auth.user);
   const [profile, setProfile] = useState<any>(null);
@@ -32,6 +35,57 @@ export const CustomerProfileScreen: React.FC = () => {
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  const uploadImage = async (uri: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('profileimage', {
+        uri,
+        name: 'profile.jpg',
+        type: 'image/jpeg',
+      } as any);
+
+      await authApi.updateProfileImage(formData);
+      dispatch(showToast({ type: 'success', title: 'Success', message: 'Profile photo updated successfully' }));
+      loadProfile();
+    } catch (error) {
+      dispatch(showToast({ type: 'error', title: 'Error', message: 'Failed to update profile photo' }));
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    setActiveModal(null);
+    const result = await launchCamera({ mediaType: 'photo', quality: 0.8 });
+    if (result.assets && result.assets.length > 0 && result.assets[0].uri) {
+      setProfileImage(result.assets[0].uri);
+      uploadImage(result.assets[0].uri);
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    setActiveModal(null);
+    try {
+      await authApi.deleteProfileImage();
+      setProfileImage(null);
+      dispatch(showToast({ type: 'success', title: 'Success', message: 'Profile photo removed successfully' }));
+      loadProfile();
+    } catch (error) {
+      dispatch(showToast({ type: 'error', title: 'Error', message: 'Failed to remove profile photo' }));
+    }
+  };
+
+  const handleChooseFromGallery = async () => {
+    setActiveModal(null);
+    const result = await launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.8,
+    });
+    if (result.assets && result.assets.length > 0 && result.assets[0].uri) {
+      setProfileImage(result.assets[0].uri);
+      uploadImage(result.assets[0].uri);
+    }
+  };
 
   const loadProfile = React.useCallback(async () => {
     setIsProfileLoading(true);
@@ -43,6 +97,9 @@ export const CustomerProfileScreen: React.FC = () => {
           response.user ??
           response,
       );
+      if (response.profile?.profile_image_url || response.user?.customer?.profile_image_url || response.profile_image_url) {
+        setProfileImage(response.profile?.profile_image_url || response.user?.customer?.profile_image_url || response.profile_image_url);
+      }
     } catch {
       setProfile(null);
     } finally {
@@ -81,10 +138,10 @@ export const CustomerProfileScreen: React.FC = () => {
     },
     {
       id: 'schedule',
-      title: 'Payment Schedule',
+      title: 'My Loan',
       subtitle: 'Upcoming EMI due dates',
       icon: 'calendar',
-      route: ROUTES.LOAN_DETAILS,
+      route: ROUTES.MY_LOAN,
     },
   ];
 
@@ -117,13 +174,27 @@ export const CustomerProfileScreen: React.FC = () => {
   ];
 
   const handleLogout = () => {
-    dispatch(logoutThunk());
-    dispatch(
-      showToast({
-        type: 'info',
-        title: 'Logged Out',
-        message: 'You have been logged out successfully.',
-      }),
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to log out of your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: () => {
+            dispatch(logoutThunk());
+            dispatch(
+              showToast({
+                type: 'info',
+                title: 'Logged Out',
+                message: 'You have been logged out successfully.',
+              }),
+            );
+          },
+        },
+      ],
+      { cancelable: true }
     );
   };
 
@@ -156,9 +227,7 @@ export const CustomerProfileScreen: React.FC = () => {
                 justifyContent: 'space-between',
                 marginBottom: 32,
               }}
-            >
-            
-            </View>
+            ></View>
             <Skeleton height={24} width={150} style={{ marginBottom: 16 }} />
             <Skeleton
               height={180}
@@ -177,8 +246,27 @@ export const CustomerProfileScreen: React.FC = () => {
             {/* Top Profile Header Card */}
             <View style={[styles.userHeaderCard, { marginTop: 16 }]}>
               <View style={styles.userHeaderLeft}>
-                <View style={styles.avatarCircle}>
-                  <AppIcon name="user" size={28} color="#FFFFFF" />
+                <View style={{ position: 'relative', marginRight: 14 }}>
+                  <View style={[styles.avatarCircle, { marginRight: 0 }]}>
+                    {profileImage ? (
+                      <TouchableOpacity activeOpacity={0.8} onPress={() => setActiveModal('image_view')}>
+                        <Image
+                          source={{ uri: profileImage }}
+                          style={{ width: 56, height: 56, borderRadius: 28 }}
+                        />
+                      </TouchableOpacity>
+                    ) : (
+                      <Text style={{ fontSize: 24, color: '#FFFFFF', fontWeight: 'bold' }}>
+                        {profileName ? profileName.charAt(0).toUpperCase() : 'C'}
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.cameraIconContainer}
+                    onPress={() => setActiveModal('photo')}
+                  >
+                    <AppIcon name="camera" size={12} color="#FFF" />
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.userInfoCol}>
                   <Text style={styles.profileName}>{profileName}</Text>
@@ -197,7 +285,6 @@ export const CustomerProfileScreen: React.FC = () => {
                 </View>
               </View>
             </View>
-
 
             {/* Section 1: Loans & Transactions */}
             <Text style={styles.sectionTitle}>Loans & Transactions</Text>
@@ -241,7 +328,11 @@ export const CustomerProfileScreen: React.FC = () => {
                   <React.Fragment key={item.id}>
                     <TouchableOpacity
                       style={styles.menuItem}
-                      onPress={() => item.route ? navigation.navigate(item.route) : setActiveModal(item.id)}
+                      onPress={() =>
+                        item.route
+                          ? navigation.navigate(item.route)
+                          : setActiveModal(item.id)
+                      }
                       activeOpacity={0.7}
                     >
                       <View style={styles.menuLeft}>
@@ -302,16 +393,38 @@ export const CustomerProfileScreen: React.FC = () => {
       <Modal visible={activeModal === 'about'} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalHeaderTitle}>About Punnaigai Finances</Text>
+            <Text style={styles.modalHeaderTitle}>
+              About Punnaigai Finances
+            </Text>
 
             <View>
               <Text style={styles.modalAboutText}>
                 Punnaigai Small Finances provides reliable, transparent, and
                 digitally-enabled microfinance and loan solutions across India.
               </Text>
-              <View style={{ backgroundColor: '#F8FAFC', padding: 12, borderRadius: 8, alignItems: 'center' }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A' }}>App Version 1.0.4</Text>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: '#64748B', marginTop: 4 }}>Build 204 (Latest)</Text>
+              <View
+                style={{
+                  backgroundColor: '#F8FAFC',
+                  padding: 12,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{ fontSize: 14, fontWeight: '800', color: '#0F172A' }}
+                >
+                  App Version 1.0.4
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: '#64748B',
+                    marginTop: 4,
+                  }}
+                >
+                  Build 204 (Latest)
+                </Text>
               </View>
             </View>
 
@@ -325,20 +438,99 @@ export const CustomerProfileScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Personal Info Bottom Sheet */}
-      <Modal visible={activeModal === 'personal'} transparent animationType="slide">
-        <TouchableOpacity 
-          style={styles.bottomSheetBackdrop} 
-          activeOpacity={1} 
+      {/* Photo Picker Bottom Sheet */}
+      <Modal
+        visible={activeModal === 'photo'}
+        transparent
+        animationType="slide"
+      >
+        <TouchableOpacity
+          style={styles.bottomSheetBackdrop}
+          activeOpacity={1}
           onPress={() => setActiveModal(null)}
         >
-          <View style={styles.bottomSheetCard} onStartShouldSetResponder={() => true}>
+          <View style={styles.photoModalCard}>
+            <Text style={styles.photoModalTitle}>Change Profile Photo</Text>
+            <TouchableOpacity
+              style={styles.photoOptionBtn}
+              onPress={handleTakePhoto}
+            >
+              <AppIcon name="camera" size={20} color="#059669" />
+              <Text style={styles.photoOptionText}>Take Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.photoOptionBtn}
+              onPress={handleChooseFromGallery}
+            >
+              <AppIcon name="image" size={20} color="#059669" />
+              <Text style={styles.photoOptionText}>Choose from Gallery</Text>
+            </TouchableOpacity>
+            {profileImage && (
+              <TouchableOpacity
+                style={styles.photoOptionBtn}
+                onPress={handleDeletePhoto}
+              >
+                <AppIcon name="trash-2" size={20} color="#EF4444" />
+                <Text style={[styles.photoOptionText, { color: '#EF4444' }]}>Remove Photo</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.photoCancelBtn}
+              onPress={() => setActiveModal(null)}
+            >
+              <Text style={styles.photoCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Full Screen Image View Modal */}
+      <Modal
+        visible={activeModal === 'image_view' && !!profileImage}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ position: 'absolute', top: insets.top + 16, right: 16, flexDirection: 'row', gap: 16, zIndex: 10 }}>
+            <TouchableOpacity onPress={() => { setActiveModal(null); handleDeletePhoto(); }}>
+              <AppIcon name="trash-2" size={24} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setActiveModal(null)}>
+              <AppIcon name="x" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+          {profileImage && (
+            <Image
+              source={{ uri: profileImage }}
+              style={{ width: '100%', height: '80%' }}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
+
+      {/* Personal Info Bottom Sheet */}
+      <Modal
+        visible={activeModal === 'personal'}
+        transparent
+        animationType="slide"
+      >
+        <TouchableOpacity
+          style={styles.bottomSheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setActiveModal(null)}
+        >
+          <View
+            style={styles.bottomSheetCard}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.bottomSheetHandle} />
-            
+
             <View style={styles.bottomSheetHeaderRow}>
               <Text style={styles.bottomSheetTitle}>Personal Information</Text>
-              <TouchableOpacity 
-                onPress={() => setActiveModal(null)} 
+              <TouchableOpacity
+                onPress={() => setActiveModal(null)}
                 style={styles.closeIconButton}
                 activeOpacity={0.7}
               >
@@ -346,7 +538,10 @@ export const CustomerProfileScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.bottomSheetContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              contentContainerStyle={styles.bottomSheetContent}
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Full Name</Text>
                 <Text style={styles.infoValue}>{profileName}</Text>
@@ -357,23 +552,36 @@ export const CustomerProfileScreen: React.FC = () => {
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Email Address</Text>
-                <Text style={styles.infoValue}>{profileEmail || 'Not provided'}</Text>
+                <Text style={styles.infoValue}>
+                  {profileEmail || 'Not provided'}
+                </Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Address</Text>
                 <Text style={styles.infoValue}>
-                  {[profile?.address, profile?.city, profile?.state, profile?.pincode]
+                  {[
+                    profile?.address,
+                    profile?.city,
+                    profile?.state,
+                    profile?.pincode,
+                  ]
                     .filter(Boolean)
                     .join(', ') || 'Not provided'}
                 </Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Date of Birth</Text>
-                <Text style={styles.infoValue}>{profile?.date_of_birth ? formatDate(profile.date_of_birth) : 'Not provided'}</Text>
+                <Text style={styles.infoValue}>
+                  {profile?.date_of_birth
+                    ? formatDate(profile.date_of_birth)
+                    : 'Not provided'}
+                </Text>
               </View>
               <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
                 <Text style={styles.infoLabel}>Occupation</Text>
-                <Text style={styles.infoValue}>{profile?.occupation || 'Not provided'}</Text>
+                <Text style={styles.infoValue}>
+                  {profile?.occupation || 'Not provided'}
+                </Text>
               </View>
             </ScrollView>
           </View>
@@ -689,5 +897,54 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     fontSize: 14,
     fontWeight: '700',
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#059669',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  photoModalCard: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    width: '100%',
+  },
+  photoModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 20,
+  },
+  photoOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  photoOptionText: {
+    fontSize: 16,
+    color: '#334155',
+    marginLeft: 12,
+    fontWeight: '500',
+  },
+  photoCancelBtn: {
+    marginTop: 16,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  photoCancelText: {
+    fontSize: 16,
+    color: '#EF4444',
+    fontWeight: '600',
   },
 });

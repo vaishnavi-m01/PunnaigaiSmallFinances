@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export type IconName =
   | 'leaf'
@@ -46,13 +47,14 @@ export type IconName =
   | 'file'
   | 'download'
   | 'menu'
+  | 'hand-coin'
   | 'briefcase';
 
 interface AppIconProps {
   name: IconName | string;
   size?: number;
   color?: string;
-  style?: ViewStyle;
+  style?: ViewStyle;  
 }
 
 export const AppIcon: React.FC<AppIconProps> = ({
@@ -69,7 +71,11 @@ export const AppIcon: React.FC<AppIconProps> = ({
 
   return (
     <View style={[styles.container, { width: size, height: size }, style]}>
-      <Feather name={iconName} size={size} color={color} />
+      {name === 'hand-coin' ? (
+        <MaterialCommunityIcons name={iconName} size={size} color={color} />
+      ) : (
+        <Feather name={iconName} size={size} color={color} />
+      )}
     </View>
   );
 };
